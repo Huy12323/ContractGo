@@ -1,0 +1,34 @@
+{
+  "name": "worldcraft",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "concurrently -n sb,web,api -c blue,green,yellow \"pnpm dev:sb\" \"pnpm dev:web\" \"pnpm dev:api\"",
+    "dev:web": "pnpm --filter @worldcraft/web dev",
+    "dev:api": "pnpm --filter @worldcraft/api dev",
+    "dev:sb": "supabase start",
+    "build": "turbo build",
+    "build:web": "pnpm --filter @worldcraft/web build",
+    "build:api": "pnpm --filter @worldcraft/api build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > packages/shared/src/types/database.types.ts",
+    "db:diff": "supabase db diff --use-migra",
+    "db:migrate": "supabase migration new",
+    "db:push": "supabase db push",
+    "sb:stop": "supabase stop",
+    "setup:init": "node scripts/setup-po.js --init",
+    "setup:po": "node scripts/setup-po.js project-config.json",
+    "mcp:gen": "node scripts/generate-mcp.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv": "^16.4.7",
+    "turbo": "^2.4.4"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

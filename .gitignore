@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.staging
+.env.production
+
+# Secrets — real API keys and project config
+project-config.json
+.mcp.json
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+tmp/
+temp/
+
+# Logs
+*.log

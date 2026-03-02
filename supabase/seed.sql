@@ -1,0 +1,7 @@
+-- Seed data for local development
+-- Profiles are auto-created via trigger when users sign up.
+-- No manual seed needed for the base setup.
+--
+-- To add test data, insert here. Example:
+-- insert into public.profiles (id, email, full_name) values
+--   ('00000000-0000-0000-0000-000000000001', 'admin@test.com', 'Admin User');

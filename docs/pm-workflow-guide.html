@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Management Workflow Guide</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3348;
+    --text: #e2e4ed;
+    --text-dim: #8b8fa7;
+    --accent: #6c8cff;
+    --accent-dim: #3d5291;
+    --green: #4ade80;
+    --green-dim: #166534;
+    --orange: #fb923c;
+    --orange-dim: #7c3d12;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --purple-dim: #4c3a8a;
+    --cyan: #22d3ee;
+    --yellow: #facc15;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 0;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #fff; color: #1a1a2e; padding: 0; }
+    :root {
+      --bg: #fff; --surface: #f5f5fa; --surface2: #eeeef5;
+      --border: #d0d0e0; --text: #1a1a2e; --text-dim: #555;
+      --accent: #3b5bdb; --green: #16a34a; --orange: #ea580c;
+      --red: #dc2626; --purple: #7c3aed; --cyan: #0891b2; --yellow: #ca8a04;
+    }
+    .page-break { page-break-before: always; }
+    section { break-inside: avoid; }
+    .no-print { display: none !important; }
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+
+  /* ── Cover ── */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 32px;
+    background: linear-gradient(135deg, var(--bg) 0%, #141828 50%, #0f1117 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(108,140,255,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -150px; left: -150px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(74,222,128,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover h1 {
+    font-size: 3.2rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 50%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    z-index: 1;
+  }
+  .cover .subtitle {
+    font-size: 1.3rem;
+    color: var(--text-dim);
+    margin-bottom: 48px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    position: relative;
+    z-index: 1;
+  }
+  .cover-meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* ── Section Headings ── */
+  h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 56px 0 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 28px 0 12px;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 20px 0 8px;
+    color: var(--text);
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  /* ── Role Cards ── */
+  .role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .role-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .role-card.manager::before { background: var(--orange); }
+  .role-card.engineer::before { background: var(--green); }
+  .role-card.reference::before { background: var(--purple); }
+  .role-card .role-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .role-card .role-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .role-card ul { list-style: none; }
+  .role-card li {
+    padding: 6px 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .role-card li::before {
+    content: '>';
+    color: var(--accent);
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── Command Badge ── */
+  .cmd {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ── Flow Diagrams ── */
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 12px 0;
+    flex-wrap: nowrap;
+  }
+  .flow-box {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .flow-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .flow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fb-manager { background: rgba(251,146,60,0.15); border: 1px solid rgba(251,146,60,0.3); color: var(--orange); }
+  .fb-engineer { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3); color: var(--green); }
+  .fb-system { background: rgba(108,140,255,0.15); border: 1px solid rgba(108,140,255,0.3); color: var(--accent); }
+  .fb-output { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3); color: var(--purple); }
+  .fb-tool { background: rgba(34,211,238,0.15); border: 1px solid rgba(34,211,238,0.3); color: var(--cyan); }
+
+  /* ── Tier Visual ── */
+  .tier-system {
+    margin: 20px 0;
+  }
+  .tier-row {
+    display: flex;
+    align-items: stretch;
+    margin: 0;
+  }
+  .tier-indent {
+    width: 40px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .tier-indent::after {
+    content: '';
+    position: absolute;
+    left: 20px; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .tier-indent.last::after { height: 50%; }
+  .tier-indent .connector {
+    position: absolute;
+    left: 20px; top: 50%;
+    width: 20px; height: 2px;
+    background: var(--border);
+  }
+  .tier-block {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .tier-num {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .t1 { background: rgba(251,146,60,0.2); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+  .t2 { background: rgba(108,140,255,0.2); color: var(--accent); border: 1px solid rgba(108,140,255,0.3); }
+  .t3 { background: rgba(74,222,128,0.2); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+  .t4 { background: rgba(167,139,250,0.2); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+  .tier-info { flex: 1; }
+  .tier-title { font-weight: 600; font-size: 0.9rem; }
+  .tier-meta { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+  .tier-creator {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Step List ── */
+  .steps { counter-reset: step; margin: 16px 0; }
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    counter-increment: step;
+    width: 32px; height: 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 600; margin-bottom: 4px; }
+  .step-desc { font-size: 0.9rem; color: var(--text-dim); }
+
+  /* ── Tag ── */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .tag-manager { background: rgba(251,146,60,0.2); color: var(--orange); }
+  .tag-engineer { background: rgba(74,222,128,0.2); color: var(--green); }
+  .tag-auto { background: rgba(108,140,255,0.2); color: var(--accent); }
+  .tag-tool { background: rgba(34,211,238,0.2); color: var(--cyan); }
+
+  /* ── Callout ── */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 0.9rem;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+  .callout-info { background: rgba(108,140,255,0.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(251,146,60,0.1); border-left: 3px solid var(--orange); }
+  .callout-success { background: rgba(74,222,128,0.1); border-left: 3px solid var(--green); }
+
+  /* ── Cycle Visual ── */
+  .cycle-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+  .cycle-node {
+    width: 140px;
+    padding: 16px 12px;
+    border-radius: 10px;
+    text-align: center;
+    position: relative;
+  }
+  .cycle-node .cycle-cmd {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .cycle-node .cycle-desc {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.3;
+  }
+  .cycle-arrow-right {
+    font-size: 1.5rem;
+    color: var(--text-dim);
+    padding: 0 4px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+    font-size: 0.8rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ── Status Badge ── */
+  .status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .st-backlog { background: rgba(139,143,167,0.2); color: var(--text-dim); }
+  .st-todo { background: rgba(108,140,255,0.2); color: var(--accent); }
+  .st-progress { background: rgba(251,146,60,0.2); color: var(--orange); }
+  .st-done { background: rgba(74,222,128,0.2); color: var(--green); }
+
+  /* ── Separator ── */
+  .sep { height: 1px; background: var(--border); margin: 40px 0; }
+
+  /* ── TOC ── */
+  .toc {
+    columns: 2;
+    column-gap: 32px;
+    margin: 16px 0;
+  }
+  .toc a {
+    display: block;
+    padding: 6px 0;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc a:hover { color: var(--purple); }
+
+  /* ── Integration boxes ── */
+  .integration-grid {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 0;
+    align-items: center;
+    margin: 20px 0;
+  }
+  .int-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .int-box h4 { margin: 0 0 8px; color: var(--text); }
+  .int-box .int-desc { font-size: 0.8rem; color: var(--text-dim); }
+  .int-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .int-link .arrows { font-size: 1.2rem; color: var(--accent); }
+
+  /* ── Quick Ref ── */
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .qr-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .qr-item .qr-cmd {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .qr-item .qr-desc { font-size: 0.8rem; color: var(--text-dim); }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .cover h1 { font-size: 2rem; }
+    .card-grid { grid-template-columns: 1fr; }
+    .toc { columns: 1; }
+    .integration-grid { grid-template-columns: 1fr; gap: 12px; }
+    .int-link .arrows { transform: rotate(90deg); }
+    .flow-row { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════ COVER ════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Product Management<br>Workflow Guide</h1>
+  <p class="subtitle">AI-Assisted Development with Plane + Outline Integration</p>
+  <div class="cover-meta">
+    <span>LightCraft</span>
+    <span>|</span>
+    <span>PM Flow v3.1</span>
+    <span>|</span>
+    <span>February 2026</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ════════════════════════════════════ TABLE OF CONTENTS ════════════════════════════════ -->
+<h2><span class="section-num">&nbsp;</span> Contents</h2>
+<div class="toc">
+  <a href="#overview">1. System Overview</a>
+  <a href="#roles">2. Roles &amp; Responsibilities</a>
+  <a href="#tiers">3. Work Item Tier System</a>
+  <a href="#tools">4. Tools &amp; Integrations</a>
+  <a href="#manager-flow">5. Manager Flow (/pm)</a>
+  <a href="#engineer-flow">6. Engineer Flow (/p, /s, /pp)</a>
+  <a href="#intake">7. Intake &amp; Triage</a>
+  <a href="#versioning">8. Versioning &amp; Sealing</a>
+  <a href="#outline-docs">9. Outline Document Structure</a>
+  <a href="#estimation">10. Story Point Estimation</a>
+  <a href="#reporting">11. Cycle Reporting</a>
+  <a href="#quickref">12. Quick Reference</a>
+</div>
+
+<!-- ════════════════════════════════════ 1. OVERVIEW ═════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="overview"><span class="section-num">1</span> System Overview</h2>
+
+<p>This framework coordinates product management and engineering through <strong>five commands</strong> and <strong>two external tools</strong>. Each command maps to a specific role and stage of the development lifecycle.</p>
+
+<div class="flow-diagram">
+  <div style="text-align:center; margin-bottom:18px; font-weight:600; color:var(--text-dim); font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">End-to-End Lifecycle</div>
+
+  <div class="cycle-visual">
+    <div class="cycle-node fb-manager">
+      <div class="cycle-cmd">/pm</div>
+      <div class="cycle-desc">Vision &amp; Planning<br><span class="tag tag-manager">Manager</span></div>
+    </div>
+    <div class="cycle-arrow-right">&rarr;</div>
+    <div class="cycle-node fb-manager">
+      <div class="cycle-cmd">/pm</div>
+      <div class="cycle-desc">Breakdown<br><span class="tag tag-manager">Manager</span></div>
+    </div>
+    <div class="cycle-arrow-right">&rarr;</div>
+    <div class="cycle-node fb-engineer">
+      <div class="cycle-cmd">/p</div>
+      <div class="cycle-desc">Plan Impl.<br><span class="tag tag-engineer">Engineer</span></div>
+    </div>
+    <div class="cycle-arrow-right">&rarr;</div>
+    <div class="cycle-node fb-engineer">
+      <div class="cycle-cmd">/s</div>
+      <div class="cycle-desc">Execute<br><span class="tag tag-engineer">Engineer</span></div>
+    </div>
+    <div class="cycle-arrow-right">&rarr;</div>
+    <div class="cycle-node fb-engineer">
+      <div class="cycle-cmd">/pp</div>
+      <div class="cycle-desc">Push &amp; Sync<br><span class="tag tag-engineer">Engineer</span></div>
+    </div>
+    <div class="cycle-arrow-right">&rarr;</div>
+    <div class="cycle-node fb-output">
+      <div class="cycle-cmd">/rp</div>
+      <div class="cycle-desc">Cycle Report<br><span class="tag tag-auto">Reporter</span></div>
+    </div>
+  </div>
+
+  <div class="legend" style="justify-content:center; margin-top: 16px;">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Manager Responsibility</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Engineer Responsibility</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Automated by System</div>
+  </div>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-icon">&#9432;</div>
+  <div>The engineer loop (<span class="cmd">/p</span> &rarr; <span class="cmd">/s</span> &rarr; <span class="cmd">/pp</span>) repeats for each tier 2 work item. The manager creates the work, the engineer implements and pushes it back. At the end of a cycle, <span class="cmd">/rp</span> generates a report of completed work.</div>
+</div>
+
+<!-- ════════════════════════════════════ 2. ROLES ════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="roles"><span class="section-num">2</span> Roles &amp; Responsibilities</h2>
+
+<div class="card-grid">
+  <div class="role-card manager">
+    <div class="role-title" style="color:var(--orange);">Manager (PM)</div>
+    <div class="role-subtitle">Strategic planning &amp; stakeholder interface</div>
+    <ul>
+      <li>Define product vision and module structure</li>
+      <li>Break tier 1 seeds into tier 2 feature work items</li>
+      <li>Set story point estimates (Fibonacci: 1-8)</li>
+      <li>Assign engineers to work items</li>
+      <li>Triage intake requests from clients</li>
+      <li>Decide version bumps (patch/minor/major)</li>
+      <li>Manage Outline spec documents</li>
+      <li>Review and approve deliverables</li>
+    </ul>
+    <div style="margin-top:14px;">
+      <span class="cmd">/pm</span>
+      <span style="font-size:0.8rem; color:var(--text-dim); margin-left:8px;">base | breakdown | catch-up | triage</span>
+    </div>
+  </div>
+
+  <div class="role-card engineer">
+    <div class="role-title" style="color:var(--green);">Engineer</div>
+    <div class="role-subtitle">Implementation &amp; delivery</div>
+    <ul>
+      <li>Plan implementation phases from tier 2 specs</li>
+      <li>Create local temp files with phased task breakdowns</li>
+      <li>Execute tasks following skill-aware patterns</li>
+      <li>Update temp file checkboxes as work completes</li>
+      <li>Push completed work to Plane (tier 3+4 items)</li>
+      <li>Auto-condense spec docs on Outline after push</li>
+      <li>Verify implementation against pass/fail criteria</li>
+    </ul>
+    <div style="margin-top:14px;">
+      <span class="cmd">/p</span>
+      <span class="cmd" style="margin-left:6px;">/s</span>
+      <span class="cmd" style="margin-left:6px;">/pp</span>
+    </div>
+  </div>
+
+  <div class="role-card reference">
+    <div class="role-title" style="color:var(--purple);">Reporter</div>
+    <div class="role-subtitle">Cycle reporting &amp; delivery metrics</div>
+    <ul>
+      <li>Extract completed work from Plane cycles</li>
+      <li>Cross-reference Outline spec docs for descriptions</li>
+      <li>Generate structured cycle reports (Done items only)</li>
+      <li>Track story points achieved per cycle</li>
+      <li>Publish reports to Outline under Cycles/</li>
+    </ul>
+    <div style="margin-top:14px;">
+      <span class="cmd">/rp</span>
+      <span style="font-size:0.8rem; color:var(--text-dim); margin-left:8px;">current cycle | specific cycle</span>
+    </div>
+  </div>
+</div>
+
+<h3>Responsibility Boundary</h3>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Activity</th>
+        <th>Manager</th>
+        <th>Engineer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Define <strong>what</strong> to build (behavior &amp; requirements)</td>
+        <td style="color:var(--orange); font-weight:600;">&#10003; Owns</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+      </tr>
+      <tr>
+        <td>Define <strong>how</strong> to build (phases, tasks, code)</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+        <td style="color:var(--green); font-weight:600;">&#10003; Owns</td>
+      </tr>
+      <tr>
+        <td>Estimate complexity (story points)</td>
+        <td style="color:var(--orange); font-weight:600;">&#10003; Owns</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+      </tr>
+      <tr>
+        <td>Create Plane modules &amp; tier 1</td>
+        <td style="color:var(--orange); font-weight:600;">&#10003; Owns</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+      </tr>
+      <tr>
+        <td>Create tier 2 work items</td>
+        <td style="color:var(--orange); font-weight:600;">&#10003; Owns</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+      </tr>
+      <tr>
+        <td>Create tier 3+4 work items</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+        <td style="color:var(--green); font-weight:600;">&#10003; Owns (via /pp)</td>
+      </tr>
+      <tr>
+        <td>Update Outline spec docs</td>
+        <td style="color:var(--orange);">Initial creation</td>
+        <td style="color:var(--green);">Auto-condense after /pp</td>
+      </tr>
+      <tr>
+        <td>Version decisions</td>
+        <td style="color:var(--orange); font-weight:600;">&#10003; Owns</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+      </tr>
+      <tr>
+        <td>Code implementation</td>
+        <td style="color:var(--text-dim);">&mdash;</td>
+        <td style="color:var(--green); font-weight:600;">&#10003; Owns</td>
+      </tr>
+      <tr>
+        <td>Cycle reports (Done work + points)</td>
+        <td style="color:var(--purple);">Reviews</td>
+        <td style="color:var(--purple); font-weight:600;">&#10003; Generates (via /rp)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════ 3. TIERS ════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="tiers"><span class="section-num">3</span> Work Item Tier System</h2>
+
+<p>All work is organized in a 4-tier hierarchy. Each tier has clear ownership and creation rules.</p>
+
+<div class="tier-system">
+  <!-- Tier 1 -->
+  <div class="tier-row">
+    <div class="tier-block" style="border-left: 3px solid var(--orange);">
+      <div class="tier-num t1">T1</div>
+      <div class="tier-info">
+        <div class="tier-title">[Module | vX.Y.Z]</div>
+        <div class="tier-meta">Seed &mdash; tracks module version completion. No estimate.</div>
+      </div>
+      <div class="tier-creator tag tag-manager">Manager creates</div>
+    </div>
+  </div>
+
+  <!-- Tier 2 -->
+  <div class="tier-row">
+    <div class="tier-indent"><div class="connector"></div></div>
+    <div class="tier-block" style="border-left: 3px solid var(--accent);">
+      <div class="tier-num t2">T2</div>
+      <div class="tier-info">
+        <div class="tier-title">[Module | vX.Y.Z] Feature description</div>
+        <div class="tier-meta">Feature behavior &amp; requirements. Fibonacci estimate (1-8 pts).</div>
+      </div>
+      <div class="tier-creator tag tag-manager">Manager creates</div>
+    </div>
+  </div>
+
+  <!-- Tier 3 -->
+  <div class="tier-row">
+    <div class="tier-indent"></div>
+    <div class="tier-indent"><div class="connector"></div></div>
+    <div class="tier-block" style="border-left: 3px solid var(--green);">
+      <div class="tier-num t3">T3</div>
+      <div class="tier-info">
+        <div class="tier-title">[Module | vX.Y.Z] Feature > Phase X - Name</div>
+        <div class="tier-meta">Implementation phase. Created as Done. No estimate.</div>
+      </div>
+      <div class="tier-creator tag tag-engineer">Engineer creates</div>
+    </div>
+  </div>
+
+  <!-- Tier 4 -->
+  <div class="tier-row">
+    <div class="tier-indent"></div>
+    <div class="tier-indent"></div>
+    <div class="tier-indent last"><div class="connector"></div></div>
+    <div class="tier-block" style="border-left: 3px solid var(--purple);">
+      <div class="tier-num t4">T4</div>
+      <div class="tier-info">
+        <div class="tier-title">[Module | vX.Y.Z] Feature > Phase X > Task</div>
+        <div class="tier-meta">Implementation task. Created as Done. No estimate.</div>
+      </div>
+      <div class="tier-creator tag tag-engineer">Engineer creates</div>
+    </div>
+  </div>
+</div>
+
+<h3>Title Format Convention</h3>
+<div class="card" style="font-family:'Cascadia Code','Fira Code',monospace; font-size:0.85rem; line-height:2;">
+  <span style="color:var(--orange);">[Auth | v2.0.0]</span><br>
+  <span style="color:var(--accent);">[Auth | v2.0.0]</span> <span style="color:var(--text);">Google OAuth login with dashboard redirect</span><br>
+  <span style="color:var(--green);">[Auth | v2.0.0]</span> <span style="color:var(--text);">Google OAuth login</span> <span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--green);">Phase A - Auth layout</span><br>
+  <span style="color:var(--purple);">[Auth | v2.0.0]</span> <span style="color:var(--text);">Google OAuth login</span> <span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--text);">Phase A</span> <span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--purple);">Build two-panel grid</span>
+</div>
+
+<h3>Status Transitions</h3>
+<div class="card-grid">
+  <div class="card">
+    <h4>Tier 1 Lifecycle</h4>
+    <div class="flow-row">
+      <div class="flow-box st-backlog">Backlog</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box st-todo">Todo</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box st-progress">In Progress</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box st-done">Done</div>
+    </div>
+    <div style="font-size:0.78rem; color:var(--text-dim); margin-top:10px;">
+      Backlog &rarr; <span class="tag tag-manager">PM creates</span><br>
+      Todo &rarr; <span class="tag tag-manager">PM breaks down</span><br>
+      In Progress &rarr; <span class="tag tag-engineer">Engineer starts /p</span><br>
+      Done &rarr; <span class="tag tag-auto">Auto when all T2 done</span>
+    </div>
+  </div>
+  <div class="card">
+    <h4>Tier 2 Lifecycle</h4>
+    <div class="flow-row">
+      <div class="flow-box st-todo">Todo</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box st-progress">In Progress</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-box st-done">Done</div>
+    </div>
+    <div style="font-size:0.78rem; color:var(--text-dim); margin-top:10px;">
+      Todo &rarr; <span class="tag tag-manager">PM creates</span><br>
+      In Progress &rarr; <span class="tag tag-engineer">Engineer runs /p</span><br>
+      Done &rarr; <span class="tag tag-auto">Auto by /pp</span>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-icon">&#9888;</div>
+  <div><strong>Tier 3+4 are always created as Done</strong> &mdash; the implementation is already complete when <span class="cmd">/pp</span> records them. They are historical records, not actionable work items.</div>
+</div>
+
+<h3>Property Cloning</h3>
+<p style="font-size:0.9rem;">Properties flow down from Tier 2 to Tier 3 and Tier 4 automatically:</p>
+<div class="flow-diagram">
+  <div class="flow-row" style="justify-content:center;">
+    <div class="flow-col">
+      <div class="flow-label">Source</div>
+      <div class="flow-box fb-system" style="font-size:0.8rem;">Tier 2<br><small>priority, dates, cycle,<br>module, assignees, labels</small></div>
+    </div>
+    <div class="flow-arrow" style="font-size:1.5rem;">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Inherits</div>
+      <div class="flow-box fb-engineer" style="font-size:0.8rem;">Tier 3<br><small>+ own title, description,<br>parent = T2</small></div>
+    </div>
+    <div class="flow-arrow" style="font-size:1.5rem;">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Inherits</div>
+      <div class="flow-box fb-output" style="font-size:0.8rem;">Tier 4<br><small>+ own title, description,<br>parent = T3</small></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════ 4. TOOLS ════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="tools"><span class="section-num">4</span> Tools &amp; Integrations</h2>
+
+<div class="integration-grid">
+  <div class="int-box">
+    <h4 style="color:var(--cyan);">Plane</h4>
+    <div class="int-desc">
+      Task tracking &amp; project management<br>
+      Modules, work items, cycles, intake
+    </div>
+  </div>
+  <div class="int-link">
+    <div class="arrows">&harr;</div>
+    Cross-linked<br>bidirectionally
+  </div>
+  <div class="int-box">
+    <h4 style="color:var(--purple);">Outline</h4>
+    <div class="int-desc">
+      Documentation &amp; specifications<br>
+      Specs, version docs, single source of truth
+    </div>
+  </div>
+</div>
+
+<h3>What Lives Where</h3>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Artifact</th>
+        <th>Location</th>
+        <th>Updated By</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Modules (feature areas)</td>
+        <td><span class="tag tag-tool">Plane</span></td>
+        <td><span class="tag tag-manager">Manager</span></td>
+      </tr>
+      <tr>
+        <td>Work items (tier 1-4)</td>
+        <td><span class="tag tag-tool">Plane</span></td>
+        <td><span class="tag tag-manager">Manager</span> T1-2 &nbsp; <span class="tag tag-engineer">Engineer</span> T3-4</td>
+      </tr>
+      <tr>
+        <td>Cycles (weekly sprints)</td>
+        <td><span class="tag tag-tool">Plane</span></td>
+        <td><span class="tag tag-auto">Auto-created</span></td>
+      </tr>
+      <tr>
+        <td>Intake requests</td>
+        <td><span class="tag tag-tool">Plane</span></td>
+        <td>Clients / <span class="tag tag-manager">Manager</span> triages</td>
+      </tr>
+      <tr>
+        <td>Module spec docs (current state)</td>
+        <td><span class="tag" style="background:rgba(167,139,250,0.2); color:var(--purple);">Outline</span></td>
+        <td><span class="tag tag-manager">Manager</span> creates &nbsp; <span class="tag tag-engineer">Engineer</span> condenses</td>
+      </tr>
+      <tr>
+        <td>Version docs (change snapshots)</td>
+        <td><span class="tag" style="background:rgba(167,139,250,0.2); color:var(--purple);">Outline</span></td>
+        <td><span class="tag tag-engineer">Engineer</span> via /pp</td>
+      </tr>
+      <tr>
+        <td>Cycle reports (weekly summaries)</td>
+        <td><span class="tag" style="background:rgba(167,139,250,0.2); color:var(--purple);">Outline</span></td>
+        <td><span class="tag tag-auto">Reporter</span> via /rp</td>
+      </tr>
+      <tr>
+        <td>Plan files &amp; cycle data</td>
+        <td><span class="tag" style="background:rgba(139,143,167,0.2); color:var(--text-dim);">Git</span> cycles/**/*.md</td>
+        <td><span class="tag tag-engineer">Engineer</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>Traceability Links</h3>
+<div class="flow-diagram" style="font-size:0.85rem;">
+  <table style="margin:0;">
+    <thead>
+      <tr>
+        <th>From</th>
+        <th>To</th>
+        <th>Link Format</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Plane module description</td>
+        <td>Outline spec doc</td>
+        <td><code>Spec: [Outline](url)</code></td>
+      </tr>
+      <tr>
+        <td>Plane work item (T1/T2)</td>
+        <td>Outline version doc</td>
+        <td><code>Version: [Outline](url)</code></td>
+      </tr>
+      <tr>
+        <td>Outline spec doc header</td>
+        <td>Plane module</td>
+        <td><code>> Module: [Plane](url)</code></td>
+      </tr>
+      <tr>
+        <td>Outline version doc header</td>
+        <td>Spec + Module</td>
+        <td><code>> Spec: [Outline](url) | Module: [Plane](url)</code></td>
+      </tr>
+      <tr>
+        <td>Outline version doc body</td>
+        <td>Plane work items</td>
+        <td><code>[SPARK-42](url)</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════ 5. MANAGER FLOW ═════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="manager-flow"><span class="section-num">5</span> Manager Flow <span class="cmd">/pm</span></h2>
+
+<p>The <span class="cmd">/pm</span> command has four modes, detected automatically from input.</p>
+
+<div class="card" style="font-family:'Cascadia Code','Fira Code',monospace; font-size:0.85rem; line-height:2.2;">
+  <span style="color:var(--orange);">/pm</span> <span style="color:var(--text-dim);">[description]</span> &nbsp;&nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">BASE &mdash; new project or version</span><br>
+  <span style="color:var(--orange);">/pm</span> <span style="color:var(--text-dim);">catch-up</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">CATCH-UP &mdash; retroactive baseline</span><br>
+  <span style="color:var(--orange);">/pm</span> <span style="color:var(--text-dim);">[tier 1 link]</span> &nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">BREAKDOWN &mdash; tier 1 &rarr; tier 2</span><br>
+  <span style="color:var(--orange);">/pm</span> <span style="color:var(--text-dim);">triage</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">TRIAGE &mdash; intake &rarr; versioned work</span>
+</div>
+
+<!-- BASE -->
+<h3>5a. BASE Protocol &mdash; New Project / Version</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">Discovery</div>
+      <div class="step-desc">Discuss idea with user. Ask relevant questions. Present feature set grouped by modules, ordered by implementation dependency.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">Context Gathering</div>
+      <div class="step-desc">Collect: Plane Project ID, Outline Root Doc ID, module deadlines, lead user per module, version decision (new or update), check for unfinished work.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">Confirm</div>
+      <div class="step-desc">Present complete plan to user. <strong>Do not proceed without explicit confirmation.</strong></div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">Execute</div>
+      <div class="step-desc">
+        <strong>a)</strong> Update <code>docs/index.md</code> with Plane + Outline IDs<br>
+        <strong>b)</strong> Create Plane modules (name, dates, lead, status: planned)<br>
+        <strong>c)</strong> Create Outline docs: spec docs under Specifications/, version parent + module docs under Versions/<br>
+        <strong>d)</strong> Cross-link Plane &harr; Outline bidirectionally<br>
+        <strong>e)</strong> Create tier 1 seed work items (Backlog state, no estimate)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BREAKDOWN -->
+<h3>5b. BREAKDOWN Protocol &mdash; Tier 1 &rarr; Tier 2</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">Verify</div>
+      <div class="step-desc">Confirm work item is tier 1 (no parent). Confirm NOT Done (sealed versions block new tier 2). Read attached Outline version doc.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">Decompose</div>
+      <div class="step-desc">Break into feature-level behaviors (WHAT, not HOW). Each tier 2 gets pass/fail criteria. Assign Fibonacci estimates (max 8 &mdash; split 13s).</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">Confirm &amp; Create</div>
+      <div class="step-desc">Present breakdown with estimates. On approval: create tier 2 items (Todo state), update tier 1 to Todo, assign engineers.</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-icon">&#9888;</div>
+  <div><strong>Tier 2 = behavior, not implementation.</strong> Write "Google OAuth login with dashboard redirect" &mdash; NOT "Build auth hook, create login component." The HOW is the engineer's job.</div>
+</div>
+
+<!-- CATCH-UP -->
+<h3>5c. CATCH-UP Protocol &mdash; Existing Project Baseline</h3>
+<p style="font-size:0.9rem; color:var(--text-dim); margin-bottom:12px;">For projects with working code but no PM structure. Creates a retroactive baseline so future work follows the normal flow.</p>
+<div class="card">
+  <p>Same artifacts as BASE, but all statuses are <strong>completed/Done</strong>:</p>
+  <ul style="list-style:none; margin-top:10px;">
+    <li style="padding:4px 0;">&#8226; Plane modules &rarr; status: <span class="status st-done">completed</span></li>
+    <li style="padding:4px 0;">&#8226; Outline specs &rarr; written from existing code</li>
+    <li style="padding:4px 0;">&#8226; Tier 1 seeds &rarr; state: <span class="status st-done">Done</span></li>
+    <li style="padding:4px 0;">&#8226; No tier 2/3/4 created &mdash; baseline only</li>
+  </ul>
+</div>
+
+
+<!-- ════════════════════════════════════ 6. ENGINEER FLOW ════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="engineer-flow"><span class="section-num">6</span> Engineer Flow <span class="cmd">/p</span> <span class="cmd">/s</span> <span class="cmd">/pp</span></h2>
+
+<p>Three commands form the engineer's implementation loop. This loop repeats for each tier 2 work item assigned.</p>
+
+<div class="flow-diagram">
+  <div style="text-align:center; margin-bottom:20px; font-weight:600; color:var(--text-dim); font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Engineer Implementation Loop</div>
+  <div class="flow-row" style="justify-content:center;">
+    <div class="flow-col">
+      <div class="flow-label">Step 1: PLAN</div>
+      <div class="flow-box fb-engineer" style="padding:16px 24px;">
+        <strong>/p</strong><br>
+        <small>Tier 2 &rarr; temp file</small>
+      </div>
+    </div>
+    <div class="flow-arrow" style="font-size:2rem;">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Step 2: EXECUTE (repeat)</div>
+      <div class="flow-box fb-engineer" style="padding:16px 24px; border: 2px dashed rgba(74,222,128,0.4);">
+        <strong>/s</strong><br>
+        <small>Task by task</small>
+      </div>
+    </div>
+    <div class="flow-arrow" style="font-size:2rem;">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Step 3: PUSH</div>
+      <div class="flow-box fb-engineer" style="padding:16px 24px;">
+        <strong>/pp</strong><br>
+        <small>Plane + Outline sync</small>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:12px;">
+    <span style="font-size:0.8rem; color:var(--text-dim);">&#8635; Repeats for each tier 2 work item</span>
+  </div>
+</div>
+
+<!-- /p -->
+<h3>6a. <span class="cmd">/p</span> &mdash; Plan Implementation</h3>
+<div class="card">
+  <div style="margin-bottom:12px;">
+    <span class="cmd">/p [tier 2 link]</span> &mdash; new plan &nbsp;&nbsp;|&nbsp;&nbsp;
+    <span class="cmd">/p [temp file]</span> &mdash; resume existing plan
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">Read Context</div>
+      <div class="step-desc">Fetch tier 2 from Plane (title, requirements, spec link). Read module spec from Outline (both sections). Read related module specs if linked.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">Assess &amp; Discuss</div>
+      <div class="step-desc">Evaluate feasibility. Q&amp;A rounds with user until approach is clear: component architecture, schema changes, edge cases, phase ordering.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">Create Plan File</div>
+      <div class="step-desc">Break tier 2 into phases (A, B, C...) and tasks. Write plan file at <code>cycles/[YYYY-WW]/[module]/[tier1]/[tier2]-[slug].md</code>. User must confirm.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">Update Status</div>
+      <div class="step-desc">Tier 2 &rarr; In Progress. Tier 1 parent &rarr; In Progress (if not already).</div>
+    </div>
+  </div>
+</div>
+
+<h4>Rich Temp File Structure</h4>
+<div class="card" style="font-family:'Cascadia Code','Fira Code',monospace; font-size:0.8rem; line-height:1.8; white-space:pre; overflow-x:auto;">
+<span style="color:var(--accent);"># [Tier 2 Title]</span>
+
+Work Item: [SPARK-N] (plane_link)
+Module: [Module Name] (module_link)
+Outline Spec: [spec_link]
+Version Doc: [version_link]
+
+<span style="color:var(--text-dim);">## Context (from spec)</span>
+Non-tech: [stakeholder description]
+Tech: [files, components, tables]
+Related: [Module] (link) - [why]
+
+<span style="color:var(--green);">## Phase A: [Name]</span>
+- [ ] Task 1 description
+- [ ] Task 2 description
+
+<span style="color:var(--green);">## Phase B: [Name]</span>
+- [ ] Task 1 description
+
+<span style="color:var(--text-dim);">---</span>
+<span style="color:var(--text-dim);">## Plane IDs (populated by /pp)</span>
+Phase A: (pending)
+  - Task 1: (pending)
+</div>
+
+<!-- /s -->
+<h3>6b. <span class="cmd">/s</span> &mdash; Execute Task</h3>
+<div class="card">
+  <div style="margin-bottom:12px;">
+    <span class="cmd">/s [task description]</span><br>
+    <span class="cmd">/s [temp file] [phase] [task]</span>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">Build Skills Map</div>
+      <div class="step-desc">Scan all <code>.claude/skills/*/SKILL.md</code> headers. Identify which skills are relevant to this task.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">Research Codebase</div>
+      <div class="step-desc">Explore existing code if needed. Note hidden systems and dependencies.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">Re-evaluate Skills (Mandatory)</div>
+      <div class="step-desc">After research, revisit the skills map. Research often reveals hidden needs (auth patterns, hooks, DB changes).</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">Load &amp; Validate</div>
+      <div class="step-desc">Load all relevant skills (once each). Check for conflicts with loaded skill patterns. <strong>Stop if conflicts found.</strong></div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <div class="step-title">Execute &amp; Update</div>
+      <div class="step-desc">Implement the task. Mark completed tasks <code>[x]</code> in the temp file. Report applied skills.</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-icon">&#9432;</div>
+  <div><strong>No MCP calls during /s</strong> &mdash; all work is local only. Context comes from the temp file, not from Plane or Outline. This saves token budget and keeps execution fast.</div>
+</div>
+
+<!-- /pp -->
+<h3>6c. <span class="cmd">/pp</span> &mdash; Push + Condense</h3>
+<div class="card">
+  <div style="margin-bottom:12px;">
+    <span class="cmd">/pp [temp file path]</span>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">Deep Research (Hard Gate)</div>
+      <div class="step-desc">Read every file in temp file's Tech context. Verify implementation matches phases/tasks. <strong>Cannot skip this step.</strong></div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">Create Work Items on Plane</div>
+      <div class="step-desc">Create tier 3 (phases) and tier 4 (tasks) &mdash; all as <span class="status st-done">Done</span>. Clone properties from tier 2. Add to module + cycle.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">Mark Tier 2 Done</div>
+      <div class="step-desc">Update tier 2 state to Done. Update its cycle to current week.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">Auto-Condense Spec</div>
+      <div class="step-desc"><strong>Rewrite</strong> (not append) the Outline spec doc: Non-Technical + Technical sections reflect the current state. Append one-line version link to Version History.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <div class="step-title">Create/Update Version Doc</div>
+      <div class="step-desc">At Versions/[vX.Y.Z]/[Module]: add summary, implementation details, SPARK-N work item links, changed files.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-content">
+      <div class="step-title">Auto-Complete Tier 1</div>
+      <div class="step-desc">If ALL sibling tier 2 items are Done &rarr; mark tier 1 as Done and module as completed. Version is now <strong>sealed</strong>.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════ 7. INTAKE ═══════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="intake"><span class="section-num">7</span> Intake &amp; Triage</h2>
+
+<p>Client requests enter through Plane's intake system. The manager triages them into the tier system.</p>
+
+<div class="flow-diagram">
+  <div style="text-align:center; margin-bottom:18px; font-weight:600; color:var(--text-dim); font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Intake Flow</div>
+  <div class="flow-row" style="justify-content:center;">
+    <div class="flow-col">
+      <div class="flow-label">Entry</div>
+      <div class="flow-box" style="background:rgba(139,143,167,0.15); border:1px solid rgba(139,143,167,0.3); color:var(--text-dim);">Client Request</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Queue</div>
+      <div class="flow-box fb-tool">Plane Intake</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Manager</div>
+      <div class="flow-box fb-manager">/pm triage</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Decision</div>
+      <div class="flow-box fb-system" style="font-size:0.8rem; padding:10px 14px;">
+        Active T1?<br>
+        <small>Yes &rarr; add T2</small><br>
+        <small>No &rarr; version bump</small>
+      </div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Output</div>
+      <div class="flow-box fb-output">Versioned<br>Work Items</div>
+    </div>
+  </div>
+</div>
+
+<h3>Triage Decision Tree</h3>
+<div class="card">
+  <div style="font-size:0.9rem;">
+    For each intake item:<br><br>
+    <strong>1.</strong> Which module(s) does this touch?<br>
+    <strong>2.</strong> Is there an <strong>active</strong> (not Done) tier 1 for this module?<br><br>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:8px;">
+      <div style="padding:12px; background:rgba(74,222,128,0.08); border-radius:8px; border: 1px solid rgba(74,222,128,0.2);">
+        <strong style="color:var(--green);">YES &mdash; Active Tier 1 Exists</strong><br>
+        <span style="font-size:0.85rem; color:var(--text-dim);">Add tier 2 under existing tier 1. No version bump needed.</span>
+      </div>
+      <div style="padding:12px; background:rgba(251,146,60,0.08); border-radius:8px; border: 1px solid rgba(251,146,60,0.2);">
+        <strong style="color:var(--orange);">NO &mdash; Version Sealed / No Tier 1</strong><br>
+        <span style="font-size:0.85rem; color:var(--text-dim);">
+          Determine version bump:<br>
+          &bull; <strong>Patch</strong> &mdash; bug fix / small tweak<br>
+          &bull; <strong>Minor</strong> &mdash; new feature, non-breaking<br>
+          &bull; <strong>Major</strong> &mdash; breaking change / redesign<br>
+          Create new tier 1 + tier 2.
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-success">
+  <div class="callout-icon">&#10004;</div>
+  <div><strong>Batch related intake items.</strong> Review ALL pending intake before triaging. Group related requests for the same module into one version bump to keep version history clean.</div>
+</div>
+
+
+<!-- ════════════════════════════════════ 8. VERSIONING ═══════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="versioning"><span class="section-num">8</span> Versioning &amp; Sealing</h2>
+
+<h3>Semantic Versioning</h3>
+<div class="card">
+  <div style="text-align:center; font-family:'Cascadia Code','Fira Code',monospace; font-size:1.3rem; margin-bottom:16px;">
+    v<span style="color:var(--red);">MAJOR</span>.<span style="color:var(--orange);">MINOR</span>.<span style="color:var(--green);">PATCH</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Bump</th><th>When</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span style="color:var(--green); font-weight:600;">Patch</span></td>
+        <td>Bug fixes, minor adjustments</td>
+        <td>v1.0.0 &rarr; v1.0.1</td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--orange); font-weight:600;">Minor</span></td>
+        <td>New features, non-breaking changes</td>
+        <td>v1.0.0 &rarr; v1.1.0</td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--red); font-weight:600;">Major</span></td>
+        <td>Breaking changes, significant redesign</td>
+        <td>v1.0.0 &rarr; v2.0.0</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>Version Lifecycle</h3>
+<div class="flow-diagram">
+  <div class="flow-row" style="justify-content:center; flex-wrap:wrap;">
+    <div class="flow-col">
+      <div class="flow-label"><span class="tag tag-manager">Manager</span></div>
+      <div class="flow-box fb-manager">/pm base<br><small>Declare scope</small></div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label"><span class="tag tag-manager">Manager</span></div>
+      <div class="flow-box fb-manager">/pm breakdown<br><small>Create T2s</small></div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label"><span class="tag tag-engineer">Engineer</span></div>
+      <div class="flow-box fb-engineer" style="border:2px dashed rgba(74,222,128,0.4);">/p &rarr; /s &rarr; /pp<br><small>Per T2 item</small></div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label"><span class="tag tag-auto">Auto</span></div>
+      <div class="flow-box fb-system">All T2 Done<br><small>T1 Done &rarr; Sealed</small></div>
+    </div>
+  </div>
+</div>
+
+<h3>Version Sealing Rule</h3>
+<div class="callout callout-warn">
+  <div class="callout-icon">&#128274;</div>
+  <div>
+    <strong>A completed version is sealed permanently.</strong> Once a tier 1 reaches Done, no new tier 2 items can be added under it. Any new work on that module requires a <strong>version bump</strong> and a <strong>new tier 1</strong>.
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Tier 1 State</th><th>Can Add Tier 2?</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="status st-backlog">Backlog</span> / <span class="status st-todo">Todo</span> / <span class="status st-progress">In Progress</span></td>
+        <td style="color:var(--green); font-weight:600;">Yes</td>
+        <td>Add via /pm breakdown or triage</td>
+      </tr>
+      <tr>
+        <td><span class="status st-done">Done</span></td>
+        <td style="color:var(--red); font-weight:600;">No &mdash; Sealed</td>
+        <td>Must bump version &rarr; new tier 1</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════ 9. OUTLINE ══════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="outline-docs"><span class="section-num">9</span> Outline Document Structure</h2>
+
+<p>Outline is the <strong>single source of truth</strong> for all specifications. No local spec files are maintained.</p>
+
+<div class="card" style="font-family:'Cascadia Code','Fira Code',monospace; font-size:0.85rem; line-height:2;">
+<span style="color:var(--accent);">Spark (Root Doc)</span>
+<span style="color:var(--text-dim);">├──</span> <span style="color:var(--purple);">Specifications/</span> <span style="color:var(--text-dim);">&larr; Current state of all modules</span>
+<span style="color:var(--text-dim);">│   ├──</span> <span style="color:var(--text);">Module A/</span>
+<span style="color:var(--text-dim);">│   │   └──</span> <span style="color:var(--text);">Sub-module/</span>
+<span style="color:var(--text-dim);">│   └──</span> <span style="color:var(--text);">Module B/</span>
+<span style="color:var(--text-dim);">├──</span> <span style="color:var(--cyan);">Versions/</span> <span style="color:var(--text-dim);">&larr; Semver snapshots</span>
+<span style="color:var(--text-dim);">│   ├──</span> <span style="color:var(--text);">v1.0.0/</span>
+<span style="color:var(--text-dim);">│   │   ├──</span> <span style="color:var(--text);">Module A/</span>
+<span style="color:var(--text-dim);">│   │   └──</span> <span style="color:var(--text);">Module B/</span>
+<span style="color:var(--text-dim);">│   └──</span> <span style="color:var(--text);">v1.1.0/</span>
+<span style="color:var(--text-dim);">│       └──</span> <span style="color:var(--text);">Module A/</span> <span style="color:var(--text-dim);">(only changed modules)</span>
+<span style="color:var(--text-dim);">└──</span> <span style="color:var(--orange);">Cycles/</span> <span style="color:var(--text-dim);">&larr; Weekly cycle reports</span>
+<span style="color:var(--text-dim);">    ├──</span> <span style="color:var(--text);">YYYY/WW/</span>
+<span style="color:var(--text-dim);">    └──</span> <span style="color:var(--text);">YYYY/WW/</span>
+</div>
+
+<h3>Module Spec Doc (under Specifications/)</h3>
+<div class="card-grid">
+  <div class="card">
+    <h4 style="color:var(--orange);">Section 1: Non-Technical</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Stakeholder-readable. 2-4 sentences + capability bullets. Current state only &mdash; rewritten on each /pp, never appended.</p>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--green);">Section 2: Technical</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Engineer-readable. File paths, component tree, DB schema, API endpoints, data flow, related modules. Current state only.</p>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--purple);">Section 3: Version History</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Minimal one-line links. Format: <code>- [vX.Y.Z](link) &mdash; summary</code>. Appended by /pp.</p>
+  </div>
+</div>
+
+<h3>Version Doc (under Versions/vX.Y.Z/)</h3>
+<div class="card">
+  <p style="font-size:0.9rem;">Snapshot of what changed in a module for a specific version:</p>
+  <ul style="list-style:none; margin-top:10px; font-size:0.85rem;">
+    <li style="padding:4px 0;">&#8226; Navigation links (back to spec doc + Plane module)</li>
+    <li style="padding:4px 0;">&#8226; Summary (3-5 bullets of implementation)</li>
+    <li style="padding:4px 0;">&#8226; Requirements (from tier 2 items)</li>
+    <li style="padding:4px 0;">&#8226; Implementation details (phases + tasks with SPARK-N links)</li>
+    <li style="padding:4px 0;">&#8226; New/changed files list</li>
+  </ul>
+</div>
+
+
+<!-- ════════════════════════════════════ 10. ESTIMATION ══════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="estimation"><span class="section-num">10</span> Story Point Estimation</h2>
+
+<p>Fibonacci scale, only on <strong>tier 2</strong> items. Set by the manager. Reflects total human effort (planning + review + debugging).</p>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Points</th><th>Complexity</th><th>What It Touches</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--green);">1</td>
+        <td>Single concern</td>
+        <td>One file, one table, or one component. No new patterns.</td>
+      </tr>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--green);">2</td>
+        <td>Two connected concerns</td>
+        <td>Backend + frontend change, or a new route with simple page.</td>
+      </tr>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--accent);">3</td>
+        <td>One end-to-end slice</td>
+        <td>New table + RLS + edge function + component. One vertical.</td>
+      </tr>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--orange);">5</td>
+        <td>Multiple coordinated slices</td>
+        <td>New schema + RLS + edge functions + route + multiple components + state.</td>
+      </tr>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--red);">8</td>
+        <td>Cross-cutting / high-uncertainty</td>
+        <td>Auth + middleware + multiple routes + policies. New patterns. High debug risk.</td>
+      </tr>
+      <tr>
+        <td style="font-size:1.2rem; font-weight:700; color:var(--red);">13</td>
+        <td style="color:var(--red); font-weight:600;">TOO LARGE</td>
+        <td style="color:var(--red);">Must decompose before estimating. Multiple 5-pt tasks hiding inside.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>Estimation Rules</h3>
+<div class="card">
+  <ol style="font-size:0.9rem; padding-left:20px;">
+    <li style="padding:4px 0;">Count <strong>distinct concerns</strong>: DB, RLS, edge functions, routes, components, state, integrations</li>
+    <li style="padding:4px 0;">Assess <strong>debug risk</strong>: auth, RLS, race conditions, realtime &rarr; +1-2 points</li>
+    <li style="padding:4px 0;">Assess <strong>novelty</strong>: new pattern for the codebase &rarr; +1 point</li>
+    <li style="padding:4px 0;">If estimate = 13 &rarr; <strong>must split</strong> into smaller items</li>
+    <li style="padding:4px 0;">Maximum allowed estimate on a single tier 2: <strong>8</strong></li>
+  </ol>
+</div>
+
+
+<!-- ════════════════════════════════════ 11. REPORTING ═══════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="reporting"><span class="section-num">11</span> Cycle Reporting</h2>
+
+<p>At the end of each cycle, the <span class="cmd">/rp</span> command generates a structured report of all <strong>Done</strong> work and publishes it to Outline.</p>
+
+<div class="card" style="font-family:'Cascadia Code','Fira Code',monospace; font-size:0.85rem; line-height:2.2;">
+  <span style="color:var(--purple);">/rp</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">Report current cycle</span><br>
+  <span style="color:var(--purple);">/rp</span> <span style="color:var(--text-dim);">[YYYY/WW]</span> &nbsp;&nbsp;&nbsp;&nbsp;&rarr; <span style="color:var(--text);">Report specific cycle (e.g., 2026/09)</span>
+</div>
+
+<h3>Data Pipeline</h3>
+<div class="flow-diagram">
+  <div class="flow-row" style="justify-content:center;">
+    <div class="flow-col">
+      <div class="flow-label">Step 1</div>
+      <div class="flow-box fb-tool" style="font-size:0.8rem;">Script extracts<br>Done items<br>from Plane API</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Step 2</div>
+      <div class="flow-box fb-output" style="font-size:0.8rem;">Read Outline<br>spec docs for<br>descriptions</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Step 3</div>
+      <div class="flow-box fb-system" style="font-size:0.8rem;">Generate<br>report<br>markdown</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-col">
+      <div class="flow-label">Step 4</div>
+      <div class="flow-box fb-output" style="font-size:0.8rem;">Publish to<br>Outline under<br>Cycles/</div>
+    </div>
+  </div>
+</div>
+
+<h3>What Gets Reported</h3>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Data</th><th>Source</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Done tier 1 modules</td>
+        <td><span class="tag tag-tool">Plane</span> cycle API</td>
+        <td>Only <span class="status st-done">Done</span> state &mdash; no backlog/in-progress</td>
+      </tr>
+      <tr>
+        <td>Done tier 2 features + points</td>
+        <td><span class="tag tag-tool">Plane</span> cycle API</td>
+        <td>Fibonacci estimate points from <code>estimate_point</code> UUID</td>
+      </tr>
+      <tr>
+        <td>Non-Technical descriptions</td>
+        <td><span class="tag" style="background:rgba(167,139,250,0.2); color:var(--purple);">Outline</span> spec docs</td>
+        <td>Stakeholder-readable module descriptions</td>
+      </tr>
+      <tr>
+        <td>Technical implementations</td>
+        <td><span class="tag" style="background:rgba(167,139,250,0.2); color:var(--purple);">Outline</span> spec docs</td>
+        <td>Routes, components, hooks, schema details</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>Report Structure</h3>
+<div class="card-grid">
+  <div class="card">
+    <h4 style="color:var(--orange);">Executive Summary</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">3-5 sentences. What was delivered, total points, top modules. Past tense.</p>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--accent);">Points Summary</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Total points with version breakdown. Module-by-module table with feature count and points.</p>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--green);">What Was Delivered</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Per-module sections with non-technical descriptions and feature lists. Present tense.</p>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--purple);">Technical Changes</h4>
+    <p style="font-size:0.85rem; color:var(--text-dim);">Per-module technical implementation from spec docs. Routes, components, schema.</p>
+  </div>
+</div>
+
+<h3>Grouping Rules</h3>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Module Type</th><th>Treatment</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Major</strong> (3+ tier 2 features)</td>
+        <td>Full section: description + feature list + technical details</td>
+      </tr>
+      <tr>
+        <td><strong>Minor</strong> (1-2 tier 2, non-trivial)</td>
+        <td>Condensed section, still individual</td>
+      </tr>
+      <tr>
+        <td><strong>Namespace/rename</strong></td>
+        <td>Grouped together under one heading</td>
+      </tr>
+      <tr>
+        <td><strong>Baseline</strong> (catch-up, 0 tier 2)</td>
+        <td>Single grouped paragraph</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-icon">&#9888;</div>
+  <div><strong>Done only.</strong> Reports never include in-progress, backlog, or todo items. Only completed work with <span class="status st-done">Done</span> state is reported. Points are always shown alongside feature counts.</div>
+</div>
+
+
+<!-- ════════════════════════════════════ 12. QUICK REF ═══════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="quickref"><span class="section-num">12</span> Quick Reference</h2>
+
+<h3>Command Cheat Sheet</h3>
+<div class="qr-grid">
+  <div class="qr-item">
+    <div class="qr-cmd">/pm [description]</div>
+    <div class="qr-desc">New project or version. Creates modules, specs, tier 1 seeds on Plane + Outline.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/pm [tier 1 link]</div>
+    <div class="qr-desc">Breakdown tier 1 into tier 2 features with estimates and pass/fail criteria.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/pm catch-up</div>
+    <div class="qr-desc">Create retroactive PM baseline for an existing project. Everything set to Done.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/pm triage</div>
+    <div class="qr-desc">Process intake requests. Route to existing tier 1 or create new version.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/p [tier 2 link]</div>
+    <div class="qr-desc">Plan implementation. Creates rich temp file with phases and tasks. Updates T2 to In Progress.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/s [task]</div>
+    <div class="qr-desc">Execute task with skill awareness. Local only, no MCP. Updates temp file checkboxes.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/pp [temp file]</div>
+    <div class="qr-desc">Push to Plane (T3+4 as Done) + condense Outline spec + update version doc. Marks T2 Done.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">/rp [YYYY/WW]</div>
+    <div class="qr-desc">Generate cycle report from Done items + Outline specs. Publish to Outline under Cycles/. Points tracking.</div>
+  </div>
+  <div class="qr-item">
+    <div class="qr-cmd">po skill</div>
+    <div class="qr-desc">Reference skill with Plane/Outline constants, UUIDs, URL patterns, naming conventions.</div>
+  </div>
+</div>
+
+<h3>Critical Rules</h3>
+<div class="card" style="padding:20px;">
+  <table>
+    <thead>
+      <tr><th>#</th><th>Rule</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Tier 2 = behavior, NOT implementation</td><td>Manager defines what; engineer defines how</td></tr>
+      <tr><td>2</td><td>Always confirm before creating anything</td><td>Prevents accidental work item pollution</td></tr>
+      <tr><td>3</td><td>Max estimate is 8 points</td><td>13-point items must be split</td></tr>
+      <tr><td>4</td><td>Cross-link Plane &harr; Outline always</td><td>Bidirectional traceability</td></tr>
+      <tr><td>5</td><td>Versions are sealed once Done</td><td>Clean version history</td></tr>
+      <tr><td>6</td><td>No MCP calls during /s</td><td>Saves context tokens, stays local</td></tr>
+      <tr><td>7</td><td>/pp deep research is a hard gate</td><td>Never publish without verification</td></tr>
+      <tr><td>8</td><td>Spec docs are current state, rewritten</td><td>Agents read these &mdash; keep concise</td></tr>
+      <tr><td>9</td><td>Batch intake items per module</td><td>One version bump per module batch</td></tr>
+      <tr><td>10</td><td>Tier 3+4 are always created as Done</td><td>They are records, not actionable items</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>Cycle Naming</h3>
+<div class="card">
+  <p style="font-size:0.9rem;">Format: <code>YYYY/WW</code> (week number, zero-padded). Example: <code>2026/09</code> = Week 9 of 2026.</p>
+  <p style="font-size:0.85rem; color:var(--text-dim); margin-top:8px;">Cycles are created automatically when needed. Range: Sunday 00:00:00 &rarr; Saturday 23:59:59 (UTC+0 Dublin).</p>
+</div>
+
+<h3>Files Reference</h3>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>File</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>docs/pm.md</code></td><td>Full PM flow documentation (portable)</td></tr>
+      <tr><td><code>docs/index.md</code></td><td>Thin pointer &mdash; Plane Project ID + Outline Root Doc ID</td></tr>
+      <tr><td><code>.claude/skills/po/SKILL.md</code></td><td>Project constants, MCP tools, naming conventions</td></tr>
+      <tr><td><code>.claude/commands/pm.md</code></td><td>Manager command definition</td></tr>
+      <tr><td><code>.claude/commands/p.md</code></td><td>Engineer planning command</td></tr>
+      <tr><td><code>.claude/commands/s.md</code></td><td>Engineer execution command</td></tr>
+      <tr><td><code>.claude/commands/pp.md</code></td><td>Engineer push + condense command</td></tr>
+      <tr><td><code>.claude/commands/rp.md</code></td><td>Cycle report command</td></tr>
+      <tr><td><code>scripts/plane-cycle-items.js</code></td><td>Plane API data extractor for cycle reports</td></tr>
+      <tr><td><code>cycles/**/*.md</code></td><td>Plan files and cycle data (version-controlled)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="sep"></div>
+<p style="text-align:center; color:var(--text-dim); font-size:0.8rem;">
+  PM Flow v3.1 &mdash; LightCraft &mdash; Generated February 2026
+</p>
+
+</div><!-- /container -->
+</body>
+</html>
