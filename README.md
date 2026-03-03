@@ -1,17 +1,17 @@
 # WorldCraft
 
-Monorepo project with React frontend, NestJS backend, and Supabase (local Docker).
+Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + R2).
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19, TanStack Router, TanStack Query, TanStack Store, Ant Design |
-| Backend | NestJS |
-| Database | Supabase (PostgreSQL + Auth + Realtime + Storage) |
+| Backend | Supabase (PostgreSQL + Auth + Edge Functions + Realtime) |
+| File Storage | Cloudflare R2 (S3-compatible, zero egress) |
 | Shared | `@worldcraft/shared` — TypeScript types generated from Supabase schema |
 | Monorepo | pnpm workspaces + Turborepo |
-| Deployment | Cloudflare Pages (frontend), container/VPS (backend) |
+| Deployment | Cloudflare Pages (frontend), Supabase Cloud (backend) |
 
 ## Prerequisites
 
@@ -43,15 +43,6 @@ Create `apps/web/.env`:
 ```env
 VITE_SUPABASE_URL=http://localhost:54321
 VITE_SUPABASE_ANON_KEY=<anon key from supabase start>
-VITE_API_URL=http://localhost:3000
-```
-
-Create `apps/api/.env`:
-
-```env
-SUPABASE_URL=http://localhost:54321
-SUPABASE_SERVICE_ROLE_KEY=<service_role key from supabase start>
-API_PORT=3000
 ```
 
 Start everything:
@@ -67,14 +58,12 @@ pnpm dev
 3. Login screen appears — click **Sign Up**, enter any email + password
 4. Since email confirmation is disabled, you're logged in immediately
 5. Dashboard shows your profile data fetched from Supabase
-6. NestJS API runs at **http://localhost:3000** (health check: `GET /api/health`)
 
 ## Useful URLs
 
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:5173 |
-| NestJS API | http://localhost:3000 |
 | Supabase Studio | http://localhost:54323 |
 | Inbucket (email) | http://localhost:54324 |
 | Supabase API | http://localhost:54321 |
@@ -84,23 +73,20 @@ pnpm dev
 ```
 WorldCraft/
 ├── apps/
-│   ├── web/                    # React SPA (TanStack Router + Ant Design)
-│   │   └── src/
-│   │       ├── routes/         # File-based routing
-│   │       ├── components/     # UI components (max 2 levels deep)
-│   │       ├── api/            # Supabase client + TanStack Query factories
-│   │       ├── hooks/          # React hooks by domain
-│   │       └── stores/         # TanStack Store (auth state)
-│   └── api/                    # NestJS backend
+│   └── web/                    # React SPA (TanStack Router + Ant Design)
 │       └── src/
-│           ├── common/         # Guards, decorators (Supabase auth)
-│           └── modules/        # Feature modules (auth, profiles, health)
+│           ├── routes/         # File-based routing
+│           ├── components/     # UI components (max 2 levels deep)
+│           ├── api/            # Supabase client + TanStack Query factories
+│           ├── hooks/          # React hooks by domain
+│           └── stores/         # TanStack Store (auth state)
 ├── packages/
 │   └── shared/                 # @worldcraft/shared
 │       └── src/types/          # Supabase-generated TypeScript types
-├── supabase/                   # Database schema, Edge Functions
+├── supabase/                   # Database + Edge Functions
 │   ├── config.toml             # Local Supabase configuration
 │   ├── migrations/             # SQL migrations (source of truth)
+│   ├── functions/              # Supabase Edge Functions (Deno)
 │   └── seed.sql                # Dev seed data
 ├── .claude/                    # PM Bible commands & skills
 ├── scripts/                    # Plane/Outline API utilities
@@ -111,9 +97,9 @@ WorldCraft/
 
 | Command | What it does |
 |---------|-------------|
-| `pnpm dev` | Start everything (Supabase + frontend + backend) |
+| `pnpm dev` | Start everything (Supabase + frontend) |
 | `pnpm dev:web` | Start frontend only |
-| `pnpm dev:api` | Start NestJS only |
+| `pnpm dev:functions` | Serve Edge Functions locally |
 | `pnpm build` | Build all apps |
 | `pnpm db:reset` | Drop and recreate database from migrations + seed |
 | `pnpm db:types` | Regenerate TypeScript types from Supabase schema |
@@ -123,9 +109,8 @@ WorldCraft/
 
 ## How Auth Works
 
-- **Frontend** uses `@supabase/supabase-js` with the **anon key** (RLS enforced)
-- **Backend** uses `@supabase/supabase-js` with the **service_role key** (bypasses RLS)
-- Auth guard on NestJS validates the JWT from the `Authorization: Bearer <token>` header
+- Frontend uses `@supabase/supabase-js` with the **anon key** (RLS enforced)
+- Edge Functions use the **service_role key** when they need to bypass RLS
 - Profiles are auto-created via a Postgres trigger on user signup
 
 ## Database Migrations
@@ -141,6 +126,19 @@ pnpm db:reset
 
 # Push to remote:
 pnpm db:push
+```
+
+## Edge Functions
+
+```bash
+# Create a new function:
+supabase functions new my-function
+
+# Serve locally:
+pnpm dev:functions
+
+# Deploy:
+supabase functions deploy my-function
 ```
 
 ## PM Workflow (Bible)
