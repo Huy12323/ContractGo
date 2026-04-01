@@ -28,7 +28,7 @@ port = 54323
 api_url = "http://127.0.0.1"
 
 [inbucket]
-enabled = true
+enabled = false
 port = 54324
 smtp_port = 54325
 pop3_port = 54326
@@ -48,7 +48,24 @@ enable_anonymous_sign_ins = false
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
+enable_confirmations = true
+
+[auth.email.template.confirmation]
+subject = "Verify your email - AIUR-HR"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your password - AIUR-HR"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 587
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "env(RESEND_SENDER_EMAIL)"
+sender_name = "env(RESEND_SENDER_NAME)"
 
 [auth.external.google]
 enabled = false

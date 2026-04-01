@@ -28,8 +28,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ConfigProvider
         theme={{
           token: {
-            colorPrimary: '#1677ff',
-            borderRadius: 6,
+            colorPrimary: '#0958d9',
+            borderRadius: 4,
+            fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+          },
+          components: {
+            Button: { fontWeight: 600 },
+            Input: { paddingBlock: 8, paddingInline: 12 },
           },
         }}
       >

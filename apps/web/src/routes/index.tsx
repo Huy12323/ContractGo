@@ -21,5 +21,5 @@ function IndexPage() {
     return <Navigate to="/dashboard" />
   }
 
-  return <Navigate to="/login" />
+  return <Navigate to="/login" search={{ redirect: undefined }} />
 }

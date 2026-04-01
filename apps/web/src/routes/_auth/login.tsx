@@ -1,23 +1,42 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { LoginForm } from '@/components/auth/LoginForm'
-import { Card, Typography } from 'antd'
+import { Typography, theme } from 'antd'
+import { TeamOutlined } from '@ant-design/icons'
 
 export const Route = createFileRoute('/_auth/login')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
+  }),
   component: LoginPage,
 })
 
 function LoginPage() {
+  const { token } = theme.useToken()
+  const { redirect } = Route.useSearch()
+
   return (
-    <Card style={{ width: 400 }}>
-      <Typography.Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
-        Sign In to WorldCraft
-      </Typography.Title>
-      <LoginForm />
-      <div style={{ textAlign: 'center', marginTop: 16 }}>
-        <Typography.Text>
-          Don't have an account? <Link to="/signup">Sign Up</Link>
-        </Typography.Text>
+    <>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 10,
+            background: token.colorPrimary,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <TeamOutlined style={{ fontSize: 24, color: '#fff' }} />
+        </div>
+        <Typography.Title level={4} style={{ marginBottom: 0 }}>
+          AIUR-HR
+        </Typography.Title>
+        <Typography.Text type="secondary">Sign in to your workspace</Typography.Text>
       </div>
-    </Card>
+      <LoginForm redirect={redirect} />
+    </>
   )
 }

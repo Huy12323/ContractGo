@@ -1,23 +1,38 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { SignUpForm } from '@/components/auth/SignUpForm'
-import { Card, Typography } from 'antd'
+import { Typography, theme } from 'antd'
+import { TeamOutlined } from '@ant-design/icons'
 
 export const Route = createFileRoute('/_auth/signup')({
   component: SignUpPage,
 })
 
 function SignUpPage() {
+  const { token } = theme.useToken()
+
   return (
-    <Card style={{ width: 400 }}>
-      <Typography.Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
-        Create Account
-      </Typography.Title>
-      <SignUpForm />
-      <div style={{ textAlign: 'center', marginTop: 16 }}>
-        <Typography.Text>
-          Already have an account? <Link to="/login">Sign In</Link>
-        </Typography.Text>
+    <>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 10,
+            background: token.colorPrimary,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <TeamOutlined style={{ fontSize: 24, color: '#fff' }} />
+        </div>
+        <Typography.Title level={4} style={{ marginBottom: 0 }}>
+          AIUR-HR
+        </Typography.Title>
+        <Typography.Text type="secondary">Create your workspace</Typography.Text>
       </div>
-    </Card>
+      <SignUpForm />
+    </>
   )
 }

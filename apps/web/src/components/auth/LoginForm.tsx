@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Form, Input, Button, App } from 'antd'
+import { Form, Input, Button, Checkbox, Typography, Divider, theme } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { signInWithPassword } from '@/stores/auth'
 import { useNavigate } from '@tanstack/react-router'
@@ -7,49 +7,90 @@ import { useNavigate } from '@tanstack/react-router'
 interface LoginValues {
   email: string
   password: string
+  remember: boolean
 }
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirect?: string
+}
+
+export function LoginForm({ redirect: redirectTo }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
-  const { message } = App.useApp()
+  const { token } = theme.useToken()
   const navigate = useNavigate()
+  const [form] = Form.useForm<LoginValues>()
 
   async function onFinish(values: LoginValues) {
     setLoading(true)
     try {
       await signInWithPassword(values.email, values.password)
-      navigate({ to: '/dashboard' })
+      navigate({ to: redirectTo || '/dashboard' })
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Sign in failed')
+      const message = err instanceof Error ? err.message : ''
+
+      if (message.includes('Email not confirmed')) {
+        navigate({ to: '/verify-email', search: { email: values.email } })
+        return
+      }
+
+      form.setFields([{
+        name: 'password',
+        errors: [
+          message.includes('Invalid login credentials')
+            ? 'Invalid email or password'
+            : 'Unable to sign in. Please try again.',
+        ],
+      }])
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Form layout="vertical" onFinish={onFinish} autoComplete="off">
+    <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ remember: true }} requiredMark={false}>
       <Form.Item
         name="email"
+        label="Work Email"
         rules={[
-          { required: true, message: 'Please enter your email' },
-          { type: 'email', message: 'Please enter a valid email' },
+          { required: true, message: 'Enter your email' },
+          { type: 'email', message: 'Enter a valid email' },
         ]}
       >
-        <Input prefix={<MailOutlined />} placeholder="Email" size="large" />
+        <Input prefix={<MailOutlined style={{ color: token.colorTextQuaternary }} />} placeholder="you@company.com" size="large" />
       </Form.Item>
 
       <Form.Item
         name="password"
-        rules={[{ required: true, message: 'Please enter your password' }]}
+        label="Password"
+        rules={[{ required: true, message: 'Enter your password' }]}
       >
-        <Input.Password prefix={<LockOutlined />} placeholder="Password" size="large" />
+        <Input.Password prefix={<LockOutlined style={{ color: token.colorTextQuaternary }} />} placeholder="Enter password" size="large" />
       </Form.Item>
 
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block size="large">
-          Sign In
-        </Button>
-      </Form.Item>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <Form.Item name="remember" valuePropName="checked" noStyle>
+          <Checkbox>Remember me</Checkbox>
+        </Form.Item>
+        <Typography.Link style={{ fontSize: 13 }} onClick={() => navigate({ to: '/forgot-password' })}>
+          Forgot password?
+        </Typography.Link>
+      </div>
+
+      <Button type="primary" htmlType="submit" block size="large" loading={loading}>
+        Sign In
+      </Button>
+
+      <Typography.Paragraph type="secondary" style={{ textAlign: 'center', margin: '12px 0 0', fontSize: 12 }}>
+        By signing in, you agree to our Terms of Service and Privacy Policy.
+      </Typography.Paragraph>
+
+      <Divider plain style={{ margin: '20px 0' }}>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>OR</Typography.Text>
+      </Divider>
+
+      <Button block size="large" onClick={() => navigate({ to: '/signup' })}>
+        Create a new account
+      </Button>
     </Form>
   )
 }
