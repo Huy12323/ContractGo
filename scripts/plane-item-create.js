@@ -20,7 +20,7 @@
  *   --state <name>          backlog, todo, in_progress, done, cancelled (default: backlog)
  *   --priority <name>       urgent, high, medium, low, none (default: none)
  *   --estimate <value>      1, 2, 3, 5, 8, 13
- *   --parent <IDENT-N>      Parent work item (resolves identifier to UUID)
+ *   --parent <IDENT-N|uuid>  Parent work item (accepts identifier or UUID)
  *   --assignees <uuids>     Comma-separated assignee UUIDs
  *   --start <YYYY-MM-DD>    Start date
  *   --due <YYYY-MM-DD>      Due date (target_date)
@@ -32,72 +32,30 @@
  *   Created: SPARK-1234 (uuid)
  *
  * Requires: .env with PLANE_API_KEY, PLANE_BASE_URL, PLANE_WORKSPACE_SLUG
- * Requires: project-config.json with PROJECT_ID, state UUIDs, estimate UUIDs
+ * Requires: config.json with PROJECT_ID, state UUIDs, estimate UUIDs
  */
 
 const fs = require("fs");
 const path = require("path");
+const { parseIdentifier } = require("./lib/plane-parse-id");
+const { loadConfig, parseFlags, buildStateMap, buildEstimateReverse } = require("./lib/config");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const IDENTIFIER = config.PLANE_PROJECT_IDENTIFIER || "ITEM";
 
-// State name → UUID
-const STATE_MAP = {};
-if (config.STATE_BACKLOG_UUID) STATE_MAP["backlog"] = config.STATE_BACKLOG_UUID;
-if (config.STATE_TODO_UUID) STATE_MAP["todo"] = config.STATE_TODO_UUID;
-if (config.STATE_IN_PROGRESS_UUID) STATE_MAP["in_progress"] = config.STATE_IN_PROGRESS_UUID;
-if (config.STATE_DONE_UUID) STATE_MAP["done"] = config.STATE_DONE_UUID;
-if (config.STATE_CANCELLED_UUID) STATE_MAP["cancelled"] = config.STATE_CANCELLED_UUID;
-
-// Estimate value → UUID
-const ESTIMATE_REVERSE = {};
-if (config.ESTIMATE_1_UUID) ESTIMATE_REVERSE["1"] = config.ESTIMATE_1_UUID;
-if (config.ESTIMATE_2_UUID) ESTIMATE_REVERSE["2"] = config.ESTIMATE_2_UUID;
-if (config.ESTIMATE_3_UUID) ESTIMATE_REVERSE["3"] = config.ESTIMATE_3_UUID;
-if (config.ESTIMATE_5_UUID) ESTIMATE_REVERSE["5"] = config.ESTIMATE_5_UUID;
-if (config.ESTIMATE_8_UUID) ESTIMATE_REVERSE["8"] = config.ESTIMATE_8_UUID;
-if (config.ESTIMATE_13_UUID) ESTIMATE_REVERSE["13"] = config.ESTIMATE_13_UUID;
-
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
-// --- Parse IDENT-N or bare number ---
-function parseId(arg) {
-  if (!arg) return null;
-  const match = arg.match(/(?:\w+-)?(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
-}
+const STATE_MAP = buildStateMap(config);
+const ESTIMATE_REVERSE = buildEstimateReverse(config);
 
 // --- Resolve identifier to UUID ---
 async function resolveToUuid(wsBase, headers, identArg) {
-  const seqId = parseId(identArg);
-  if (!seqId) return identArg; // assume already a UUID
-  const r = await fetch(`${wsBase}/work-items/${IDENTIFIER}-${seqId}/`, { headers });
-  if (r.status !== 200) throw new Error(`Cannot resolve ${IDENTIFIER}-${seqId}: HTTP ${r.status}`);
+  const input = parseIdentifier(identArg);
+  if (!input) throw new Error(`Invalid identifier: ${identArg}`);
+  if (input.type === "uuid") return input.value;
+  const r = await fetch(`${wsBase}/work-items/${IDENTIFIER}-${input.value}/`, { headers });
+  if (r.status !== 200) throw new Error(`Cannot resolve ${IDENTIFIER}-${input.value}: HTTP ${r.status}`);
   const data = await r.json();
   return data.id;
 }
@@ -171,7 +129,7 @@ function printUsage() {
 
 // --- Main ---
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const opts = parseArgs(cliArgs);
 
   if (!opts.name) {
     console.error("Error: --name is required.");
@@ -179,10 +137,9 @@ async function main() {
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const wsBase = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}`;
+  const wsBase = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}`;
   const projBase = `${wsBase}/projects/${PROJECT_ID}`;
-  const headers = { "X-API-Key": env.PLANE_API_KEY };
+  const headers = { "X-API-Key": config.PLANE_API_KEY };
 
   // Build POST body
   const body = { name: opts.name };
@@ -190,8 +147,9 @@ async function main() {
 
   // Description
   if (opts.desc) {
-    const seqId = parseId(opts.desc);
-    const tempFile = path.join(__dirname, "..", "temp", "plane", `${IDENTIFIER}-${seqId || opts.desc}.html`);
+    const descInput = parseIdentifier(opts.desc);
+    const descLabel = descInput && descInput.type === "sequence" ? `${IDENTIFIER}-${descInput.value}` : opts.desc;
+    const tempFile = path.join(__dirname, "..", "temp", "plane", `${descLabel}.html`);
     if (!fs.existsSync(tempFile)) {
       console.error(`Temp file not found: ${tempFile}`);
       process.exit(1);

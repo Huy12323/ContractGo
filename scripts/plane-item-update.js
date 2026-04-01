@@ -7,85 +7,74 @@
  * Description is read from temp/plane/{IDENT}-{N}.html (saved by plane-item-get.js).
  *
  * Usage:
- *   node scripts/plane-item-update.js WCLV1-34 --desc
- *   node scripts/plane-item-update.js WCLV1-34 --state todo
- *   node scripts/plane-item-update.js WCLV1-34 --priority high
- *   node scripts/plane-item-update.js WCLV1-34 --estimate 3
- *   node scripts/plane-item-update.js WCLV1-34 --desc --state done --priority high
+ *   node scripts/plane-item-update.js SPARK-34 --desc
+ *   node scripts/plane-item-update.js <uuid> --state todo
+ *   node scripts/plane-item-update.js SPARK-34 --state todo
+ *   node scripts/plane-item-update.js SPARK-34 --priority high
+ *   node scripts/plane-item-update.js SPARK-34 --estimate 3
+ *   node scripts/plane-item-update.js SPARK-34 --name "New title"
+ *   node scripts/plane-item-update.js SPARK-34 --parent SPARK-100
+ *   node scripts/plane-item-update.js SPARK-34 --assignees uuid1,uuid2
+ *   node scripts/plane-item-update.js SPARK-34 --start 2026-03-01
+ *   node scripts/plane-item-update.js SPARK-34 --due 2026-03-07
+ *   node scripts/plane-item-update.js SPARK-34 --labels uuid1,uuid2
+ *   node scripts/plane-item-update.js SPARK-34 --add-to-cycle <cycle-uuid>
+ *   node scripts/plane-item-update.js SPARK-34 --add-to-module <module-uuid>
+ *   node scripts/plane-item-update.js SPARK-34 --desc --state done --priority high
  *
  * Flags:
- *   --desc              Push temp/plane/{IDENT}-{N}.html as description_html
- *   --state <name>      Set state: backlog, todo, in_progress, done, cancelled
- *   --priority <name>   Set priority: urgent, high, medium, low, none
- *   --estimate <value>  Set estimate: 1, 2, 3, 5, 8, 13
+ *   --desc                  Push temp/plane/{IDENT}-{N}.html as description_html
+ *   --state <name>          Set state: backlog, todo, in_progress, done, cancelled
+ *   --priority <name>       Set priority: urgent, high, medium, low, none
+ *   --estimate <value>      Set estimate: 1, 2, 3, 5, 8, 13
+ *   --name <text>           Set work item name/title
+ *   --parent <IDENT-N|uuid>  Set parent (accepts identifier or UUID)
+ *   --assignees <uuids>     Set assignees (comma-separated UUIDs)
+ *   --start <YYYY-MM-DD>    Set start_date
+ *   --due <YYYY-MM-DD>      Set target_date
+ *   --labels <uuids>        Set labels (comma-separated UUIDs)
+ *   --add-to-cycle <uuid>   Add item to a cycle (POST, separate from PATCH)
+ *   --add-to-module <uuid>  Add item to a module (POST, separate from PATCH)
  *
  * At least one flag is required.
  *
  * Requires: .env with PLANE_API_KEY, PLANE_BASE_URL, PLANE_WORKSPACE_SLUG
- * Requires: project-config.json with PROJECT_ID, state UUIDs, estimate UUIDs
+ * Requires: config.json with PROJECT_ID, state UUIDs, estimate UUIDs
  */
 
 const fs = require("fs");
 const path = require("path");
+const { parseIdentifier } = require("./lib/plane-parse-id");
+const { loadConfig, parseFlags, buildStateMap, buildEstimateReverse } = require("./lib/config");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const IDENTIFIER = config.PLANE_PROJECT_IDENTIFIER || "ITEM";
 
-// State name → UUID
-const STATE_MAP = {};
-if (config.STATE_BACKLOG_UUID) STATE_MAP["backlog"] = config.STATE_BACKLOG_UUID;
-if (config.STATE_TODO_UUID) STATE_MAP["todo"] = config.STATE_TODO_UUID;
-if (config.STATE_IN_PROGRESS_UUID) STATE_MAP["in_progress"] = config.STATE_IN_PROGRESS_UUID;
-if (config.STATE_DONE_UUID) STATE_MAP["done"] = config.STATE_DONE_UUID;
-if (config.STATE_CANCELLED_UUID) STATE_MAP["cancelled"] = config.STATE_CANCELLED_UUID;
+const STATE_MAP = buildStateMap(config);
+const ESTIMATE_REVERSE = buildEstimateReverse(config);
 
-// Estimate value → UUID
-const ESTIMATE_REVERSE = {};
-if (config.ESTIMATE_1_UUID) ESTIMATE_REVERSE["1"] = config.ESTIMATE_1_UUID;
-if (config.ESTIMATE_2_UUID) ESTIMATE_REVERSE["2"] = config.ESTIMATE_2_UUID;
-if (config.ESTIMATE_3_UUID) ESTIMATE_REVERSE["3"] = config.ESTIMATE_3_UUID;
-if (config.ESTIMATE_5_UUID) ESTIMATE_REVERSE["5"] = config.ESTIMATE_5_UUID;
-if (config.ESTIMATE_8_UUID) ESTIMATE_REVERSE["8"] = config.ESTIMATE_8_UUID;
-if (config.ESTIMATE_13_UUID) ESTIMATE_REVERSE["13"] = config.ESTIMATE_13_UUID;
-
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
-// --- Parse IDENT-N or bare number ---
-function parseId(arg) {
-  if (!arg) return null;
-  const match = arg.match(/(?:\w+-)?(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
+// --- Resolve identifier to UUID ---
+async function resolveToUuid(wsBase, headers, identArg) {
+  const input = parseIdentifier(identArg);
+  if (!input) throw new Error(`Invalid identifier: ${identArg}`);
+  if (input.type === "uuid") return input.value;
+  const r = await fetch(`${wsBase}/work-items/${IDENTIFIER}-${input.value}/`, { headers });
+  if (r.status !== 200) throw new Error(`Cannot resolve ${IDENTIFIER}-${input.value}: HTTP ${r.status}`);
+  const data = await r.json();
+  return data.id;
 }
 
 // --- Parse CLI args ---
 function parseArgs(args) {
-  const opts = { seqId: null, desc: false, state: null, priority: null, estimate: null };
-  opts.seqId = parseId(args[0]);
+  const opts = {
+    input: null, desc: false, state: null, priority: null, estimate: null,
+    name: null, parent: null, assignees: null, start: null, due: null,
+    labels: null, addToCycle: null, addToModule: null,
+  };
+  opts.input = parseIdentifier(args[0]);
   let i = 1;
   while (i < args.length) {
     const flag = args[i++];
@@ -97,6 +86,22 @@ function parseArgs(args) {
       opts.priority = args[i++].toLowerCase();
     } else if (flag === "--estimate" && i < args.length) {
       opts.estimate = args[i++];
+    } else if (flag === "--name" && i < args.length) {
+      opts.name = args[i++];
+    } else if (flag === "--parent" && i < args.length) {
+      opts.parent = args[i++];
+    } else if (flag === "--assignees" && i < args.length) {
+      opts.assignees = args[i++].split(",").map(s => s.trim()).filter(Boolean);
+    } else if (flag === "--start" && i < args.length) {
+      opts.start = args[i++];
+    } else if (flag === "--due" && i < args.length) {
+      opts.due = args[i++];
+    } else if (flag === "--labels" && i < args.length) {
+      opts.labels = args[i++].split(",").map(s => s.trim()).filter(Boolean);
+    } else if (flag === "--add-to-cycle" && i < args.length) {
+      opts.addToCycle = args[i++];
+    } else if (flag === "--add-to-module" && i < args.length) {
+      opts.addToModule = args[i++];
     } else {
       console.error(`Unknown flag: ${flag}`);
       process.exit(1);
@@ -105,43 +110,62 @@ function parseArgs(args) {
   return opts;
 }
 
+function hasAnyFlag(opts) {
+  return opts.desc || opts.state || opts.priority || opts.estimate ||
+    opts.name || opts.parent || opts.assignees || opts.start || opts.due ||
+    opts.labels || opts.addToCycle || opts.addToModule;
+}
+
 function printUsage() {
-  console.error(`Usage: node scripts/plane-item-update.js <${IDENTIFIER}-N> <flags>`);
+  console.error(`Usage: node scripts/plane-item-update.js <${IDENTIFIER}-N|uuid> <flags>`);
   console.error("");
-  console.error("Flags:");
-  console.error("  --desc              Push description from temp file");
-  console.error("  --state <name>      " + Object.keys(STATE_MAP).join(", "));
-  console.error("  --priority <name>   urgent, high, medium, low, none");
-  console.error("  --estimate <value>  " + Object.keys(ESTIMATE_REVERSE).join(", "));
+  console.error("PATCH flags (update fields):");
+  console.error("  --desc                  Push description from temp file");
+  console.error("  --state <name>          " + Object.keys(STATE_MAP).join(", "));
+  console.error("  --priority <name>       urgent, high, medium, low, none");
+  console.error("  --estimate <value>      " + Object.keys(ESTIMATE_REVERSE).join(", "));
+  console.error("  --name <text>           Set name/title");
+  console.error(`  --parent <${IDENTIFIER}-N>     Set parent work item`);
+  console.error("  --assignees <uuids>     Comma-separated assignee UUIDs");
+  console.error("  --start <YYYY-MM-DD>    Set start date");
+  console.error("  --due <YYYY-MM-DD>      Set due date");
+  console.error("  --labels <uuids>        Comma-separated label UUIDs");
+  console.error("");
+  console.error("POST flags (add to cycle/module):");
+  console.error("  --add-to-cycle <uuid>   Add to cycle");
+  console.error("  --add-to-module <uuid>  Add to module");
 }
 
 // --- Main ---
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const opts = parseArgs(cliArgs);
 
-  if (!opts.seqId) {
+  if (!opts.input) {
     printUsage();
     process.exit(1);
   }
 
-  if (!opts.desc && !opts.state && !opts.priority && !opts.estimate) {
+  if (!hasAnyFlag(opts)) {
     console.error("Error: must specify at least one flag.");
     printUsage();
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const seqId = opts.seqId;
-  const wsBase = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}`;
+  const input = opts.input;
+  const wsBase = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}`;
+  const projBase = `${wsBase}/projects/${PROJECT_ID}`;
+  const headers = { "X-API-Key": config.PLANE_API_KEY };
 
-  // Resolve identifier → UUID
-  console.log(`Resolving ${IDENTIFIER}-${seqId}...`);
-  const getRes = await fetch(`${wsBase}/work-items/${IDENTIFIER}-${seqId}/`, {
-    headers: { "X-API-Key": env.PLANE_API_KEY },
-  });
+  // Resolve identifier → item (UUID uses project-level, SPARK-N uses workspace-level)
+  const label = input.type === "uuid" ? input.value.slice(0, 8) + "..." : `${IDENTIFIER}-${input.value}`;
+  console.log(`Resolving ${label}...`);
+  const getUrl = input.type === "uuid"
+    ? `${projBase}/work-items/${input.value}/`
+    : `${wsBase}/work-items/${IDENTIFIER}-${input.value}/`;
+  const getRes = await fetch(getUrl, { headers });
 
   if (getRes.status !== 200) {
-    console.error(`${IDENTIFIER}-${seqId}: HTTP ${getRes.status}`);
+    console.error(`${label}: HTTP ${getRes.status}`);
     if (getRes.status === 404) {
       console.error("Not found — for intake items use plane-intake-update.js instead.");
     }
@@ -149,10 +173,12 @@ async function main() {
   }
 
   const item = await getRes.json();
+  const seqId = item.sequence_id;
   console.log(`Item: ${item.name}`);
 
   // Build PATCH body
   const body = {};
+  let hasPatch = false;
 
   if (opts.desc) {
     const tempFile = path.join(__dirname, "..", "temp", "plane", `${IDENTIFIER}-${seqId}.html`);
@@ -163,6 +189,7 @@ async function main() {
     }
     body.description_html = fs.readFileSync(tempFile, "utf-8");
     console.log(`  description: ${body.description_html.length} chars`);
+    hasPatch = true;
   }
 
   if (opts.state) {
@@ -173,6 +200,7 @@ async function main() {
     }
     body.state = uuid;
     console.log(`  state: ${opts.state}`);
+    hasPatch = true;
   }
 
   if (opts.priority) {
@@ -183,6 +211,7 @@ async function main() {
     }
     body.priority = opts.priority;
     console.log(`  priority: ${opts.priority}`);
+    hasPatch = true;
   }
 
   if (opts.estimate) {
@@ -193,23 +222,89 @@ async function main() {
     }
     body.estimate_point = uuid;
     console.log(`  estimate: ${opts.estimate} pts`);
+    hasPatch = true;
+  }
+
+  if (opts.name) {
+    body.name = opts.name;
+    console.log(`  name: ${opts.name}`);
+    hasPatch = true;
+  }
+
+  if (opts.parent) {
+    body.parent = await resolveToUuid(wsBase, headers, opts.parent);
+    console.log(`  parent: ${body.parent}`);
+    hasPatch = true;
+  }
+
+  if (opts.assignees) {
+    body.assignees = opts.assignees;
+    console.log(`  assignees: ${opts.assignees.join(", ")}`);
+    hasPatch = true;
+  }
+
+  if (opts.start) {
+    body.start_date = opts.start;
+    console.log(`  start: ${opts.start}`);
+    hasPatch = true;
+  }
+
+  if (opts.due) {
+    body.target_date = opts.due;
+    console.log(`  due: ${opts.due}`);
+    hasPatch = true;
+  }
+
+  if (opts.labels) {
+    body.labels = opts.labels;
+    console.log(`  labels: ${opts.labels.join(", ")}`);
+    hasPatch = true;
   }
 
   // PATCH via project-level endpoint
-  const projBase = `${wsBase}/projects/${PROJECT_ID}`;
-  const patchRes = await fetch(`${projBase}/work-items/${item.id}/`, {
-    method: "PATCH",
-    headers: {
-      "X-API-Key": env.PLANE_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  if (hasPatch) {
+    const patchRes = await fetch(`${projBase}/work-items/${item.id}/`, {
+      method: "PATCH",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-  if (patchRes.status !== 200) {
-    const text = await patchRes.text();
-    console.error(`PATCH failed: HTTP ${patchRes.status}\n${text}`);
-    process.exit(1);
+    if (patchRes.status !== 200) {
+      const text = await patchRes.text();
+      console.error(`PATCH failed: HTTP ${patchRes.status}\n${text}`);
+      process.exit(1);
+    }
+    console.log(`  PATCH: OK`);
+  }
+
+  // Add to cycle (POST)
+  if (opts.addToCycle) {
+    const cycleRes = await fetch(`${projBase}/cycles/${opts.addToCycle}/cycle-issues/`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ issues: [item.id] }),
+    });
+    if (cycleRes.status !== 200 && cycleRes.status !== 201) {
+      const text = await cycleRes.text();
+      console.error(`Add to cycle failed: HTTP ${cycleRes.status}\n${text}`);
+      process.exit(1);
+    }
+    console.log(`  add-to-cycle: ${opts.addToCycle}`);
+  }
+
+  // Add to module (POST)
+  if (opts.addToModule) {
+    const modRes = await fetch(`${projBase}/modules/${opts.addToModule}/module-issues/`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ issues: [item.id] }),
+    });
+    if (modRes.status !== 200 && modRes.status !== 201) {
+      const text = await modRes.text();
+      console.error(`Add to module failed: HTTP ${modRes.status}\n${text}`);
+      process.exit(1);
+    }
+    console.log(`  add-to-module: ${opts.addToModule}`);
   }
 
   console.log(`\nUpdated ${IDENTIFIER}-${seqId}`);

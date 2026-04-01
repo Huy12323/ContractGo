@@ -5,11 +5,11 @@ description: Technical scoping — read codebase, add technical context to an in
 
 # Triage Command
 
-**Engineer role.** Read the codebase to assess an intake item's technical impact and add codebase context to its description. This prepares the item for the manager's `/pm` ACCEPT decision.
+**PM or Engineer role.** Read the codebase to produce a preliminary assessment of an intake item's technical impact and add codebase context to its description. This gives the manager a starting direction for the `/pm` ACCEPT routing decision — it is not a binding plan.
 
 Always load `po` skill via `Skill("po")`.
 
-**Pipeline:** `/intake` (PA creates item) → **`/triage`** (engineer scopes) → `/pm` ACCEPT (manager routes)
+**Pipeline:** `/intake` (PA creates item) → **`/triage`** (PM or engineer scopes) → `/pm` ACCEPT (manager routes)
 
 ---
 
@@ -93,7 +93,7 @@ awk 'FNR<=10 && /^(name|description):/' .claude/skills/*/SKILL.md
 
 ## Step 5: Present Findings
 
-Present the technical assessment to the user:
+Present the preliminary technical assessment to the user. This is the agent's best guess at what's involved — modules, files, and complexity may shift during actual implementation.
 
 ```
 Triage Assessment: [intake item title]
@@ -116,30 +116,17 @@ Recommendation: [simple fix / new feature / needs breakdown / needs discussion]
 
 Append the Technical Context section to the intake item's description.
 
-> **API note:** Pending intake items (status -2) are NOT accessible via GET `/work-items/` — `retrieve_work_item` returns 404. However, PATCH `/work-items/{id}/` works for both regular and intake items. The script uses this.
->
-> For MCP fallback: `update_intake_work_item` takes a `data` parameter (not `params`) with description nested under `issue`: `data: {"issue": {"name": "<name>", "description_html": "<html>"}}`. The `name` field is required. Passing `description_html` at the top level of `data` is silently ignored.
+### Pull → Edit → Push
 
-### Preferred: Script Approach
+Use the intake get/update scripts — same pattern as all other description edits:
 
-Write the Technical Context as an HTML file, then run the append script. This safely merges the new section into the existing description without regenerating the full body.
+1. Pull the current description: `node scripts/plane-intake-get.js <IDENTIFIER-N>`
+   - Saves description to `temp/plane/<IDENTIFIER-N>.html`
+2. Read the HTML file with the Read tool
+3. Edit the file with the Edit tool — replace the Technical Context placeholder with the full section (see format below)
+4. Push the updated description: `node scripts/plane-intake-update.js <IDENTIFIER-N> --desc`
 
-1. Write the Technical Context HTML to a temp file (e.g., `tech-context.html`)
-2. Run: `node scripts/plane-desc-append.js <issue-uuid> tech-context.html`
-3. The script reads the current description via the intake endpoint, finds the Technical Context placeholder (or appends after `<hr>`), and PATCHes the updated description.
-
-### Fallback: MCP Approach
-
-If the script is not available:
-
-1. Load MCP tool: `ToolSearch("select:mcp__{PLANE_MCP_SERVER}__update_intake_work_item")`
-2. Retrieve the **full current description** from Step 1 (from `issue_detail.description_html`)
-3. Concatenate existing description + new Technical Context section
-4. Call `update_intake_work_item` with the `issue` UUID and data structured as:
-   ```json
-   {"issue": {"name": "<item name>", "description_html": "<combined html>"}}
-   ```
-5. **Do NOT regenerate or rephrase existing content** — copy it verbatim and only append the new section
+**Do NOT regenerate or rephrase existing content** — only replace the placeholder section.
 
 ### Technical Context Format
 
@@ -199,16 +186,35 @@ When triaging multiple intake items:
 
 ---
 
+## Re-Triaging Existing Items
+
+When `/triage` is run on an intake item that already has a Technical Context section, it performs an **additive update** rather than a fresh triage:
+
+1. Read the existing Technical Context
+2. Research the codebase for the NEW scope (additional modules, changed files, etc.)
+3. Present findings — clearly distinguish new findings from existing assessment
+4. On confirmation, **append** to the Technical Context section (new Affected Areas, new Related Modules, updated Technical Notes)
+5. Do NOT overwrite or regenerate the existing assessment — add to it
+
+**When to use re-triage:**
+- New modules are now involved that weren't in the original triage
+- Scope has expanded and technical context needs updating
+- Running before `/pm improve` to give the PM updated technical grounding
+- After `/intake <existing-id>` appended new business context that changes technical scope
+
+---
+
 ## Critical Rules
 
 1. **ALWAYS research the codebase** — this is the whole point. The PA couldn't do this.
 2. **Confirm understanding** before researching — make sure you know what's being asked
 3. **Confirm assessment** before updating — user validates the technical findings
 4. **Preserve Intake Context** — never overwrite Section 1
-5. **Check for existing work** — avoid duplicate effort
-6. **Load project skills** — use codebase conventions to assess properly
-7. **No implementation** — this is scoping only, not planning or coding
+5. **Preserve existing Technical Context** — on re-triage, append new findings; never regenerate
+6. **Check for existing work** — avoid duplicate effort
+7. **Load project skills** — use codebase conventions to assess properly
+8. **No implementation** — this is scoping only, not planning or coding
 
 ---
 
-<!-- Command version: 1.6 — Script-first: prefer plane-desc-append.js and plane-intake-update.js over MCP -->
+<!-- Command version: 1.8 — Added re-triage support for existing items (additive technical context updates) -->

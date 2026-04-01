@@ -12,62 +12,33 @@
  *   node scripts/plane-cycle-items.js 2026/09      → specific cycle
  *
  * Requires: .env with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL
- * Requires: project-config.json with PROJECT_ID, DONE state UUID, estimate UUIDs
+ * Requires: config.json with PROJECT_ID, DONE state UUID, estimate UUIDs
  */
 
 const fs = require("fs");
 const path = require("path");
+const { loadConfig, parseFlags, buildEstimateMap } = require("./lib/config");
+const { fetchCycleItems } = require("./lib/plane-api");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const DONE_STATE = config.STATE_DONE_UUID;
 
-// Estimate point UUID → Fibonacci value
-const ESTIMATE_MAP = {};
-if (config.ESTIMATE_1_UUID) ESTIMATE_MAP[config.ESTIMATE_1_UUID] = 1;
-if (config.ESTIMATE_2_UUID) ESTIMATE_MAP[config.ESTIMATE_2_UUID] = 2;
-if (config.ESTIMATE_3_UUID) ESTIMATE_MAP[config.ESTIMATE_3_UUID] = 3;
-if (config.ESTIMATE_5_UUID) ESTIMATE_MAP[config.ESTIMATE_5_UUID] = 5;
-if (config.ESTIMATE_8_UUID) ESTIMATE_MAP[config.ESTIMATE_8_UUID] = 8;
-if (config.ESTIMATE_13_UUID) ESTIMATE_MAP[config.ESTIMATE_13_UUID] = 13;
+const ESTIMATE_MAP = buildEstimateMap(config);
 
 function estimateValue(uuid) {
   return ESTIMATE_MAP[uuid] || 0;
 }
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
 // --- API helper ---
-function createApi(env) {
-  const base = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
+function createApi() {
+  const base = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
   return async (endpoint) => {
     const url = `${base}${endpoint}`;
     const res = await fetch(url, {
-      headers: { "X-API-Key": env.PLANE_API_KEY },
+      headers: { "X-API-Key": config.PLANE_API_KEY },
     });
     if (res.status !== 200) {
       throw new Error(`API ${res.status}: ${url}`);
@@ -102,21 +73,19 @@ function extractOriginalEstimate(html) {
   return match ? parseInt(match[1], 10) : null;
 }
 
-// --- Parse module and version from tier 1 name ---
+// --- Parse module and version from tier 1 name: [vX.Y.Z | Module] Title ---
 function parseTier1Name(name) {
-  const match = name.match(/^\[(.+?)\s*\|\s*(v[\d.]+)\]$/);
-  if (match) return { module: match[1].trim(), version: match[2] };
+  const match = name.match(/^\[(v[\d.]+)\s*\|\s*(.+?)\]/);
+  if (match) return { module: match[2].trim(), version: match[1] };
   return { module: name, version: "unknown" };
 }
 
 // --- Main ---
 async function main() {
-  const args = process.argv.slice(2);
   const cycleName =
-    args.find((a) => a.match(/^\d{4}\/\d{2}$/)) || currentWeekName();
+    cliArgs.find((a) => a.match(/^\d{4}\/\d{2}$/)) || currentWeekName();
 
-  const env = loadEnv();
-  const api = createApi(env);
+  const api = createApi();
 
   // 1. Find cycle
   console.log(`Looking for cycle: ${cycleName}`);
@@ -137,9 +106,10 @@ async function main() {
     `Found: ${cycle.name} (${cycle.completed_issues} done of ${cycle.total_issues} total)`
   );
 
-  // 2. Fetch all cycle items
-  const data = await api(`/cycles/${cycle.id}/cycle-issues/`);
-  const allItems = data.results || data;
+  // 2. Fetch all cycle items (paginated)
+  const projBase = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
+  const headers = { "X-API-Key": config.PLANE_API_KEY };
+  const allItems = await fetchCycleItems(projBase, headers, cycle.id);
 
   // 3. Filter to Done items only
   const doneItems = allItems.filter((i) => i.state === DONE_STATE);
@@ -280,7 +250,7 @@ async function main() {
         lines.push(`- Version doc: ${outlineLink}`);
       }
       lines.push(
-        `- Plane: ${env.PLANE_BASE_URL}/${env.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}/work-items/${item.id}/`
+        `- Plane: ${config.PLANE_BASE_URL}/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}/work-items/${item.id}/`
       );
       lines.push("");
 

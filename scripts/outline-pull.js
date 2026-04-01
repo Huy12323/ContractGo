@@ -15,48 +15,33 @@
  *
  * Output: temp/outline/<uuid>.md
  *
- * Aliases are resolved from project-config.json (Outline doc IDs).
+ * Aliases are resolved from config.json (Outline doc IDs).
  * Env required: OUTLINE_API_KEY, OUTLINE_API_URL in root .env
  */
 
 const fs = require("fs");
 const path = require("path");
+const { loadConfig, parseFlags } = require("./lib/config");
 
-// --- Load aliases from project-config.json ---
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
+
+// --- Build aliases from config ---
 function loadAliases() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) return {};
-
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    const aliases = {};
-    if (config.OUTLINE_SPECIFICATIONS_DOC_ID) {
-      aliases.bible = config.OUTLINE_SPECIFICATIONS_DOC_ID;
-      aliases.specs = config.OUTLINE_SPECIFICATIONS_DOC_ID;
-      aliases.specifications = config.OUTLINE_SPECIFICATIONS_DOC_ID;
-    }
-    if (config.OUTLINE_VERSIONS_DOC_ID) {
-      aliases.versions = config.OUTLINE_VERSIONS_DOC_ID;
-    }
-    if (config.OUTLINE_CYCLES_DOC_ID) {
-      aliases.cycles = config.OUTLINE_CYCLES_DOC_ID;
-    }
-    return aliases;
-  } catch {
-    return {};
+  const aliases = {};
+  if (config.OUTLINE_SPECIFICATIONS_DOC_ID) {
+    aliases.bible = config.OUTLINE_SPECIFICATIONS_DOC_ID;
+    aliases.specs = config.OUTLINE_SPECIFICATIONS_DOC_ID;
+    aliases.specifications = config.OUTLINE_SPECIFICATIONS_DOC_ID;
   }
-}
-
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
+  if (config.OUTLINE_VERSIONS_DOC_ID) {
+    aliases.versions = config.OUTLINE_VERSIONS_DOC_ID;
   }
-  return env;
+  if (config.OUTLINE_CYCLES_DOC_ID) {
+    aliases.cycles = config.OUTLINE_CYCLES_DOC_ID;
+  }
+  return aliases;
 }
 
 // --- Parse input to document ID ---
@@ -81,10 +66,10 @@ function parseInput(input, aliases) {
 
 // --- Main ---
 async function main() {
-  const input = process.argv[2];
+  const input = cliArgs[0];
 
   if (!input) {
-    console.error("Usage: node scripts/outline-pull.js <doc-id|url|alias>");
+    console.error("Usage: node scripts/outline-pull.js [--project <label>] <doc-id|url|alias>");
     console.error("");
     console.error("Aliases: bible, versions, cycles");
     process.exit(1);
@@ -97,9 +82,8 @@ async function main() {
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const apiUrl = env.OUTLINE_API_URL;
-  const apiKey = env.OUTLINE_API_KEY;
+  const apiUrl = config.OUTLINE_API_URL;
+  const apiKey = config.OUTLINE_API_KEY;
 
   if (!apiUrl || !apiKey) {
     console.error("Missing OUTLINE_API_URL or OUTLINE_API_KEY in .env");

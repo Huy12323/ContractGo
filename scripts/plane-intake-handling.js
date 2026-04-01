@@ -23,59 +23,37 @@
  *
  * Tracking section format (Plane-rendered HTML):
  *   ## Tracking
- *   - [ ] [Production: Script | v3.7.0](plane_url) SPARK-1217
- *   - [x] [Scripts | v3.7.0](plane_url) SPARK-1218
+ *   - [ ] [v3.7.0 | Production: Script](plane_url) SPARK-1217
+ *   - [x] [v3.7.0 | Scripts](plane_url) SPARK-1218
  *
  * The section is placed BEFORE any existing content (Intake Context, Technical Context).
  * When all checkboxes are ticked, the script outputs "All complete".
  *
  * Requires: .env with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL
- * Requires: project-config.json with PROJECT_ID
+ * Requires: config.json with PROJECT_ID
  */
 
 const fs = require("fs");
 const path = require("path");
+const { parseIdentifier } = require("./lib/plane-parse-id");
+const { loadConfig, parseFlags } = require("./lib/config");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const IDENTIFIER = config.PLANE_PROJECT_IDENTIFIER || "ITEM";
 const BASE_URL = config.PLANE_BASE_URL;
 const WORKSPACE_SLUG = config.PLANE_WORKSPACE_SLUG;
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
 // --- API helpers ---
-function createApi(env) {
-  const base = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
+function createApi() {
+  const base = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
   return {
     async get(endpoint) {
       const url = `${base}${endpoint}`;
       const res = await fetch(url, {
-        headers: { "X-API-Key": env.PLANE_API_KEY },
+        headers: { "X-API-Key": config.PLANE_API_KEY },
       });
       return { status: res.status, data: res.status === 200 ? await res.json() : null };
     },
@@ -84,7 +62,7 @@ function createApi(env) {
       const res = await fetch(url, {
         method: "PATCH",
         headers: {
-          "X-API-Key": env.PLANE_API_KEY,
+          "X-API-Key": config.PLANE_API_KEY,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -98,16 +76,25 @@ function createApi(env) {
   };
 }
 
-// --- Parse PROJ-N or bare number → sequence_id ---
-function parseId(arg) {
-  if (!arg) return null;
-  const match = arg.match(/(?:\w+-)?(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-// --- Resolve sequence_id → { id, sequence_id, name, description_html } ---
-async function resolveItem(api, seqId) {
-  // Try work-items list
+// --- Resolve parsed input → { id, sequence_id, name, description_html } ---
+async function resolveItem(api, input) {
+  // UUID: try direct project-level lookup first
+  if (input.type === "uuid") {
+    const result = await api.get(`/work-items/${input.value}/`);
+    if (result.status === 200 && result.data) return result.data;
+    // Fallback: search intake items by work item UUID
+    const intakeResult = await api.get(`/intake-issues/`);
+    if (intakeResult.status === 200) {
+      const items = intakeResult.data.results || intakeResult.data;
+      const intake = items.find((i) => i.issue_detail && i.issue_detail.id === input.value);
+      if (intake) {
+        return { ...intake.issue_detail, _intakeWrapperId: intake.id, _isIntake: true };
+      }
+    }
+    throw new Error(`UUID ${input.value} not found`);
+  }
+  // Sequence: try work-items list
+  const seqId = input.value;
   const result = await api.get(`/work-items/`);
   if (result.status === 200) {
     const items = result.data.results || result.data;
@@ -122,11 +109,7 @@ async function resolveItem(api, seqId) {
       (i) => i.issue_detail && i.issue_detail.sequence_id === seqId
     );
     if (intake) {
-      return {
-        ...intake.issue_detail,
-        _intakeWrapperId: intake.id,
-        _isIntake: true,
-      };
+      return { ...intake.issue_detail, _intakeWrapperId: intake.id, _isIntake: true };
     }
   }
   throw new Error(`${IDENTIFIER}-${seqId} not found`);
@@ -226,13 +209,13 @@ function reportStatus(lines) {
 // ============================================================
 // MODE: add
 // ============================================================
-async function modeAdd(api, intakeItem, t1SeqIds) {
+async function modeAdd(api, intakeItem, t1Inputs) {
   const desc = intakeItem.description_html || "";
 
   // Resolve each T1 to get name and UUID
   const t1Infos = [];
-  for (const seqId of t1SeqIds) {
-    const t1 = await resolveItem(api, seqId);
+  for (const input of t1Inputs) {
+    const t1 = await resolveItem(api, input);
     t1Infos.push({
       sparkId: `${IDENTIFIER}-${t1.sequence_id}`,
       name: t1.name,
@@ -293,9 +276,17 @@ async function modeAdd(api, intakeItem, t1SeqIds) {
 // ============================================================
 // MODE: tick
 // ============================================================
-async function modeTick(api, intakeItem, t1SeqId) {
+async function modeTick(api, intakeItem, t1Input) {
   const desc = intakeItem.description_html || "";
-  const sparkId = `${IDENTIFIER}-${t1SeqId}`;
+  // For tick, we need the SPARK-N identifier to match in the tracking section
+  // If UUID was passed, resolve it first to get the sequence_id
+  let sparkId;
+  if (t1Input.type === "uuid") {
+    const t1 = await resolveItem(api, t1Input);
+    sparkId = `${IDENTIFIER}-${t1.sequence_id}`;
+  } else {
+    sparkId = `${IDENTIFIER}-${t1Input.value}`;
+  }
 
   const existing = findTrackingSection(desc);
   if (!existing) {
@@ -353,54 +344,52 @@ function modeStatus(intakeItem) {
 // MAIN
 // ============================================================
 async function main() {
-  const args = process.argv.slice(2);
-
-  if (args.length < 2) {
+  if (cliArgs.length < 2) {
     console.error(`Usage:`);
-    console.error(`  node scripts/plane-intake-handling.js <${IDENTIFIER}-N> add <${IDENTIFIER}-N> [<${IDENTIFIER}-N> ...]`);
-    console.error(`  node scripts/plane-intake-handling.js <${IDENTIFIER}-N> tick <${IDENTIFIER}-N>`);
-    console.error(`  node scripts/plane-intake-handling.js <${IDENTIFIER}-N> status`);
+    console.error(`  node scripts/plane-intake-handling.js [--project <label>] <${IDENTIFIER}-N|uuid> add <${IDENTIFIER}-N|uuid> [...]`);
+    console.error(`  node scripts/plane-intake-handling.js [--project <label>] <${IDENTIFIER}-N|uuid> tick <${IDENTIFIER}-N|uuid>`);
+    console.error(`  node scripts/plane-intake-handling.js [--project <label>] <${IDENTIFIER}-N|uuid> status`);
     process.exit(1);
   }
 
-  const intakeSeqId = parseId(args[0]);
-  const mode = args[1];
+  const intakeInput = parseIdentifier(cliArgs[0]);
+  const mode = cliArgs[1];
 
-  if (!intakeSeqId) {
+  if (!intakeInput) {
     console.error(`Invalid intake identifier: ${args[0]}`);
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const api = createApi(env);
+  const api = createApi();
 
-  console.log(`Resolving intake ${IDENTIFIER}-${intakeSeqId}...`);
-  const intakeItem = await resolveItem(api, intakeSeqId);
+  const intakeLabel = intakeInput.type === "uuid" ? intakeInput.value.slice(0, 8) + "..." : `${IDENTIFIER}-${intakeInput.value}`;
+  console.log(`Resolving intake ${intakeLabel}...`);
+  const intakeItem = await resolveItem(api, intakeInput);
   console.log(`Intake: ${intakeItem.name}`);
 
   switch (mode) {
     case "add": {
-      const t1Args = args.slice(2);
+      const t1Args = cliArgs.slice(2);
       if (t1Args.length === 0) {
         console.error("add mode requires at least one T1 identifier.");
         process.exit(1);
       }
-      const t1SeqIds = t1Args.map((a) => {
-        const id = parseId(a);
-        if (!id) { console.error(`Invalid T1 identifier: ${a}`); process.exit(1); }
-        return id;
+      const t1Inputs = t1Args.map((a) => {
+        const input = parseIdentifier(a);
+        if (!input) { console.error(`Invalid T1 identifier: ${a}`); process.exit(1); }
+        return input;
       });
-      await modeAdd(api, intakeItem, t1SeqIds);
+      await modeAdd(api, intakeItem, t1Inputs);
       break;
     }
     case "tick": {
-      if (!args[2]) {
+      if (!cliArgs[2]) {
         console.error("tick mode requires a T1 identifier.");
         process.exit(1);
       }
-      const t1SeqId = parseId(args[2]);
-      if (!t1SeqId) { console.error(`Invalid T1 identifier: ${args[2]}`); process.exit(1); }
-      const result = await modeTick(api, intakeItem, t1SeqId);
+      const t1Input = parseIdentifier(cliArgs[2]);
+      if (!t1Input) { console.error(`Invalid T1 identifier: ${args[2]}`); process.exit(1); }
+      const result = await modeTick(api, intakeItem, t1Input);
       // Exit code 0 = all complete, 1 = not all complete (for scripting)
       if (result && result.allComplete) process.exit(0);
       break;

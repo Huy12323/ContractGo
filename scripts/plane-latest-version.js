@@ -12,32 +12,17 @@
  *   node scripts/plane-latest-version.js --all       → prints all versions with state
  *
  * Requires: .env with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL
- * Requires: project-config.json with PROJECT_ID, state UUIDs
+ * Requires: config.json with PROJECT_ID, state UUIDs
  */
 
-const fs = require("fs");
-const path = require("path");
+const { loadConfig, parseFlags, buildStateNames } = require("./lib/config");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 
-const STATE_NAMES = {};
-if (config.STATE_BACKLOG_UUID) STATE_NAMES[config.STATE_BACKLOG_UUID] = "Backlog";
-if (config.STATE_TODO_UUID) STATE_NAMES[config.STATE_TODO_UUID] = "Todo";
-if (config.STATE_IN_PROGRESS_UUID) STATE_NAMES[config.STATE_IN_PROGRESS_UUID] = "In Progress";
-if (config.STATE_DONE_UUID) STATE_NAMES[config.STATE_DONE_UUID] = "Done";
-if (config.STATE_CANCELLED_UUID) STATE_NAMES[config.STATE_CANCELLED_UUID] = "Cancelled";
-
+const STATE_NAMES = buildStateNames(config);
 const DONE_STATE = config.STATE_DONE_UUID;
 const CANCELLED_STATE = config.STATE_CANCELLED_UUID;
 
@@ -45,29 +30,13 @@ function stateName(uuid) {
   return STATE_NAMES[uuid] || "Unknown";
 }
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
 // --- API helper ---
-function createApi(env) {
-  const base = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
+function createApi() {
+  const base = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
   return async (endpoint) => {
     const url = `${base}${endpoint}`;
     const res = await fetch(url, {
-      headers: { "X-API-Key": env.PLANE_API_KEY },
+      headers: { "X-API-Key": config.PLANE_API_KEY },
     });
     if (res.status !== 200) {
       throw new Error(`API ${res.status}: ${url}`);
@@ -76,9 +45,9 @@ function createApi(env) {
   };
 }
 
-// --- Parse version from tier 1 title: [Module | vX.Y.Z] ---
+// --- Parse version from tier 1 title: [vX.Y.Z | Module] Title ---
 function parseVersion(title) {
-  const match = title.match(/\|\s*(v(\d+)\.(\d+)\.(\d+))\s*\]/);
+  const match = title.match(/^\[\s*(v(\d+)\.(\d+)\.(\d+))\s*\|/);
   if (!match) return null;
   return {
     raw: match[1],
@@ -90,7 +59,7 @@ function parseVersion(title) {
 
 // --- Parse module name from tier 1 title ---
 function parseModuleName(title) {
-  const match = title.match(/^\[(.+?)\s*\|/);
+  const match = title.match(/\|\s*(.+?)\s*\]/);
   return match ? match[1].trim() : title;
 }
 
@@ -103,11 +72,9 @@ function compareSemver(a, b) {
 
 // --- Main ---
 async function main() {
-  const args = process.argv.slice(2);
-  const showAll = args.includes("--all");
+  const showAll = cliArgs.includes("--all");
 
-  const env = loadEnv();
-  const api = createApi(env);
+  const api = createApi();
 
   // Fetch all work items
   const data = await api("/work-items/");

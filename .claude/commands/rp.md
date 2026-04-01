@@ -34,15 +34,16 @@ Read the output file `cycles/YYYY-WW/cycle-report-data.md` to get the structured
 
 ---
 
-## Step 2: Read Outline Spec Docs
+## Step 2: Read Outline Spec + Version Docs
 
 For each **Done tier 1 item** that has real work (not baseline-only):
 
-1. Identify the module name from the tier 1 title: `[Module | version]`
+1. Identify the module name from the tier 1 title: `[version | Module] Title`
 2. Find the spec doc under `Specifications/` in Outline (use `search_documents`)
 3. Read the spec doc → extract:
-   - **Non-Technical Description** → stakeholder section content
-   - **Technical Implementation** → technical section content
+    - **Non-Technical Description** → stakeholder section content
+    - **Technical Implementation** → technical section content
+4. **Read the version doc** under `Versions/[vX.Y.Z]/[Module]` → extract per-T2 `### Media` sections. These contain Outline attachment URLs (screenshots and recordings) uploaded during `/pp`. Collect the markdown embeds keyed by T2 feature name for use in Step 3.
 
 **Baseline modules** (catch-up with 0 tier 2 items): group into a brief summary, do not read individual spec docs.
 
@@ -76,9 +77,9 @@ top modules by points. Past tense.]
 
 **Total: [N] points** ([version breakdown if multiple])
 
-| Module | Features | Points |
-|--------|----------|--------|
-| [Module] | [N] | [N] |
+| Module   | Features | Points |
+| -------- | -------- | ------ |
+| [Module] | [N]      | [N]    |
 
 ---
 
@@ -90,10 +91,18 @@ top modules by points. Past tense.]
 system does now.]
 
 **Features completed:**
-- [Tier 2 feature name] ([N] pts) *(originally [N] pts)* ← only if reassessed
-- [Tier 2 feature name] ([N] pts)
 
-[Repeat for each Done module with real work. Order by points descending.]
+- **[Tier 2 feature name]** ([N] pts) _(originally [N] pts)_ ← only if reassessed
+
+    [screenshot markdown from version doc Media section — reuse URL directly]
+
+    [recording markdown from version doc Media section — reuse URL directly]
+
+- **[Tier 2 feature name]** ([N] pts)
+
+[Repeat for each Done module with real work. Order by points descending.
+Include media embeds inline under each feature — the attachment URLs
+from the version doc work across any Outline doc without re-uploading.]
 
 ### [Version] Baseline — [N] modules
 
@@ -115,14 +124,14 @@ spec — already concise.]
 
 ## Cycle Statistics
 
-| Metric | Value |
-|--------|-------|
-| Modules completed | [N] |
-| Features completed | [N] |
-| Story points (final) | [N] |
-| Story points (original) | [N] |
-| Estimation accuracy | [N]% ← (original / final) × 100, only for reassessed items |
-| Versions | [list] |
+| Metric                  | Value                                                      |
+| ----------------------- | ---------------------------------------------------------- |
+| Modules completed       | [N]                                                        |
+| Features completed      | [N]                                                        |
+| Story points (final)    | [N]                                                        |
+| Story points (original) | [N]                                                        |
+| Estimation accuracy     | [N]% ← (original / final) × 100, only for reassessed items |
+| Versions                | [list]                                                     |
 ```
 
 ### Grouping Rules
@@ -145,14 +154,14 @@ spec — already concise.]
 ## Step 4: Publish to Outline
 
 1. Check if cycle doc already exists under `CYCLES_DOC_ID` (from `po` skill)
-   - Use `search_documents` to check
+    - Use `search_documents` to check
 2. If exists → `update_document` with new content
 3. If not → `create_document`:
-   - `title`: `YYYY/WW` (e.g., `2026/09`)
-   - `parent_document_id`: CYCLES_DOC_ID (from `po` skill)
-   - `collection_id`: COLLECTION_ID (from `po` skill)
-   - `text`: full report markdown
-   - `publish`: `true`
+    - `title`: `YYYY/WW` (e.g., `2026/09`)
+    - `parent_document_id`: CYCLES_DOC_ID (from `po` skill)
+    - `collection_id`: COLLECTION_ID (from `po` skill)
+    - `text`: full report markdown
+    - `publish`: `true`
 
 ---
 
@@ -165,9 +174,9 @@ Read the Cycles parent doc and append a row to the summary table:
 
 Cycle reports — weekly summaries of completed work.
 
-| Cycle | Period | Versions | Points | Modules | Features | Report |
-|-------|--------|----------|--------|---------|----------|--------|
-| YYYY/WW | Mon DD – Mon DD, YYYY | vX.Y.Z | [N] | [N] | [N] | [View](outline_link) |
+| Cycle   | Period                | Versions | Points | Modules | Features | Report               |
+| ------- | --------------------- | -------- | ------ | ------- | -------- | -------------------- |
+| YYYY/WW | Mon DD – Mon DD, YYYY | vX.Y.Z   | [N]    | [N]     | [N]      | [View](outline_link) |
 ```
 
 ---
@@ -191,7 +200,8 @@ Published: [outline_url]
 5. **Group minor work** — baselines and renames get grouped, not individual sections
 6. **No code cross-checking** — trust spec docs (already verified by `/pp`)
 7. **Idempotent** — running `/rp` twice for same cycle updates the existing doc
+8. **Media inline** — if version docs contain `### Media` sections with attachment URLs, include them inline under each feature in "What Was Delivered". Reuse the same Outline attachment URLs — no re-uploading needed
 
 ---
 
-<!-- Command version: 1.1 — Done-only, points tracking -->
+<!-- Command version: 1.2 — Media inline: pull attachment URLs from version docs into cycle reports -->

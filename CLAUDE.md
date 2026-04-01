@@ -1,11 +1,10 @@
-# WorldCraft
+# AIUR HR
 
 ## Tech Stack
 
 - **Frontend:** React 19, TanStack Router (file-based), TanStack Query v5, TanStack Store, Ant Design v5
 - **Backend:** Supabase (PostgreSQL + Auth + Edge Functions + Realtime)
 - **File Storage:** Cloudflare R2 (S3-compatible)
-- **Shared Types:** `@worldcraft/shared` — auto-generated from Supabase schema
 - **Monorepo:** pnpm workspaces + Turborepo
 - **Deployment:** Cloudflare Pages (web), Supabase Cloud (backend)
 
@@ -21,4 +20,4 @@
 ## PM Workflow
 
 This project uses the PM Bible. See `docs/pm.md` for the full workflow.
-Commands: `/pm`, `/p`, `/s`, `/pp`, `/rp`, `/triage`, `/gitpush`, `/bible-sync`.
+Commands: `/pm`, `/p`, `/s`, `/pp`, `/rp`, `/triage`, `/gitpush`, `/bible-sync`, `/load-skills`.

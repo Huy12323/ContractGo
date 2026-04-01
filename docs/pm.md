@@ -2,7 +2,7 @@
 
 Portable PM framework for AI-assisted development. Integrates **Plane** (task tracking) and **Outline** (documentation) through role-based commands.
 
-> **To apply this flow to a new codebase:** Copy `.claude/skills/po/`, `.claude/commands/{pm,p,pp,s,rp}.md`, `scripts/plane-cycle-items.js`, `docs/pm.md`, and set up MCP servers. Update the `po` skill with project-specific constants.
+> **To apply this flow to a new codebase:** Copy `.claude/skills/po/`, `.claude/commands/project/{pm,p,pp,s,rp}.md`, `scripts/plane-cycle-items.js`, `docs/pm.md`, and set up MCP servers. Update the `po` skill with project-specific constants.
 
 ---
 
@@ -19,8 +19,9 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 9. [Cycle Management](#cycle-management)
 10. [Cycle Reporting](#cycle-reporting)
 11. [Story Point Estimation](#story-point-estimation)
-12. [Module Naming](#module-naming)
-13. [MCP Setup](#mcp-setup)
+12. [Post-Completion Pipeline](#post-completion-pipeline)
+13. [Module Naming](#module-naming)
+14. [MCP Setup](#mcp-setup)
 
 ---
 
@@ -32,6 +33,7 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 | Engineer | `/p` | Break tier 2 into implementation phases (tier 3+4) locally |
 | Engineer | `/s` | Skills-aware task execution |
 | Engineer | `/pp` | Push tier 3+4 to Plane, auto-condense spec on Outline, mark tier 2 done |
+| PM | `/pi` | Post-intake: task report on Outline, stakeholder announcement |
 | Reporter | `/rp` | Generate cycle reports from Plane data + Outline specs, publish to Outline |
 | Reference | `po` skill | Plane/Outline constants, MCP tools, naming conventions |
 
@@ -42,41 +44,41 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 Four tiers with clear ownership boundaries:
 
 ```
-Tier 1: [Module | vX.Y.Z]
-  └─ Tier 2: [Module | vX.Y.Z] Feature description
-       └─ Tier 3: [Module | vX.Y.Z] Feature > Phase X - Name
-            └─ Tier 4: [Module | vX.Y.Z] Feature > Phase X > Task
+Tier 1: [vX.Y.Z | Module] Title
+  └─ Tier 2: [vX.Y.Z | Module] Title > Feature
+       └─ Tier 3: [vX.Y.Z | Module] Title > Feature > Phase X - Name
+            └─ Tier 4: [vX.Y.Z | Module] Title > Feature > Phase X > Task
 ```
 
 | Tier | Created by | Purpose | Estimate | Owner |
 |------|-----------|---------|----------|-------|
-| 1 | `/pm` base / catch-up / triage | Seed — tracks module version completion | Never | Manager |
-| 2 | `/pm` breakdown / triage | Feature behavior & requirements | Fibonacci (manager sets) | Manager assigns |
+| 1 | `/pm` base / catch-up / triage | Scope — tracks module version completion | Never | Manager |
+| 2 | `/pm` breakdown / triage | Feature behavior & requirements | Fibonacci (agent determines, `/pp` reassesses) | Manager assigns |
 | 3 | `/pp` (from temp file) | Implementation phase | Never | Engineer |
 | 4 | `/pp` (from temp file) | Implementation task | Never | Engineer |
 
 ### Title Format
 
 ```
-[...]        = metadata block (module + version) — always first
-|            = separates module name from version inside brackets
->            = hierarchy separator for phase/task (tier 3/4)
+[...]        = metadata block (version + module) — always first
+|            = separates version from module name inside brackets
+>            = hierarchy separator — chains T1 title through all children
 ```
 
 **Examples:**
 
 ```
-Tier 1: [Auth | v2.0.0]
-Tier 2: [Auth | v2.0.0] Google OAuth login with dashboard redirect
-Tier 3: [Auth | v2.0.0] Google OAuth login > Phase A - Auth layout
-Tier 4: [Auth | v2.0.0] Google OAuth login > Phase A > Build two-panel grid
+Tier 1: [v2.0.0 | Auth] Password reset flow
+Tier 2: [v2.0.0 | Auth] Password reset flow > Google OAuth login
+Tier 3: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A - Auth layout
+Tier 4: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A > Build two-panel grid
 ```
 
 ```
-Tier 1: [3D Scene: Timeline | v3.0.0]
-Tier 2: [3D Scene: Timeline | v3.0.0] Keyframe curve editor
-Tier 3: [3D Scene: Timeline | v3.0.0] Keyframe curve editor > Phase A - Bezier controls
-Tier 4: [3D Scene: Timeline | v3.0.0] Keyframe curve editor > Phase A > Build control points
+Tier 1: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul
+Tier 2: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor
+Tier 3: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > Phase A - Bezier controls
+Tier 4: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > Phase A > Build control points
 ```
 
 ### Status Transitions
@@ -306,7 +308,7 @@ Agent must ask for missing context:
    - Update Outline spec docs with Plane module link
 
 6. **Create Plane tier 1 seed work items** — One per module:
-   - `title`: `[Module | version]` (e.g., `[Auth | v2.0.0]`)
+   - `title`: `[version | Module] Title` (e.g., `[v2.0.0 | Auth] Password reset flow`)
    - `description`: `Version: [Outline]({version_module_doc_url})`
    - `state`: Backlog
    - `priority`: Medium
@@ -336,7 +338,7 @@ Agent must ask for missing context:
 5. Confirm with user
 
 **On confirmation, create tier 2 work items:**
-- `title`: `[Module | version] Feature description` (e.g., `[Auth | v2.0.0] Google OAuth login with dashboard redirect`)
+- `title`: `[version | Module] T1 Title > Feature` (e.g., `[v2.0.0 | Auth] Password reset flow > Google OAuth login`)
 - `description`: `Version: [Outline]({version_module_doc_url})\n\nRequirements: [pass/fail criteria for this feature]`
 - `state`: Todo
 - `priority`: Manager dictates (Medium, High, or Urgent only)
@@ -346,6 +348,35 @@ Agent must ask for missing context:
 **Post-creation:**
 - Update tier 1 status: Backlog → Todo
 - Update tier 1 cycle to current week (create cycle if needed)
+
+**Execution order:**
+
+After all T2 items are created, determine and record the recommended execution order on the T1 description:
+
+1. Analyze dependencies between the T2 items — which are foundational, which can be parallelized, which require others to complete first
+2. Fetch the T1 description: `plane-item-get.js` (saves to `temp/plane/`)
+3. Edit the temp HTML file — add or replace an `## Execution Order` section at the end with the recommended sequence
+4. Push back: `plane-item-update.js --desc`
+
+Format rules:
+- Numbered steps = sequential dependency (step 2 requires all step 1 items Done)
+- `+` within a step = items that can be done in parallel
+- Parenthetical annotations explain the reason: `(foundation)`, `(parallel)`, `(depends on N)`, `(cleanup)`, etc.
+- Identifier-only format: `{PROJECT_IDENTIFIER}-{N}`, no titles
+- Idempotent: if BREAKDOWN is re-run, the section is replaced via HTML section find/replace
+
+Example:
+```html
+<h2>Execution Order</h2>
+<ol>
+<li>SPARK-2276 (foundation)</li>
+<li>SPARK-2277 + SPARK-2278 (parallel)</li>
+<li>SPARK-2279 (cleanup — removes shim)</li>
+<li>SPARK-2280 + SPARK-2281 (parallel — new features)</li>
+</ol>
+```
+
+The `/p` command reads this section when planning a T2 — it checks whether earlier-step prerequisites are Done and blocks/warns the engineer if not. It also reads completed earlier-step T2 plan files to understand what foundations are available.
 
 ### Protocol: Catch-Up (Existing Project Baseline)
 
@@ -381,7 +412,7 @@ Same artifacts as Base protocol, but with key differences:
 
 ### Overview
 
-Plane's intake feature is the entry point for client requests, change requests, and ad-hoc feature ideas. Intake items are unversioned and unstructured — the manager triages them into the tier system. A reserved **Intakes** module provides stakeholder visibility via a Plane custom view.
+Plane's intake feature is the entry point for client requests, change requests, and ad-hoc feature ideas. Intake items are unversioned and unstructured — the manager triages them into the tier system. The **INTAKE label** enables cross-project visibility via Plane custom views.
 
 ### Intake Flow
 
@@ -397,8 +428,9 @@ Client request → Plane Intake (manual entry or /intake from PA)
     │    (one intake may span multiple modules)             │
     │ 2. For each module: active tier 1?                    │
     │                                                       │
-    │    YES → add tier 2 under existing tier 1             │
-    │    NO  → version bump → new tier 1 + tier 2           │
+    │    YES → link intake to existing tier 1                 │
+    │    NO  → ask user: bundle with current or bump?        │
+    │          → new tier 1 + version doc                    │
     │                                                       │
     │ 3. Add T1(s) to intake Tracking checklist             │
     │    (plane-intake-handling.js add)                      │
@@ -416,8 +448,8 @@ Intake items use a **description-based tracking checklist** (not parent-child re
 
 ```markdown
 ## Tracking
-- [ ] [Production: Script | v3.7.0](plane_url) SPARK-1217
-- [x] [Scripts | v3.7.0](plane_url) SPARK-1218
+- [ ] [v3.7.0 | Production: Script](plane_url) SPARK-1217
+- [x] [v3.7.0 | Scripts](plane_url) SPARK-1218
 ```
 
 **Why not parent-child?** One intake can span multiple modules/T1s. Parent-child is 1:1. The tracking checklist is N:1 and gives stakeholders immediate visual status.
@@ -436,8 +468,8 @@ Intake items use a **description-based tracking checklist** (not parent-child re
    - **Module scope** — which module(s) does this affect?
    - **Active tier 1?** — check if the module has a tier 1 that is not Done
    - **Version decision:**
-     - If active tier 1 exists → propose adding tier 2 under it (no version bump)
-     - If no active tier 1 → determine version bump based on scope of change
+     - If active tier 1 exists → propose linking intake to it (no version bump)
+     - If no active tier 1 → **run `node scripts/plane-latest-version.js`**, present the latest version, and ask user: bundle with current version or bump? Never auto-assume the next version number
 4. **Confirm** version decision and tier 2 breakdown with user
 5. **Execute:**
    - If new version needed: create tier 1 seed (same as Base protocol step 6), create/update version doc on Outline
@@ -487,20 +519,22 @@ This loop repeats for each tier 2 work item assigned to the engineer.
 1. Read tier 2 item from Plane (get requirements, version doc link)
 2. Read tier 1 parent from Plane — get the overall module-version scope and state
 3. Get sibling context — run `plane-work-items.js` to see all tier 2 items under the same tier 1 (their boundaries, state, estimates). This prevents overlap and guessing
-4. Read version module doc from Outline — this is the primary context carrier with rationale, scope, Figma refs, affected files, and QA decisions from `/pm`
-5. Read module spec from Outline (both non-technical and technical sections)
-6. Read related module specs if referenced in the technical section
-7. Assess feasibility — if not doable or needs discussion, surface to user
-8. Break tier 2 into implementation phases (tier 3) and tasks within each phase (tier 4)
-7. Create **plan file** at `cycles/[YYYY-WW]/[module-slug]/[TIER1-ID]/[TIER2-ID]-[feature-slug].md`
-8. **User must confirm** before plan file creation
+4. **Resolve local state** — Plane status alone is unreliable for siblings worked in parallel (a T2 may be fully implemented locally but not yet pushed via `/pp`). Scan the `cycles/` directory for sibling plan files and determine **effective state** by combining Plane status + local plan file progress (all tasks `[x]` = Done locally pending /pp). Use effective state for the Siblings line and execution order checks
+5. **Check execution order** — read the T1 description for an `## Execution Order` section. If present: identify which step this T2 is in, check if earlier-step T2s are all effectively Done (including "Done locally, pending /pp"). Read completed earlier-step T2 plan files to understand available foundations. If prerequisites are not effectively Done → warn/block the engineer (user can override)
+6. Read version module doc from Outline — this is the primary context carrier with rationale, scope, Figma refs, affected files, and QA decisions from `/pm`
+7. Read module spec from Outline (both non-technical and technical sections)
+8. Read related module specs if referenced in the technical section
+9. Assess feasibility — if not doable or needs discussion, surface to user
+10. Break tier 2 into implementation phases (tier 3) and tasks within each phase (tier 4)
+11. Create **plan file** at `cycles/[YYYY-WW]/[module-slug]/[TIER1-ID]/[TIER2-ID]-[feature-slug].md`
+12. **User must confirm** before plan file creation
 
 **Plan file format:**
 ```markdown
 # [Tier 2 Title]
 
 Work Item: [SPARK-N] ([plane_link])
-Tier 1: [SPARK-N] [Module | version] ([state])
+Tier 1: [SPARK-N] [version | Module] Title ([state])
 Module: [Module Name] ([plane_module_link])
 Outline Spec: [outline_spec_link]
 Version Doc: [outline_version_link]
@@ -509,7 +543,8 @@ Version Doc: [outline_version_link]
 Non-tech: [1-2 sentence stakeholder description]
 Tech: [key files, components, tables involved]
 Related: [Module Name] ([outline_link]) - [why related]
-Siblings: [N] total, [N] Done — [SPARK-X Feature (state), SPARK-Y Feature (state), ...]
+Siblings: [N] total, [N] Done — [SPARK-X Feature (effective state), SPARK-Y Feature (effective state), ...]
+Execution Order: Step [N] of [M] — [prerequisite status, using effective state]
 
 ## Phase A: [Phase Name]
 - [ ] Task 1 description
@@ -624,7 +659,7 @@ Format: `vMAJOR.MINOR.PATCH` (e.g., `v1.0.0`, `v1.1.0`, `v2.0.0`)
 | Minor | New features added, non-breaking changes |
 | Major | Breaking changes, significant redesign, new product direction |
 
-**Determining the next version:** Always bump from the **latest app-wide version**, not from any module-specific history. If the latest version is `v3.0.0`, the next patch is `v3.0.1`, the next minor is `v3.1.0`, etc.
+**Determining the next version:** Always run `plane-latest-version.js` to get the latest app-wide version. **Present it to the user and ask:** bundle with current version, or bump? If bumping, confirm semver level. Never auto-assume the next version — the user decides. If the latest version is `v3.0.0`, the next patch is `v3.0.1`, the next minor is `v3.1.0`, etc.
 
 ### Version Lifecycle
 
@@ -686,6 +721,10 @@ Versions/
 | Todo | Unstarted | *(project-specific)* |
 | In Progress | Started | *(project-specific)* |
 | Done | Completed | *(project-specific)* |
+| Passed | Completed | *(project-specific)* |
+| Announced | Completed | *(project-specific)* |
+| Approved | Completed | *(project-specific)* |
+| Deployed | Completed | *(project-specific)* |
 | Cancelled | Cancelled | *(project-specific)* |
 
 ### SPARK-N Identifier Convention
@@ -857,7 +896,7 @@ This enables velocity tracking across cycles.
 
 Fibonacci scale: **1, 2, 3, 5, 8, 13**
 
-Only assigned to **tier 2** work items. Manager sets, not changeable by engineers.
+Only assigned to **tier 2** work items. Agent determines during `/pm` breakdown; `/pp` reassesses after implementation.
 
 ### Stack Context
 
@@ -898,7 +937,7 @@ The `/pm` estimate is a prediction based on high-level understanding. By `/pp` t
    Actual: 2 phases, 14 tasks, 5 files, 3 concerns → suggests 5 points
    Update estimate? [keep 3 / update to 5]
    ```
-4. **User decides** — the engineer does not silently override the manager's estimate
+4. **User decides** — the engineer does not silently override the original estimate
 
 **If user approves the update:**
 
@@ -920,6 +959,89 @@ Requirements: [pass/fail criteria]
 
 Original Estimate: 3 points
 ```
+
+---
+
+## Post-Completion Pipeline
+
+After `/pp` marks a T1 as Done and all T1s under an intake are complete, the intake moves to Done. The PM then manages the post-completion pipeline on the **intake item** — sign-off, announcement, stakeholder approval, and deployment tracking.
+
+**T1 terminal state is Done.** All states beyond Done (Passed, Announced, Approved, Deployed) are tracked on the **intake item** only — never on T1s.
+
+### States (Intake Item)
+
+```
+Done → Passed → Announced → Approved → Deployed
+       (manual)  (/pi)       (manual)   (manual)
+```
+
+| State | Who | How | Purpose |
+|-------|-----|-----|---------|
+| **Done** | Auto | `/pp` auto | All T1s complete, intake auto-closed |
+| **Passed** | PM | Manual drag | PM reviewed demo/staging, confirmed QA pass |
+| **Announced** | PM | `/pi` command | Task report created on Outline, stakeholders notified via email |
+| **Approved** | PM | Manual drag | Stakeholder acknowledged within feedback window, ready to deploy |
+| **Deployed** | PM | Manual drag | Deployed to production, lifecycle complete |
+
+**Passed** is optional — `/pi` can shortcut from Done directly to Announced.
+
+### `/pi` Command Flow
+
+1. PM confirms engineer's work passes QA (demo, staging, code review)
+2. PM runs `/pi <intake-link>` in the PA codebase
+3. `/pi` gathers context (all T1s, their T2s, version docs, spec docs) and creates a **Task Report** on Outline under the Task Reports folder
+4. PM pastes screenshots/evidence into the report
+5. `/pi` asks PM to confirm recipient list and acknowledgement window (default 24 hours)
+6. `/pi` sends announcement email via workspace comms MCP with Outline + Plane links
+7. Intake moves to **Announced**
+
+### Post-Announcement
+
+- **Next cycle**: PM checks Announced intakes. If stakeholder acknowledged (or 24hrs passed with no objection) → drag to **Approved**
+- **Approved intakes**: PM tells engineer to deploy → engineer deploys → PM drags to **Deployed**
+- **Stakeholder feedback**: If stakeholder requests changes, PM uses `/pm improve` to extend the intake with new T1(s). See [Improve Path](#improve-path-rejection--extension)
+
+### Improve Path (Rejection / Extension)
+
+When work is Done but not up to standard, or new context arrives, the PM can extend the intake with additional T1(s) instead of creating a separate intake item.
+
+**Eligible states:** Done, Passed, Announced. Once **Approved**, work is considered final — create a new intake instead.
+
+```
+Done/Passed/Announced
+        ↓ (PM determines work is insufficient or new context arrived)
+/pm improve <intake-id>
+        ↓
+Intake → Todo (rolled back)
+New T1(s) created under same intake
+Tracking checklist updated
+        ↓
+Normal pipeline: /pm breakdown → /p → /s → /pp
+        ↓
+All T1s complete → Intake → Done (again)
+```
+
+**Optional enrichment before improve:**
+- `/intake <existing-id>` (PA) — append business context from emails/chat/meetings
+- `/triage <existing-id>` (project) — append/update technical context for new modules
+
+See `/pm` IMPROVE protocol for full command details.
+
+### Outline Task Reports
+
+Reports live under `Task Reports/` in the Outline document hierarchy:
+
+```
+[ROOT_DOC_ID] Project
+├── [SPECIFICATIONS_DOC_ID] Specifications/
+├── [TASK_REPORTS_DOC_ID] Task Reports/
+│   ├── [Intake Title] — Task Report
+│   └── [Intake Title] — Task Report
+├── [VERSIONS_DOC_ID] Versions/
+└── [CYCLES_DOC_ID] Cycles/
+```
+
+Task reports are stakeholder-facing — written in non-technical language with screenshots and a summary of what was delivered. When an intake cycles back through `/pi` after improve, the existing report is updated (appended), not duplicated.
 
 ---
 
@@ -986,20 +1108,20 @@ When a module is renamed (e.g., `Scripts` → `Atlas`):
 
 1. Rename Outline spec doc (retitle under Specifications/)
 2. Rename Plane module
-3. New version work items use new name: `[Atlas | v3.0.0] ...`
-4. Old version items keep original names (historical accuracy): `[Scripts | v2.0.0] ...`
+3. New version work items use new name: `[v3.0.0 | Atlas] ...`
+4. Old version items keep original names (historical accuracy): `[v2.0.0 | Scripts] ...`
 5. Spec doc Non-Technical section notes the rename
 
 ### Naming in Work Item Titles
 
-The module name goes inside the `[...]` metadata block in work item titles:
+The version and module name go inside the `[...]` metadata block (version first) in work item titles:
 
 ```
 Module:  "3D Scene: Canvas"
-Tier 1:  [3D Scene: Canvas | v2.0.0]
-Tier 2:  [3D Scene: Canvas | v2.0.0] Object placement with gizmo controls
-Tier 3:  [3D Scene: Canvas | v2.0.0] Object placement > Phase A - Transform gizmo
-Tier 4:  [3D Scene: Canvas | v2.0.0] Object placement > Phase A > Build rotation handle
+Tier 1:  [v2.0.0 | 3D Scene: Canvas] Object placement system
+Tier 2:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls
+Tier 3:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls > Phase A - Transform gizmo
+Tier 4:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls > Phase A > Build rotation handle
 ```
 
 ---
@@ -1061,11 +1183,12 @@ After MCP is configured, the first `/pm` run will:
 | `docs/pm.md` | This document — portable PM flow |
 | `docs/index.md` | Thin pointer — Plane Project ID + Outline Root Doc ID |
 | `.claude/skills/po/SKILL.md` | Project-specific constants, MCP tools, naming conventions |
-| `.claude/commands/pm.md` | Manager command — vision, breakdown |
-| `.claude/commands/p.md` | Engineer command — tier 2 → rich temp file |
-| `.claude/commands/pp.md` | Engineer command — push tier 3+4 + auto-condense |
-| `.claude/commands/s.md` | Engineer command — skills-aware implementation |
-| `.claude/commands/rp.md` | Reporter command — cycle reports to Outline |
+| `.claude/commands/project/pm.md` | Manager command — vision, breakdown |
+| `.claude/commands/project/p.md` | Engineer command — tier 2 → rich temp file |
+| `.claude/commands/project/pp.md` | Engineer command — push tier 3+4 + auto-condense |
+| `.claude/commands/project/s.md` | Engineer command — skills-aware implementation |
+| `.claude/commands/project/rp.md` | Reporter command — cycle reports to Outline |
+| `.claude/commands/pa/pi.md` | PM command — post-intake: task report + stakeholder announcement |
 | `scripts/plane-cycle-items.js` | Plane API data extractor for cycle reports |
 | `scripts/plane-work-items.js` | Plane API — work item context (tier 1 parent + sibling tier 2s) |
 | `cycles/**/*.md` | Plan files and cycle data (version-controlled) |

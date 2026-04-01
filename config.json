@@ -1,0 +1,57 @@
+{
+  "default_project": "aiur-hr",
+  "workspaces": {
+    "aiur": {
+      "name": "Aiur",
+      "projects": {
+        "aiur-hr": {
+          "PLANE_WORKSPACE_SLUG": "aiur",
+          "PLANE_PROJECT_ID": "53594a97-bd1d-4d52-bcb9-ebacadc41464",
+          "PLANE_PROJECT_IDENTIFIER": "AHR",
+          "PLANE_BASE_URL": "https://plane.jimbui.dev",
+          "PLANE_MCP_SERVER_NAME": "plane-aiur-hr",
+
+          "STATE_BACKLOG_UUID": "3d33956f-defb-47ad-9001-5852d9be63b9",
+          "STATE_TODO_UUID": "b84178ec-e039-434f-b522-c21514c18434",
+          "STATE_IN_PROGRESS_UUID": "f9a589dd-4202-4b99-a629-5e6e5bdcd178",
+          "STATE_DONE_UUID": "b78525a5-e6f0-439a-b0ab-5191a046b55c",
+          "STATE_PASSED_UUID": "9e8b9431-3e64-4782-8ce4-9909ad2abcb8",
+          "STATE_ANNOUNCED_UUID": "7e0938df-3ef4-47a7-8626-cb0fd8294e87",
+          "STATE_APPROVED_UUID": "c4e7f4cd-e72f-4fb6-8e18-05a37a6b45bc",
+          "STATE_DEPLOYED_UUID": "dbdefe79-3a53-4bcd-9f29-76a87d8219d2",
+          "STATE_CANCELLED_UUID": "bd5ea8ec-b09b-4e5b-9ed1-b11db662bd40",
+
+          "ESTIMATE_ID": "bd9495bc-8a0e-4884-b381-496bb33ba067",
+          "ESTIMATE_1_UUID": "ba732032-b045-471b-bb72-1a67ed10408f",
+          "ESTIMATE_2_UUID": "58f0c16d-32b2-4956-9104-754a344a58e3",
+          "ESTIMATE_3_UUID": "a1a9f1c5-e84a-4f7c-bfeb-dbd22f3b30c6",
+          "ESTIMATE_5_UUID": "1965e92d-6da9-4b80-8bda-d6dbc7300744",
+          "ESTIMATE_8_UUID": "dcb59dc5-7298-4610-bfd8-dd940facd993",
+          "ESTIMATE_13_UUID": "ca085854-0a87-44f7-8432-a9621e1f8617",
+
+          "OUTLINE_BASE_URL": "https://outline.jimbui.dev",
+          "OUTLINE_ROOT_DOC_ID": "d910a242-9a26-482b-bfd0-97df5b894700",
+          "OUTLINE_SPECIFICATIONS_DOC_ID": "d16c1c9e-5073-4f72-8953-e7fd5c1efeec",
+          "OUTLINE_VERSIONS_DOC_ID": "0c30f2ab-6aae-49f8-a3e3-8b881266056c",
+          "OUTLINE_CYCLES_DOC_ID": "351ed87e-5c5d-47f3-bbd4-d4e0ea6168ed",
+          "OUTLINE_TASK_REPORTS_DOC_ID": "2ed55ba8-a64c-49bb-a87d-e03acb9ec2ad",
+          "OUTLINE_ROADMAP_DOC_ID": "deac0d90-3175-4878-8a68-c060bfc6383c",
+          "OUTLINE_COLLECTION_ID": "842bb492-0b21-4695-8470-dd337f44a5ac",
+
+          "LABEL_INTAKE_UUID": "8140741b-67f1-4b7f-94c6-1af105d29153",
+          "LABEL_BUG_UUID": "489e9252-8959-4486-8987-9c3b06330712",
+          "LABEL_FEATURE_UUID": "b6f03db0-5dfa-485a-a0d8-12b99f5d58a0",
+          "LABEL_TWEAK_UUID": "0d5a88d5-871d-466c-a71d-95cf71b09c2e",
+          "LABEL_IDEA_UUID": "8f948854-d02c-4f9c-8d1f-f3e217dd320a",
+          "LABEL_INQUIRY_UUID": "e8071f0f-f5ce-41d1-9023-f36bf75949ae",
+
+          "env": {
+            "PLANE_API_KEY": "PLANE_API_KEY",
+            "OUTLINE_API_KEY": "OUTLINE_API_KEY",
+            "OUTLINE_API_URL": "OUTLINE_API_URL"
+          }
+        }
+      }
+    }
+  }
+}

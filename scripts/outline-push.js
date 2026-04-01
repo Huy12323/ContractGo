@@ -15,18 +15,11 @@
 
 const fs = require("fs");
 const path = require("path");
+const { loadConfig, parseFlags } = require("./lib/config");
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 
 // --- Extract UUID from filename ---
 function extractDocId(filePath) {
@@ -39,10 +32,10 @@ function extractDocId(filePath) {
 
 // --- Main ---
 async function main() {
-  const filePath = process.argv[2];
+  const filePath = cliArgs[0];
 
   if (!filePath) {
-    console.error("Usage: node scripts/outline-push.js <file-path>");
+    console.error("Usage: node scripts/outline-push.js [--project <label>] <file-path>");
     process.exit(1);
   }
 
@@ -61,9 +54,8 @@ async function main() {
   const text = fs.readFileSync(resolvedPath, "utf-8");
   const lineCount = text.split("\n").length;
 
-  const env = loadEnv();
-  const apiUrl = env.OUTLINE_API_URL;
-  const apiKey = env.OUTLINE_API_KEY;
+  const apiUrl = config.OUTLINE_API_URL;
+  const apiKey = config.OUTLINE_API_KEY;
 
   if (!apiUrl || !apiKey) {
     console.error("Missing OUTLINE_API_URL or OUTLINE_API_KEY in .env");

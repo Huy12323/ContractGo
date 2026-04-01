@@ -1,7 +1,6 @@
 ---
 name: gitpush
 description: Intelligently group, commit and push git changes
-model: claude-sonnet-4-5
 ---
 
 # Git Push with Smart Grouping
@@ -101,11 +100,11 @@ Use the Non-Technical Description from each spec doc to write better commit mess
 Combine all sources into a context map:
 
 - **Context files** (highest priority) — tier 1 scope and tier 2 feature inventory with states
-- **Work items** — active tasks in the current cycle: `[Module | vX.Y.Z] Feature description`
+- **Work items** — active tasks in the current cycle: `[vX.Y.Z | Module] Title > Feature`
 - **Modules** — feature domains
 - **Outline specs** — behavioral descriptions of each module
 
-Extract the leading scope from each (e.g., `"3D Scene"` from `"[3D Scene: Canvas | v1.0.0] Camera controls"`).
+Extract the module scope from each (e.g., `"3D Scene"` from `"[v1.0.0 | 3D Scene: Canvas] Camera system > Camera controls"`).
 
 ---
 

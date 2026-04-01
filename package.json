@@ -1,8 +1,12 @@
 {
-  "name": "worldcraft",
+  "name": "aiur-hr",
   "private": true,
   "version": "0.0.0",
   "scripts": {
+    "env:apply": "node scripts/env-apply.js",
+    "env:apply:dev": "node scripts/env-apply.js dev",
+    "env:apply:stag": "node scripts/env-apply.js stag",
+    "env:apply:prod": "node scripts/env-apply.js prod",
     "dev": "concurrently -n sb,web -c blue,green \"pnpm dev:sb\" \"pnpm dev:web\"",
     "dev:web": "pnpm --filter @worldcraft/web dev",
     "dev:sb": "supabase start",
@@ -16,10 +20,7 @@
     "db:diff": "supabase db diff --use-migra",
     "db:migrate": "supabase migration new",
     "db:push": "supabase db push",
-    "sb:stop": "supabase stop",
-    "setup:init": "node scripts/setup-po.js --init",
-    "setup:po": "node scripts/setup-po.js project-config.json",
-    "mcp:gen": "node scripts/generate-mcp.js"
+    "sb:stop": "supabase stop"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

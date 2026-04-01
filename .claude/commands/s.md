@@ -21,42 +21,11 @@ Execute task **{TASK_ARGUMENTS}** following this mandatory workflow.
 
 ---
 
-## Step 1: Build Skills Map
+## Steps 1–4: Load Skills
 
-```bash
-awk 'FNR<=10 && /^(name|description):/' .claude/skills/*/SKILL.md
-```
+Run the `/load-skills` discovery process (discover → select → load → validate). **Exclude `po`** — saves context tokens, no MCP needed.
 
-## Step 2: Initial Skill Selection
-
-```
-Initial skills: [skill-name]: [why relevant]
-```
-
-## Step 3: Research
-
-If task requires understanding existing code: explore codebase, note hidden systems. Skip if straightforward.
-
-## Step 3.5: Re-evaluate After Research
-
-**CRITICAL**: Revisit skills map. Research reveals hidden needs.
-
-## Step 4: Load All Relevant Skills
-
-`Skill(skill-name)` **once per skill** for ALL identified skills (Steps 2 + 3.5).
-
-**Do NOT load `po` skill** — saves context tokens, no MCP needed.
-
-## Step 4.5: Validate Against Patterns
-
-Check for conflicts with loaded skills. **If conflicts**, STOP:
-
-```
-Warning: CONFLICT: [Type]
-Requested: [what user asked]
-Skill requires: [pattern/rule]
-Options: 1. Adjust request  2. Update skill  3. Clarify intent
-```
+After initial selection, if task requires understanding existing code: explore codebase, note hidden systems. Then **re-evaluate** — revisit the skills map, research reveals hidden needs. Load any newly identified skills.
 
 ## Step 5: Execute
 
@@ -95,9 +64,9 @@ Plan updated: [path] | Phase [X]: [N] tasks marked complete
 
 ## Critical Rules
 
-1. **Never skip steps 1–4.5** — even if you think you know the patterns
-2. **Step 3.5 is mandatory** — research reveals hidden dependencies
-3. **Stop on conflicts** — never proceed if Step 4.5 finds issues
+1. **Never skip skill loading** — even if you think you know the patterns
+2. **Re-evaluate after research** — research reveals hidden dependencies
+3. **Stop on conflicts** — never proceed if validation finds issues
 4. **Load once** — invoke each skill exactly once
 5. **No MCP calls** — all updates are local
 6. **No po skill** — saves context tokens
@@ -106,4 +75,4 @@ Plan updated: [path] | Phase [X]: [N] tasks marked complete
 
 ---
 
-<!-- Command version: 2.0 — Temp-file-guided, no local specs -->
+<!-- Command version: 2.1 — Skill loading delegated to /load-skills process -->

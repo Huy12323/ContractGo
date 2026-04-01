@@ -7,94 +7,62 @@
  * and saves description_html to temp/plane/{IDENT}-{N}.html for editing.
  *
  * Usage:
- *   node scripts/plane-item-get.js WCLV1-34
+ *   node scripts/plane-item-get.js SPARK-34
  *   node scripts/plane-item-get.js 34
+ *   node scripts/plane-item-get.js <uuid>
  *
- * Output: temp/plane/WCLV1-34.html
+ * Output: temp/plane/SPARK-34.html
+ *
+ * Fields printed: name, identifier, UUID, state, priority, estimate, parent,
+ * assignees, start, due, cycle (YYYY/WW), modules (name + UUID), labels, browse URL.
  *
  * For pending intake items (404 here), use plane-intake-get.js instead.
  *
  * Requires: .env with PLANE_API_KEY, PLANE_BASE_URL, PLANE_WORKSPACE_SLUG
- * Requires: project-config.json with PROJECT_ID, state UUIDs, estimate UUIDs
+ * Requires: config.json with PROJECT_ID, state UUIDs, estimate UUIDs
  */
 
 const fs = require("fs");
 const path = require("path");
+const { parseIdentifier } = require("./lib/plane-parse-id");
+const { loadConfig, parseFlags, buildStateNames, buildEstimateMap } = require("./lib/config");
+const { findCycleForItem, findModulesForItem } = require("./lib/plane-api");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const IDENTIFIER = config.PLANE_PROJECT_IDENTIFIER || "ITEM";
 const BASE_URL = config.PLANE_BASE_URL;
 const WORKSPACE_SLUG = config.PLANE_WORKSPACE_SLUG;
 
-const STATE_NAMES = {};
-if (config.STATE_BACKLOG_UUID) STATE_NAMES[config.STATE_BACKLOG_UUID] = "Backlog";
-if (config.STATE_TODO_UUID) STATE_NAMES[config.STATE_TODO_UUID] = "Todo";
-if (config.STATE_IN_PROGRESS_UUID) STATE_NAMES[config.STATE_IN_PROGRESS_UUID] = "In Progress";
-if (config.STATE_DONE_UUID) STATE_NAMES[config.STATE_DONE_UUID] = "Done";
-if (config.STATE_CANCELLED_UUID) STATE_NAMES[config.STATE_CANCELLED_UUID] = "Cancelled";
-
-const ESTIMATE_MAP = {};
-if (config.ESTIMATE_1_UUID) ESTIMATE_MAP[config.ESTIMATE_1_UUID] = 1;
-if (config.ESTIMATE_2_UUID) ESTIMATE_MAP[config.ESTIMATE_2_UUID] = 2;
-if (config.ESTIMATE_3_UUID) ESTIMATE_MAP[config.ESTIMATE_3_UUID] = 3;
-if (config.ESTIMATE_5_UUID) ESTIMATE_MAP[config.ESTIMATE_5_UUID] = 5;
-if (config.ESTIMATE_8_UUID) ESTIMATE_MAP[config.ESTIMATE_8_UUID] = 8;
-if (config.ESTIMATE_13_UUID) ESTIMATE_MAP[config.ESTIMATE_13_UUID] = 13;
+const STATE_NAMES = buildStateNames(config);
+const ESTIMATE_MAP = buildEstimateMap(config);
 
 function stateName(uuid) { return STATE_NAMES[uuid] || uuid || "none"; }
 function estimateValue(uuid) { return ESTIMATE_MAP[uuid] || 0; }
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
-// --- Parse IDENT-N or bare number ---
-function parseId(arg) {
-  if (!arg) return null;
-  const match = arg.match(/(?:\w+-)?(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
 // --- Main ---
 async function main() {
-  const seqId = parseId(process.argv[2]);
-  if (!seqId) {
-    console.error(`Usage: node scripts/plane-item-get.js <${IDENTIFIER}-N>`);
+  const input = parseIdentifier(cliArgs[0]);
+  if (!input) {
+    console.error(`Usage: node scripts/plane-item-get.js [--project <label>] <${IDENTIFIER}-N|uuid>`);
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const wsBase = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}`;
+  const wsBase = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}`;
+  const projBase = `${wsBase}/projects/${PROJECT_ID}`;
+  const headers = { "X-API-Key": config.PLANE_API_KEY };
 
-  // Fetch by identifier (workspace-level endpoint)
-  const url = `${wsBase}/work-items/${IDENTIFIER}-${seqId}/`;
-  const res = await fetch(url, { headers: { "X-API-Key": env.PLANE_API_KEY } });
+  // Fetch by UUID (project-level) or identifier (workspace-level)
+  const url = input.type === "uuid"
+    ? `${projBase}/work-items/${input.value}/`
+    : `${wsBase}/work-items/${IDENTIFIER}-${input.value}/`;
+  const res = await fetch(url, { headers });
 
   if (res.status !== 200) {
-    console.error(`${IDENTIFIER}-${seqId}: HTTP ${res.status}`);
+    const label = input.type === "uuid" ? input.value : `${IDENTIFIER}-${input.value}`;
+    console.error(`${label}: HTTP ${res.status}`);
     if (res.status === 404) {
       console.error("Not found — may be a pending intake item. Use plane-intake-get.js instead.");
     }
@@ -102,10 +70,17 @@ async function main() {
   }
 
   const item = await res.json();
+  const seqId = item.sequence_id;
+
+  // Resolve cycle and modules in parallel
+  const [cycle, modules] = await Promise.all([
+    findCycleForItem(projBase, headers, item.id),
+    findModulesForItem(projBase, headers, item.id),
+  ]);
 
   // Print fields
   console.log(`Name:       ${item.name}`);
-  console.log(`Identifier: ${IDENTIFIER}-${item.sequence_id}`);
+  console.log(`Identifier: ${IDENTIFIER}-${seqId}`);
   console.log(`UUID:       ${item.id}`);
   console.log(`State:      ${stateName(item.state)}`);
   console.log(`Priority:   ${item.priority || "none"}`);
@@ -114,6 +89,9 @@ async function main() {
   console.log(`Assignees:  ${(item.assignees || []).join(", ") || "none"}`);
   console.log(`Start:      ${item.start_date || "none"}`);
   console.log(`Due:        ${item.target_date || "none"}`);
+  console.log(`Cycle:      ${cycle ? `${cycle.name} (${cycle.id})` : "none"}`);
+  console.log(`Modules:    ${modules.length > 0 ? modules.map(m => `${m.name} (${m.id})`).join(", ") : "none"}`);
+  console.log(`Labels:     ${(item.labels || []).join(", ") || "none"}`);
   console.log(`Created:    ${item.created_at}`);
   console.log(`Browse:     ${BASE_URL}/${WORKSPACE_SLUG}/browse/${IDENTIFIER}-${seqId}/`);
 

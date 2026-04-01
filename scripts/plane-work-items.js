@@ -10,43 +10,25 @@
  * Usage:
  *   node scripts/plane-work-items.js PROJ-675   → from identifier
  *   node scripts/plane-work-items.js 675         → bare number
+ *   node scripts/plane-work-items.js <uuid>      → from UUID
  *
  * Requires: .env with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL
- * Requires: project-config.json with PROJECT_ID, state UUIDs, estimate UUIDs
+ * Requires: config.json with PROJECT_ID, state UUIDs, estimate UUIDs
  */
 
 const fs = require("fs");
 const path = require("path");
+const { parseIdentifier } = require("./lib/plane-parse-id");
+const { loadConfig, parseFlags, buildStateNames, buildEstimateMap } = require("./lib/config");
 
-// --- Load project config ---
-function loadProjectConfig() {
-  const configPath = path.join(__dirname, "..", "project-config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("project-config.json not found. Run: node scripts/setup-po.js --init");
-    process.exit(1);
-  }
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
-
-const config = loadProjectConfig();
+// --- Load config ---
+const { workspace, project, args: cliArgs } = parseFlags(process.argv.slice(2));
+const config = loadConfig(workspace, project).project;
 const PROJECT_ID = config.PLANE_PROJECT_ID;
 const IDENTIFIER = config.PLANE_PROJECT_IDENTIFIER || "ITEM";
 
-const ESTIMATE_MAP = {};
-if (config.ESTIMATE_1_UUID) ESTIMATE_MAP[config.ESTIMATE_1_UUID] = 1;
-if (config.ESTIMATE_2_UUID) ESTIMATE_MAP[config.ESTIMATE_2_UUID] = 2;
-if (config.ESTIMATE_3_UUID) ESTIMATE_MAP[config.ESTIMATE_3_UUID] = 3;
-if (config.ESTIMATE_5_UUID) ESTIMATE_MAP[config.ESTIMATE_5_UUID] = 5;
-if (config.ESTIMATE_8_UUID) ESTIMATE_MAP[config.ESTIMATE_8_UUID] = 8;
-if (config.ESTIMATE_13_UUID) ESTIMATE_MAP[config.ESTIMATE_13_UUID] = 13;
-
-const STATE_NAMES = {};
-if (config.STATE_BACKLOG_UUID) STATE_NAMES[config.STATE_BACKLOG_UUID] = "Backlog";
-if (config.STATE_TODO_UUID) STATE_NAMES[config.STATE_TODO_UUID] = "Todo";
-if (config.STATE_IN_PROGRESS_UUID) STATE_NAMES[config.STATE_IN_PROGRESS_UUID] = "In Progress";
-if (config.STATE_DONE_UUID) STATE_NAMES[config.STATE_DONE_UUID] = "Done";
-if (config.STATE_CANCELLED_UUID) STATE_NAMES[config.STATE_CANCELLED_UUID] = "Cancelled";
-
+const ESTIMATE_MAP = buildEstimateMap(config);
+const STATE_NAMES = buildStateNames(config);
 const DONE_STATE = config.STATE_DONE_UUID;
 const CANCELLED_STATE = config.STATE_CANCELLED_UUID;
 
@@ -58,29 +40,13 @@ function stateName(uuid) {
   return STATE_NAMES[uuid] || "Unknown";
 }
 
-// --- Read .env ---
-function loadEnv() {
-  const envPath = path.join(__dirname, "..", ".env");
-  if (!fs.existsSync(envPath)) {
-    console.error(".env not found. Create one with PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL");
-    process.exit(1);
-  }
-  const content = fs.readFileSync(envPath, "utf-8");
-  const env = {};
-  for (const line of content.split("\n")) {
-    const match = line.trim().match(/^([A-Z_]+)=(.+)$/);
-    if (match) env[match[1]] = match[2].trim();
-  }
-  return env;
-}
-
 // --- API helper ---
-function createApi(env) {
-  const base = `${env.PLANE_BASE_URL}/api/v1/workspaces/${env.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
+function createApi() {
+  const base = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}`;
   return async (endpoint) => {
     const url = `${base}${endpoint}`;
     const res = await fetch(url, {
-      headers: { "X-API-Key": env.PLANE_API_KEY },
+      headers: { "X-API-Key": config.PLANE_API_KEY },
     });
     if (res.status !== 200) {
       throw new Error(`API ${res.status}: ${url}`);
@@ -104,9 +70,9 @@ function currentWeekName() {
   return `${y}-${String(w).padStart(2, "0")}`;
 }
 
-// --- Parse module name from tier 1 title ---
+// --- Parse module name from tier 1 title: [vX.Y.Z | Module] Title ---
 function parseModuleName(name) {
-  const match = name.match(/^\[(.+?)\s*\|/);
+  const match = name.match(/\|\s*(.+?)\s*\]/);
   return match ? match[1].trim() : name;
 }
 
@@ -124,19 +90,15 @@ function extractOriginalEstimate(html) {
   return match ? parseInt(match[1], 10) : null;
 }
 
-// --- Parse identifier input ---
-function parseInput(arg) {
-  if (!arg) return null;
-  const match = arg.match(/(?:\w+-)?(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-// --- Fetch work item by sequence_id ---
-async function fetchBySequenceId(api, seqId) {
+// --- Fetch work item by parsed input ---
+async function fetchByInput(api, input) {
+  if (input.type === "uuid") {
+    return await api(`/work-items/${input.value}/`);
+  }
   const data = await api(`/work-items/`);
   const items = data.results || data;
-  const item = items.find((i) => i.sequence_id === seqId);
-  if (!item) throw new Error(`${IDENTIFIER}-${seqId} not found`);
+  const item = items.find((i) => i.sequence_id === input.value);
+  if (!item) throw new Error(`${IDENTIFIER}-${input.value} not found`);
   return item;
 }
 
@@ -157,23 +119,23 @@ function parseCycleArg(args) {
 
 // --- Main ---
 async function main() {
-  const args = process.argv.slice(2);
-  const seqId = parseInput(args[0]);
-  const cycleOverride = parseCycleArg(args);
+  const input = parseIdentifier(cliArgs[0]);
+  const cycleOverride = parseCycleArg(cliArgs);
 
-  if (!seqId) {
-    console.error(`Usage: node scripts/plane-work-items.js ${IDENTIFIER}-N [--cycle YYYY/WW]`);
+  if (!input) {
+    console.error(`Usage: node scripts/plane-work-items.js [--project <label>] <${IDENTIFIER}-N|uuid> [--cycle YYYY/WW]`);
     console.error("       node scripts/plane-work-items.js 675 --cycle 2026/09");
     process.exit(1);
   }
 
-  const env = loadEnv();
-  const api = createApi(env);
+  const api = createApi();
 
-  console.log(`Fetching ${IDENTIFIER}-${seqId}...`);
+  const label = input.type === "uuid" ? input.value.slice(0, 8) + "..." : `${IDENTIFIER}-${input.value}`;
+  console.log(`Fetching ${label}...`);
 
   // 1. Fetch the target work item
-  const target = await fetchBySequenceId(api, seqId);
+  const target = await fetchByInput(api, input);
+  const seqId = target.sequence_id;
   console.log(`Found: ${target.name} (${stateName(target.state)})`);
 
   // 2. Determine tier and resolve parent + siblings
