@@ -2,7 +2,7 @@
 
 ## Tech Stack
 
-- **Frontend:** React 19, TanStack Router (file-based), TanStack Query v5, TanStack Store, Ant Design v5
+- **Frontend:** React 19, TanStack Router (file-based), TanStack Query v5, TanStack Store, Ant Design v6
 - **Backend:** Supabase (PostgreSQL + Auth + Edge Functions + Realtime)
 - **File Storage:** Cloudflare R2 (S3-compatible)
 - **Monorepo:** pnpm workspaces + Turborepo
