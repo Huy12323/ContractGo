@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SignUpForm } from '@/components/auth/SignUpForm'
+import { App_SignUpForm } from '@/components/auth/App_SignUpForm'
 import { Typography, theme } from 'antd'
 import { TeamOutlined } from '@ant-design/icons'
 
@@ -32,7 +32,7 @@ function SignUpPage() {
         </Typography.Title>
         <Typography.Text type="secondary">Create your workspace</Typography.Text>
       </div>
-      <SignUpForm />
+      <App_SignUpForm />
     </>
   )
 }

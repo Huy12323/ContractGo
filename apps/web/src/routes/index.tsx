@@ -1,25 +1,12 @@
-import { createFileRoute, Navigate } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/use-auth'
-import { Spin } from 'antd'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { supabase } from '@/configs/supabase/config'
 
 export const Route = createFileRoute('/')({
-  component: IndexPage,
+  beforeLoad: async () => {
+    const sb_Auth_GetSession = await supabase.auth.getSession()
+    if (sb_Auth_GetSession.data.session) {
+      throw redirect({ to: '/home' })
+    }
+    throw redirect({ to: '/login', search: { redirect: undefined } })
+  },
 })
-
-function IndexPage() {
-  const { isAuthenticated, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    )
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" />
-  }
-
-  return <Navigate to="/login" search={{ redirect: undefined }} />
-}

@@ -1,16 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { Card, Typography, Descriptions, Spin, Alert, Tag } from 'antd'
-import { profileQueries } from '@/api/queries/profiles'
-import { useAuth } from '@/hooks/use-auth'
+import { useQ_Me } from '@/hooks/useQ_Me'
+import { useStore_Auth_User } from '@/stores/Store_Auth'
 
 export const Route = createFileRoute('/_protected/dashboard/')({
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  const { user } = useAuth()
-  const { data: profile, isLoading, error } = useQuery(profileQueries.me())
+  const user = useStore_Auth_User()
+  const qMe = useQ_Me()
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
@@ -30,22 +29,22 @@ function DashboardPage() {
       </Card>
 
       <Card title="Profile (from Supabase)">
-        {isLoading && <Spin />}
-        {error && (
+        {qMe.query.isLoading && <Spin />}
+        {qMe.query.error && (
           <Alert
             type="warning"
             message="Profile not found"
             description="Your profile will be created automatically. Try refreshing."
           />
         )}
-        {profile && (
+        {qMe.profile && (
           <Descriptions column={1} bordered>
             <Descriptions.Item label="Full Name">
-              {profile.full_name ?? '(not set)'}
+              {qMe.profile.full_name ?? '(not set)'}
             </Descriptions.Item>
-            <Descriptions.Item label="Email">{profile.email}</Descriptions.Item>
+            <Descriptions.Item label="Email">{qMe.profile.email}</Descriptions.Item>
             <Descriptions.Item label="Created">
-              {new Date(profile.created_at).toLocaleDateString()}
+              {new Date(qMe.profile.created_at).toLocaleDateString()}
             </Descriptions.Item>
           </Descriptions>
         )}

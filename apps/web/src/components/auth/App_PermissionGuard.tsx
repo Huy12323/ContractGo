@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useOrganization } from '@/hooks/use-organization'
+import { useOrganization } from '@/hooks/useOrganization'
 import type { Enums } from '@worldcraft/shared/types'
 
 interface PermissionGuardProps {
@@ -8,7 +8,7 @@ interface PermissionGuardProps {
   fallback?: ReactNode
 }
 
-export function PermissionGuard({ permission, children, fallback = null }: PermissionGuardProps) {
+export const App_PermissionGuard = ({ permission, children, fallback = null }: PermissionGuardProps) => {
   const { hasPermission, loading } = useOrganization()
 
   if (loading) return null

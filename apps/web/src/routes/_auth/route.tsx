@@ -1,31 +1,22 @@
-import { createFileRoute, Outlet, Navigate, useLocation } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/use-auth'
-import { Spin, theme } from 'antd'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { supabase } from '@/configs/supabase/config'
+import { theme } from 'antd'
 
 export const Route = createFileRoute('/_auth')({
+  beforeLoad: async ({ location }) => {
+    const sb_Auth_GetSession = await supabase.auth.getSession()
+    const session = sb_Auth_GetSession.data.session
+
+    const allowAuthenticated = ['/reset-password', '/setup-organization', '/invitation']
+    if (session && !allowAuthenticated.includes(location.pathname)) {
+      throw redirect({ to: '/home' })
+    }
+  },
   component: AuthLayout,
 })
 
 function AuthLayout() {
-  const { isAuthenticated, loading } = useAuth()
   const { token } = theme.useToken()
-  const location = useLocation()
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    )
-  }
-
-  // Allow authenticated users on these pages:
-  // - /reset-password: arrive with session from reset email tokens
-  // - /setup-organization: authenticated but no org yet
-  const allowAuthenticated = ['/reset-password', '/setup-organization']
-  if (isAuthenticated && !allowAuthenticated.includes(location.pathname)) {
-    return <Navigate to="/dashboard" />
-  }
 
   return (
     <div

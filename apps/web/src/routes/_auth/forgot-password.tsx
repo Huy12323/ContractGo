@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Form, Input, Button, Typography, theme } from 'antd'
 import { MailOutlined, TeamOutlined, SafetyOutlined } from '@ant-design/icons'
-import { resetPasswordForEmail, verifyRecoveryOtp } from '@/stores/auth'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
 
 export const Route = createFileRoute('/_auth/forgot-password')({
   component: ForgotPasswordPage,
@@ -21,7 +21,7 @@ function ForgotPasswordPage() {
   async function onSendEmail(values: { email: string }) {
     setLoading(true)
     try {
-      await resetPasswordForEmail(values.email)
+      await Store_Auth_Actions.resetPasswordForEmail(values.email)
     } catch {
       // silently succeed — don't reveal if email exists
     } finally {
@@ -34,7 +34,7 @@ function ForgotPasswordPage() {
   async function onVerifyCode(values: { code: string }) {
     setVerifying(true)
     try {
-      await verifyRecoveryOtp(email, values.code.trim())
+      await Store_Auth_Actions.verifyRecoveryOtp(email, values.code.trim())
       navigate({ to: '/reset-password' })
     } catch {
       codeForm.setFields([{
@@ -49,7 +49,7 @@ function ForgotPasswordPage() {
   async function handleResend() {
     setLoading(true)
     try {
-      await resetPasswordForEmail(email)
+      await Store_Auth_Actions.resetPasswordForEmail(email)
     } catch {
       // silently succeed
     } finally {

@@ -17,7 +17,9 @@ import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthSetupOrganizationRouteImport } from './routes/_auth/setup-organization'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AuthInvitationRouteImport } from './routes/_auth/invitation'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
+import { Route as ProtectedHomeIndexRouteImport } from './routes/_protected/home/index'
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
@@ -58,10 +60,20 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthInvitationRoute = AuthInvitationRouteImport.update({
+  id: '/invitation',
+  path: '/invitation',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const ProtectedHomeIndexRoute = ProtectedHomeIndexRouteImport.update({
+  id: '/home/',
+  path: '/home/',
+  getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
   id: '/dashboard/',
@@ -72,22 +84,26 @@ const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
+  '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/setup-organization': typeof AuthSetupOrganizationRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/home/': typeof ProtectedHomeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
+  '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/setup-organization': typeof AuthSetupOrganizationRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/dashboard': typeof ProtectedDashboardIndexRoute
+  '/home': typeof ProtectedHomeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,46 +111,54 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/_auth/invitation': typeof AuthInvitationRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/setup-organization': typeof AuthSetupOrganizationRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/_protected/home/': typeof ProtectedHomeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/forgot-password'
+    | '/invitation'
     | '/login'
     | '/reset-password'
     | '/setup-organization'
     | '/signup'
     | '/verify-email'
     | '/dashboard/'
+    | '/home/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
+    | '/invitation'
     | '/login'
     | '/reset-password'
     | '/setup-organization'
     | '/signup'
     | '/verify-email'
     | '/dashboard'
+    | '/home'
   id:
     | '__root__'
     | '/'
     | '/_auth'
     | '/_protected'
     | '/_auth/forgot-password'
+    | '/_auth/invitation'
     | '/_auth/login'
     | '/_auth/reset-password'
     | '/_auth/setup-organization'
     | '/_auth/signup'
     | '/_auth/verify-email'
     | '/_protected/dashboard/'
+    | '/_protected/home/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -201,12 +225,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_auth/invitation': {
+      id: '/_auth/invitation'
+      path: '/invitation'
+      fullPath: '/invitation'
+      preLoaderRoute: typeof AuthInvitationRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/_auth/forgot-password': {
       id: '/_auth/forgot-password'
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/_protected/home/': {
+      id: '/_protected/home/'
+      path: '/home'
+      fullPath: '/home/'
+      preLoaderRoute: typeof ProtectedHomeIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
     }
     '/_protected/dashboard/': {
       id: '/_protected/dashboard/'
@@ -220,6 +258,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthInvitationRoute: typeof AuthInvitationRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSetupOrganizationRoute: typeof AuthSetupOrganizationRoute
@@ -229,6 +268,7 @@ interface AuthRouteRouteChildren {
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthInvitationRoute: AuthInvitationRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSetupOrganizationRoute: AuthSetupOrganizationRoute,
@@ -242,10 +282,12 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface ProtectedRouteRouteChildren {
   ProtectedDashboardIndexRoute: typeof ProtectedDashboardIndexRoute
+  ProtectedHomeIndexRoute: typeof ProtectedHomeIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedDashboardIndexRoute: ProtectedDashboardIndexRoute,
+  ProtectedHomeIndexRoute: ProtectedHomeIndexRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(

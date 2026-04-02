@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Form, Input, Button, Result, Typography, theme } from 'antd'
 import { LockOutlined, TeamOutlined, CheckCircleOutlined } from '@ant-design/icons'
-import { updatePassword } from '@/stores/auth'
-import { useAuth } from '@/hooks/use-auth'
-import { supabase } from '@/api/supabase'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { useStore_Auth_Session } from '@/stores/Store_Auth'
+import { supabase } from '@/configs/supabase/config'
 
 export const Route = createFileRoute('/_auth/reset-password')({
   component: ResetPasswordPage,
@@ -12,7 +12,7 @@ export const Route = createFileRoute('/_auth/reset-password')({
 
 function ResetPasswordPage() {
   const { token } = theme.useToken()
-  const { session } = useAuth()
+  const session = useStore_Auth_Session()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [isRecovery, setIsRecovery] = useState(false)
@@ -54,7 +54,7 @@ function ResetPasswordPage() {
   async function onFinish(values: { password: string }) {
     setLoading(true)
     try {
-      await updatePassword(values.password)
+      await Store_Auth_Actions.updatePassword(values.password)
       setSuccess(true)
     } catch (err) {
       form.setFields([{

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Form, Input, Button, Checkbox, Typography, Divider, theme } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
-import { signInWithPassword } from '@/stores/auth'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
 import { useNavigate } from '@tanstack/react-router'
 
 interface LoginValues {
@@ -14,7 +14,7 @@ interface LoginFormProps {
   redirect?: string
 }
 
-export function LoginForm({ redirect: redirectTo }: LoginFormProps) {
+export const App_LoginForm = ({ redirect: redirectTo }: LoginFormProps) => {
   const [loading, setLoading] = useState(false)
   const { token } = theme.useToken()
   const navigate = useNavigate()
@@ -23,7 +23,7 @@ export function LoginForm({ redirect: redirectTo }: LoginFormProps) {
   async function onFinish(values: LoginValues) {
     setLoading(true)
     try {
-      await signInWithPassword(values.email, values.password)
+      await Store_Auth_Actions.signInWithPassword(values.email, values.password)
       navigate({ to: redirectTo || '/dashboard' })
     } catch (err) {
       const message = err instanceof Error ? err.message : ''

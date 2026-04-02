@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
-import { useOrganization } from '@/hooks/use-organization'
-import type { Enums } from '@worldcraft/shared/types'
+import { useOrganization } from '@/hooks/useOrganization'
+import type { OrgRole } from '@/hooks/useOrganization'
 
 interface RoleGuardProps {
-  roles: Enums<'app_role'>[]
+  roles: OrgRole[]
   children: ReactNode
   fallback?: ReactNode
 }
 
-export function RoleGuard({ roles, children, fallback = null }: RoleGuardProps) {
+export const App_RoleGuard = ({ roles, children, fallback = null }: RoleGuardProps) => {
   const { role, loading } = useOrganization()
 
   if (loading) return null

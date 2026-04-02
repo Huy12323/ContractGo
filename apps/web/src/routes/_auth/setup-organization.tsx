@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Form, Input, Button, Typography, theme } from 'antd'
-import { TeamOutlined, BankOutlined } from '@ant-design/icons'
-import { supabase } from '@/api/supabase'
-import { queryClient } from '@/lib/query-client'
-import { signOut } from '@/stores/auth'
+import { Button, Typography, theme } from 'antd'
+import { TeamOutlined } from '@ant-design/icons'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { App_CreateOrgModal } from '@/components/organization/App_CreateOrgModal'
 
 export const Route = createFileRoute('/_auth/setup-organization')({
   component: SetupOrganizationPage,
@@ -13,29 +12,7 @@ export const Route = createFileRoute('/_auth/setup-organization')({
 function SetupOrganizationPage() {
   const { token } = theme.useToken()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [form] = Form.useForm<{ name: string }>()
-
-  async function onFinish(values: { name: string }) {
-    setLoading(true)
-    try {
-      // Atomic RPC: creates org + owner membership + seeds permissions
-      const { error } = await supabase.rpc('create_organization', { org_name: values.name })
-
-      if (error) throw error
-
-      // Invalidate queries and navigate
-      queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      navigate({ to: '/dashboard' })
-    } catch (err) {
-      form.setFields([{
-        name: 'name',
-        errors: [err instanceof Error ? err.message : 'Failed to create organization'],
-      }])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [modalOpen, setModalOpen] = useState(false)
 
   return (
     <>
@@ -64,26 +41,39 @@ function SetupOrganizationPage() {
         Create your organization to get started. You'll be the owner with full access.
       </Typography.Paragraph>
 
-      <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
-        <Form.Item
-          name="name"
-          label="Organization Name"
-          rules={[{ required: true, message: 'Enter your organization name' }]}
-        >
-          <Input prefix={<BankOutlined style={{ color: token.colorTextQuaternary }} />} placeholder="Acme Inc." size="large" />
-        </Form.Item>
+      <Button
+        type="primary"
+        block
+        size="large"
+        onClick={() => setModalOpen(true)}
+      >
+        Create Organization
+      </Button>
 
-        <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-          Create Organization
-        </Button>
-      </Form>
+      <Button
+        type="link"
+        block
+        onClick={() => {
+          sessionStorage.setItem('setup-org-skipped', '1')
+          navigate({ to: '/home' })
+        }}
+        style={{ marginTop: 8 }}
+      >
+        Skip for now
+      </Button>
 
-      <div style={{ textAlign: 'center', marginTop: 16 }}>
+      <div style={{ textAlign: 'center', marginTop: 8 }}>
         <Typography.Text type="secondary" style={{ fontSize: 13 }}>
           Wrong account?{' '}
-          <Typography.Link onClick={() => signOut()}>Sign out</Typography.Link>
+          <Typography.Link onClick={() => Store_Auth_Actions.signOut()}>Sign out</Typography.Link>
         </Typography.Text>
       </div>
+
+      <App_CreateOrgModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={() => navigate({ to: '/home' })}
+      />
     </>
   )
 }

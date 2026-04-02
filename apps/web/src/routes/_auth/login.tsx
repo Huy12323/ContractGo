@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { LoginForm } from '@/components/auth/LoginForm'
+import { App_LoginForm } from '@/components/auth/App_LoginForm'
 import { Typography, theme } from 'antd'
 import { TeamOutlined } from '@ant-design/icons'
 
@@ -36,7 +36,7 @@ function LoginPage() {
         </Typography.Title>
         <Typography.Text type="secondary">Sign in to your workspace</Typography.Text>
       </div>
-      <LoginForm redirect={redirect} />
+      <App_LoginForm redirect={redirect} />
     </>
   )
 }

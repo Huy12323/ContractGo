@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Form, Input, Button, Typography, Divider, theme } from 'antd'
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'
-import { signUp } from '@/stores/auth'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
 import { useNavigate } from '@tanstack/react-router'
 
 interface SignUpValues {
@@ -11,7 +11,7 @@ interface SignUpValues {
   confirmPassword: string
 }
 
-export function SignUpForm() {
+export const App_SignUpForm = () => {
   const [loading, setLoading] = useState(false)
   const { token } = theme.useToken()
   const navigate = useNavigate()
@@ -20,7 +20,7 @@ export function SignUpForm() {
   async function onFinish(values: SignUpValues) {
     setLoading(true)
     try {
-      await signUp(values.email, values.password, values.fullName)
+      await Store_Auth_Actions.signUp(values.email, values.password, values.fullName)
       navigate({ to: '/verify-email', search: { email: values.email } })
     } catch (err) {
       form.setFields([{

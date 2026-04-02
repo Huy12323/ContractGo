@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Button, Result, Typography, theme } from 'antd'
 import { MailOutlined, TeamOutlined } from '@ant-design/icons'
-import { resendVerification } from '@/stores/auth'
+import { Store_Auth_Actions } from '@/stores/Store_Auth'
 
 export const Route = createFileRoute('/_auth/verify-email')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -21,7 +21,7 @@ function VerifyEmailPage() {
     if (!email) return
     setResending(true)
     try {
-      await resendVerification(email)
+      await Store_Auth_Actions.resendVerification(email)
       setResent(true)
     } catch {
       // silently fail — don't reveal if email exists
