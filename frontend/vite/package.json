@@ -1,5 +1,5 @@
 {
-  "name": "@worldcraft/web",
+  "name": "@aiur-hr/web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.101.1",
     "@tanstack/react-query": "^5.90.6",
     "@tanstack/react-router": "^1.103.3",
     "@tanstack/react-store": "^0.7.7",
     "@tanstack/store": "^0.7.7",
-    "@worldcraft/shared": "workspace:*",
+    "type-fest": "^5.5.0",
     "antd": "^6.3.5",
     "jet-env": "^1.1.6",
     "react": "^19.1.0",

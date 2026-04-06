@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useOrganization } from '@/hooks/useOrganization'
-import type { Enums } from '@worldcraft/shared/types'
+import type { Enums } from '@/types'
 
 interface PermissionGuardProps {
   permission: Enums<'app_permission'>

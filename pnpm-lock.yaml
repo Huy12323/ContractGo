@@ -14,18 +14,15 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
-      turbo:
-        specifier: ^2.4.4
-        version: 2.8.12
 
-  apps/web:
+  frontend/vite:
     dependencies:
       '@ant-design/icons':
         specifier: ^6.1.0
-        version: 6.1.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 6.1.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@supabase/supabase-js':
-        specifier: ^2.49.4
-        version: 2.98.0
+        specifier: ^2.101.1
+        version: 2.101.1
       '@tanstack/react-query':
         specifier: ^5.90.6
         version: 5.90.21(react@19.2.4)
@@ -38,9 +35,6 @@ importers:
       '@tanstack/store':
         specifier: ^0.7.7
         version: 0.7.7
-      '@worldcraft/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       antd:
         specifier: ^6.3.5
         version: 6.3.5(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -53,6 +47,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.4(react@19.2.4)
+      type-fest:
+        specifier: ^5.5.0
+        version: 5.5.0
     devDependencies:
       '@tanstack/router-plugin':
         specifier: ^1.103.3
@@ -72,15 +69,6 @@ importers:
       vite:
         specifier: ^6.3.5
         version: 6.4.1(@types/node@22.19.13)(terser@5.46.0)(tsx@4.21.0)
-
-  packages/shared:
-    devDependencies:
-      type-fest:
-        specifier: ^5.5.0
-        version: 5.5.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
 
 packages:
 
@@ -105,13 +93,6 @@ packages:
 
   '@ant-design/icons-svg@4.4.2':
     resolution: {integrity: sha512-vHbT+zJEVzllwP+CM+ul7reTEfBR0vgxFe7+lREAsAA7YGsYpboiq2sQNeQeRvh09GfQgs/GyFEvZpJ9cLXpXA==}
-
-  '@ant-design/icons@6.1.0':
-    resolution: {integrity: sha512-KrWMu1fIg3w/1F2zfn+JlfNDU8dDqILfA5Tg85iqs1lf8ooyGlbkA+TkwfOKKgqpUmAiRY1PTFpuOU2DAIgSUg==}
-    engines: {node: '>=8'}
-    peerDependencies:
-      react: '>=16.0.0'
-      react-dom: '>=16.0.0'
 
   '@ant-design/icons@6.1.1':
     resolution: {integrity: sha512-AMT4N2y++TZETNHiM77fs4a0uPVCJGuL5MTonk13Pvv7UN7sID1cNEZOc1qNqx6zLKAOilTEFAdAoAFKa0U//Q==}
@@ -838,12 +819,6 @@ packages:
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
 
-  '@rc-component/util@1.9.0':
-    resolution: {integrity: sha512-5uW6AfhIigCWeEQDthTozlxiT4Prn6xYQWeO0xokjcaa186OtwPRHBZJ2o0T0FhbjGhZ3vXdbkv0sx3gAYW7Vg==}
-    peerDependencies:
-      react: '>=18.0.0'
-      react-dom: '>=18.0.0'
-
   '@rc-component/virtual-list@1.0.2':
     resolution: {integrity: sha512-uvTol/mH74FYsn5loDGJxo+7kjkO4i+y4j87Re1pxJBs0FaeuMuLRzQRGaXwnMcV1CxpZLi2Z56Rerj2M00fjQ==}
     engines: {node: '>=8.x'}
@@ -979,28 +954,31 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@supabase/auth-js@2.98.0':
-    resolution: {integrity: sha512-GBH361T0peHU91AQNzOlIrjUZw9TZbB9YDRiyFgk/3Kvr3/Z1NWUZ2athWTfHhwNNi8IrW00foyFxQD9IO/Trg==}
+  '@supabase/auth-js@2.101.1':
+    resolution: {integrity: sha512-Kd0Wey+RkFHgyVep7adS6UOE2pN6MJ3mZ32PAXSvfw6IjUkFRC7IQpdZZjUOcUe5pXr1ejufCRgF6lsGINe4Tw==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/functions-js@2.98.0':
-    resolution: {integrity: sha512-N/xEyiNU5Org+d+PNCpv+TWniAXRzxIURxDYsS/m2I/sfAB/HcM9aM2Dmf5edj5oWb9GxID1OBaZ8NMmPXL+Lg==}
+  '@supabase/functions-js@2.101.1':
+    resolution: {integrity: sha512-OZWU7YtaG+NNNFZK8p/FuJ6gpq7pFyrG2fLOopP73HAIDHDGpOttPJapvO8ADu3RkqfQfkwrB354vPkSBbZ20A==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/postgrest-js@2.98.0':
-    resolution: {integrity: sha512-v6e9WeZuJijzUut8HyXu6gMqWFepIbaeaMIm1uKzei4yLg9bC9OtEW9O14LE/9ezqNbSAnSLO5GtOLFdm7Bpkg==}
+  '@supabase/phoenix@0.4.0':
+    resolution: {integrity: sha512-RHSx8bHS02xwfHdAbX5Lpbo6PXbgyf7lTaXTlwtFDPwOIw64NnVRwFAXGojHhjtVYI+PEPNSWwkL90f4agN3bw==}
+
+  '@supabase/postgrest-js@2.101.1':
+    resolution: {integrity: sha512-UW1RajH5jbZoK+ldAJ1I6VZ+HWwZ2oaKjEQ6Gn+AQ67CHQVxGl8wNQoLYyumbyaExm41I+wn7arulcY1eHeZJw==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/realtime-js@2.98.0':
-    resolution: {integrity: sha512-rOWt28uGyFipWOSd+n0WVMr9kUXiWaa7J4hvyLCIHjRFqWm1z9CaaKAoYyfYMC1Exn3WT8WePCgiVhlAtWC2yw==}
+  '@supabase/realtime-js@2.101.1':
+    resolution: {integrity: sha512-Oa6dno0OB9I+hv5do5zsZHbFu41ViZnE9IWjmkeeF/8fPmB5fWoHGqeTYEC3/0DAgtpUoFJa4FpvzFH0SBHo1Q==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/storage-js@2.98.0':
-    resolution: {integrity: sha512-tzr2mG+v7ILSAZSfZMSL9OPyIH4z1ikgQ8EcQTKfMRz4EwmlFt3UnJaGzSOxyvF5b+fc9So7qdSUWTqGgeLokQ==}
+  '@supabase/storage-js@2.101.1':
+    resolution: {integrity: sha512-WhTaUOBgeEvnKLy95Cdlp6+D5igSF/65yC727w1olxbet5nzUvMlajKUWyzNtQu2efrz2cQ7FcdVBdQqgT9YKQ==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/supabase-js@2.98.0':
-    resolution: {integrity: sha512-Ohc97CtInLwZyiSASz7tT9/Abm/vqnIbO9REp+PivVUII8UZsuI3bngRQnYgJdFoOIwvaEII1fX1qy8x0CyNiw==}
+  '@supabase/supabase-js@2.101.1':
+    resolution: {integrity: sha512-Jnhm3LfuACwjIzvk2pfUbGQn7pa7hi6MFzfSyPrRYWVCCu69RPLCFyHSBl7HSBwadbQ3UZOznnD3gPca3ePrRA==}
     engines: {node: '>=20.0.0'}
 
   '@tanstack/history@1.161.4':
@@ -1103,9 +1081,6 @@ packages:
 
   '@types/node@22.19.13':
     resolution: {integrity: sha512-akNQMv0wW5uyRpD2v2IEyRSZiR+BeGuoB6L310EgGObO44HSMNT8z1xzio28V8qOrgYaopIDNA18YgdXd+qTiw==}
-
-  '@types/phoenix@1.6.7':
-    resolution: {integrity: sha512-oN9ive//QSBkf19rfDv45M7eZPi0eEXylht2OLEXicu5b4KoQ1OzXIw+xDSGWxSxe1JmepRR/ZH283vsu518/Q==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1718,40 +1693,6 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  turbo-darwin-64@2.8.12:
-    resolution: {integrity: sha512-EiHJmW2MeQQx+21x8hjMHw/uPhXt9PIxvDrxzOtyVwrXzL0tQmsxtO4qHf2l7uA+K6PUJ4+TjY1MHZDuCvWXrw==}
-    cpu: [x64]
-    os: [darwin]
-
-  turbo-darwin-arm64@2.8.12:
-    resolution: {integrity: sha512-cbqqGN0vd7ly2TeuaM8k9AK9u1CABO4kBA5KPSqovTiLL3sORccn/mZzJSbvQf0EsYRfU34MgW5FotfwW3kx8Q==}
-    cpu: [arm64]
-    os: [darwin]
-
-  turbo-linux-64@2.8.12:
-    resolution: {integrity: sha512-jXKw9j4r4q6s0goSXuKI3aKbQK2qiNeP25lGGEnq018TM6SWRW1CCpPMxyG91aCKrub7wDm/K45sGNT4ZFBcFQ==}
-    cpu: [x64]
-    os: [linux]
-
-  turbo-linux-arm64@2.8.12:
-    resolution: {integrity: sha512-BRJCMdyXjyBoL0GYpvj9d2WNfMHwc3tKmJG5ATn2Efvil9LsiOsd/93/NxDqW0jACtHFNVOPnd/CBwXRPiRbwA==}
-    cpu: [arm64]
-    os: [linux]
-
-  turbo-windows-64@2.8.12:
-    resolution: {integrity: sha512-vyFOlpFFzQFkikvSVhVkESEfzIopgs2J7J1rYvtSwSHQ4zmHxkC95Q8Kjkus8gg+8X2mZyP1GS5jirmaypGiPw==}
-    cpu: [x64]
-    os: [win32]
-
-  turbo-windows-arm64@2.8.12:
-    resolution: {integrity: sha512-9nRnlw5DF0LkJClkIws1evaIF36dmmMEO84J5Uj4oQ8C0QTHwlH7DNe5Kq2Jdmu8GXESCNDNuUYG8Cx6W/vm3g==}
-    cpu: [arm64]
-    os: [win32]
-
-  turbo@2.8.12:
-    resolution: {integrity: sha512-auUAMLmi0eJhxDhQrxzvuhfEbICnVt0CTiYQYY8WyRJ5nwCDZxD0JG8bCSxT4nusI2CwJzmZAay5BfF6LmK7Hw==}
-    hasBin: true
-
   type-fest@5.5.0:
     resolution: {integrity: sha512-PlBfpQwiUvGViBNX84Yxwjsdhd1TUlXr6zjX7eoirtCPIr08NAmxwa+fcYBTeRQxHo9YC9wwF3m9i700sHma8g==}
     engines: {node: '>=20'}
@@ -1903,15 +1844,6 @@ snapshots:
   '@ant-design/fast-color@3.0.1': {}
 
   '@ant-design/icons-svg@4.4.2': {}
-
-  '@ant-design/icons@6.1.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@ant-design/colors': 8.0.1
-      '@ant-design/icons-svg': 4.4.2
-      '@rc-component/util': 1.9.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      clsx: 2.1.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
 
   '@ant-design/icons@6.1.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -2577,13 +2509,6 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
       react-is: 18.3.1
 
-  '@rc-component/util@1.9.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      is-mobile: 5.0.0
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-is: 18.3.1
-
   '@rc-component/virtual-list@1.0.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@babel/runtime': 7.28.6
@@ -2670,21 +2595,23 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.59.0':
     optional: true
 
-  '@supabase/auth-js@2.98.0':
+  '@supabase/auth-js@2.101.1':
     dependencies:
       tslib: 2.8.1
 
-  '@supabase/functions-js@2.98.0':
+  '@supabase/functions-js@2.101.1':
     dependencies:
       tslib: 2.8.1
 
-  '@supabase/postgrest-js@2.98.0':
+  '@supabase/phoenix@0.4.0': {}
+
+  '@supabase/postgrest-js@2.101.1':
     dependencies:
       tslib: 2.8.1
 
-  '@supabase/realtime-js@2.98.0':
+  '@supabase/realtime-js@2.101.1':
     dependencies:
-      '@types/phoenix': 1.6.7
+      '@supabase/phoenix': 0.4.0
       '@types/ws': 8.18.1
       tslib: 2.8.1
       ws: 8.19.0
@@ -2692,18 +2619,18 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@supabase/storage-js@2.98.0':
+  '@supabase/storage-js@2.101.1':
     dependencies:
       iceberg-js: 0.8.1
       tslib: 2.8.1
 
-  '@supabase/supabase-js@2.98.0':
+  '@supabase/supabase-js@2.101.1':
     dependencies:
-      '@supabase/auth-js': 2.98.0
-      '@supabase/functions-js': 2.98.0
-      '@supabase/postgrest-js': 2.98.0
-      '@supabase/realtime-js': 2.98.0
-      '@supabase/storage-js': 2.98.0
+      '@supabase/auth-js': 2.101.1
+      '@supabase/functions-js': 2.101.1
+      '@supabase/postgrest-js': 2.101.1
+      '@supabase/realtime-js': 2.101.1
+      '@supabase/storage-js': 2.101.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -2848,8 +2775,6 @@ snapshots:
   '@types/node@22.19.13':
     dependencies:
       undici-types: 6.21.0
-
-  '@types/phoenix@1.6.7': {}
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -3572,33 +3497,6 @@ snapshots:
       get-tsconfig: 4.13.6
     optionalDependencies:
       fsevents: 2.3.3
-
-  turbo-darwin-64@2.8.12:
-    optional: true
-
-  turbo-darwin-arm64@2.8.12:
-    optional: true
-
-  turbo-linux-64@2.8.12:
-    optional: true
-
-  turbo-linux-arm64@2.8.12:
-    optional: true
-
-  turbo-windows-64@2.8.12:
-    optional: true
-
-  turbo-windows-arm64@2.8.12:
-    optional: true
-
-  turbo@2.8.12:
-    optionalDependencies:
-      turbo-darwin-64: 2.8.12
-      turbo-darwin-arm64: 2.8.12
-      turbo-linux-64: 2.8.12
-      turbo-linux-arm64: 2.8.12
-      turbo-windows-64: 2.8.12
-      turbo-windows-arm64: 2.8.12
 
   type-fest@5.5.0:
     dependencies:

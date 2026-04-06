@@ -1,4 +1,4 @@
-# WorldCraft
+# AIUR HR
 
 Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + R2).
 
@@ -6,11 +6,10 @@ Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + 
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, TanStack Router, TanStack Query, TanStack Store, Ant Design |
+| Frontend | React 19, TanStack Router, TanStack Query, TanStack Store, Ant Design v6 |
 | Backend | Supabase (PostgreSQL + Auth + Edge Functions + Realtime) |
 | File Storage | Cloudflare R2 (S3-compatible, zero egress) |
-| Shared | `@worldcraft/shared` — TypeScript types generated from Supabase schema |
-| Monorepo | pnpm workspaces + Turborepo |
+| Monorepo | pnpm workspaces |
 | Deployment | Cloudflare Pages (frontend), Supabase Cloud (backend) |
 
 ## Prerequisites
@@ -24,25 +23,16 @@ Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + 
 
 ```bash
 git clone <repo-url>
-cd WorldCraft
+cd aiur-hr
 pnpm install
-supabase start
-pnpm db:types                # generate TypeScript types from schema
 ```
 
-Copy environment variables:
+Apply environment variables:
 
 ```bash
-cp .env.example .env
-```
-
-Then fill `.env` with the keys printed by `supabase start` (anon key, service role key).
-
-Create `apps/web/.env`:
-
-```env
-VITE_SUPABASE_URL=http://localhost:54321
-VITE_SUPABASE_ANON_KEY=<anon key from supabase start>
+cp .env.example .env.dev
+# Fill in API keys
+pnpm env:apply dev
 ```
 
 Start everything:
@@ -51,61 +41,55 @@ Start everything:
 pnpm dev
 ```
 
-## What You'll See
-
-1. `supabase start` prints local URLs + keys (~30s first run to pull Docker images)
-2. Frontend opens at **http://localhost:5173**
-3. Login screen appears — click **Sign Up**, enter any email + password
-4. Since email confirmation is disabled, you're logged in immediately
-5. Dashboard shows your profile data fetched from Supabase
-
 ## Useful URLs
 
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:5173 |
 | Supabase Studio | http://localhost:54323 |
-| Inbucket (email) | http://localhost:54324 |
 | Supabase API | http://localhost:54321 |
 
 ## Project Structure
 
 ```
-WorldCraft/
-├── apps/
-│   └── web/                    # React SPA (TanStack Router + Ant Design)
+aiur-hr/
+├── frontend/
+│   └── vite/                   # React SPA (TanStack Router + Ant Design)
+│       ├── supabase/           # Database + Edge Functions
+│       │   ├── config.toml     # Local Supabase configuration
+│       │   ├── migrations/     # SQL migrations (source of truth)
+│       │   ├── functions/      # Supabase Edge Functions (Deno)
+│       │   └── templates/      # Email templates
 │       └── src/
 │           ├── routes/         # File-based routing
 │           ├── components/     # UI components (max 2 levels deep)
-│           ├── api/            # Supabase client + TanStack Query factories
+│           ├── configs/        # Supabase client config
 │           ├── hooks/          # React hooks by domain
-│           └── stores/         # TanStack Store (auth state)
-├── packages/
-│   └── shared/                 # @worldcraft/shared
-│       └── src/types/          # Supabase-generated TypeScript types
-├── supabase/                   # Database + Edge Functions
-│   ├── config.toml             # Local Supabase configuration
-│   ├── migrations/             # SQL migrations (source of truth)
-│   ├── functions/              # Supabase Edge Functions (Deno)
-│   └── seed.sql                # Dev seed data
+│           ├── stores/         # TanStack Store (auth state)
+│           ├── types/          # Supabase-generated TypeScript types
+│           └── utils/          # ENVs, query keys, options
 ├── .claude/                    # PM Bible commands & skills
 ├── scripts/                    # Plane/Outline API utilities
-└── docs/                       # PM workflow documentation
+├── docs/                       # PM workflow documentation
+└── cycles/                     # Plan files by cycle
 ```
 
 ## Key Commands
 
 | Command | What it does |
 |---------|-------------|
-| `pnpm dev` | Start everything (Supabase + frontend) |
+| `pnpm dev` | Start everything (Supabase + Edge Functions + frontend) |
 | `pnpm dev:web` | Start frontend only |
-| `pnpm dev:functions` | Serve Edge Functions locally |
-| `pnpm build` | Build all apps |
-| `pnpm db:reset` | Drop and recreate database from migrations + seed |
-| `pnpm db:types` | Regenerate TypeScript types from Supabase schema |
-| `pnpm db:diff` | Generate migration from schema changes |
-| `supabase start` | Start local Supabase (Docker) |
-| `supabase stop` | Stop local Supabase |
+| `pnpm dev:ef` | Serve Edge Functions locally |
+| `pnpm build` | Build frontend |
+| `pnpm sb:dev:start` | Start local Supabase (Docker) |
+| `pnpm sb:dev:stop` | Stop local Supabase |
+| `pnpm sb:dev:reset` | Drop and recreate database from migrations + seed |
+| `pnpm sb:dev:types` | Regenerate TypeScript types from Supabase schema |
+| `pnpm sb:dev:diff` | Generate migration from schema changes |
+| `pnpm sb:dev:push` | Apply pending migrations locally |
+| `pnpm sb:dev:new` | Create new empty migration |
+| `pnpm env:apply dev` | Distribute env vars to destinations |
 
 ## How Auth Works
 
@@ -119,26 +103,13 @@ WorldCraft/
 
 ```bash
 # After changing schema in Studio:
-supabase db diff --use-migra -f my_change_name
+pnpm sb:dev:diff -- -f my_change_name
 
-# Verify migrations work from scratch:
-pnpm db:reset
+# Apply migrations (preserves data):
+pnpm sb:dev:push
 
-# Push to remote:
-pnpm db:push
-```
-
-## Edge Functions
-
-```bash
-# Create a new function:
-supabase functions new my-function
-
-# Serve locally:
-pnpm dev:functions
-
-# Deploy:
-supabase functions deploy my-function
+# Regenerate types:
+pnpm sb:dev:types
 ```
 
 ## PM Workflow (Bible)

@@ -42,3 +42,4 @@ temp/
 
 # Logs
 *.log
+.bible/

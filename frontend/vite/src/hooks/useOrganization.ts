@@ -3,7 +3,7 @@ import { useQ_Tables_MyOrganizations } from '@/hooks/useQ_Tables_MyOrganizations
 import { useQ_Tables_MyRole } from '@/hooks/useQ_Tables_MyRole'
 import { useQ_Tables_OrgPermissions } from '@/hooks/useQ_Tables_OrgPermissions'
 import { useProvider_Organization } from '@/providers/organization/Provider_Organization'
-import type { Enums } from '@worldcraft/shared/types'
+import type { Enums } from '@/types'
 
 export type OrgRole = 'owner' | 'admin' | 'employee'
 type AppPermission = Enums<'app_permission'>

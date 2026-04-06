@@ -19,9 +19,9 @@ const fs = require("fs");
 const path = require("path");
 
 const SECTION_DESTINATIONS = {
-    VITE: "apps/web",
-    SUPABASE_CONFIG: "supabase",
-    SUPABASE_FUNCTIONS: "supabase/functions",
+    VITE: "frontend/vite",
+    SUPABASE_CONFIG: "frontend/vite/supabase",
+    SUPABASE_FUNCTIONS: "frontend/vite/supabase/functions",
     MCP: ".",
 };
 

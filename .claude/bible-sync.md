@@ -54,12 +54,12 @@ Consumer type: standard
 | bible-tanstack-router | tanstack | adopted | |
 | bible-supabase-schema | supabase | adopted | Onboarded: PK=generate_id, tenant_key=organization_id |
 | bible-supabase-rls-policies | supabase | adopted | Onboarded: tenant_key=organization_id, delete=org-member |
-| bible-supabase-migrations | supabase | adopted | Onboarded: hard deletes, types=packages/shared |
+| bible-supabase-migrations | supabase | adopted | Onboarded: hard deletes, types=frontend/vite/src/types |
 | bible-supabase-edge-functions | supabase | adopted | |
-| bible-supabase-cli | supabase | adopted | Onboarded: supabase_dir=root, project_id=worldcraft |
+| bible-supabase-cli | supabase | adopted | Onboarded: supabase_dir=frontend/vite, project_id=aiur-hr |
 | bible-supabase-auth | supabase | adopted | Onboarded: tenant_key=organization_id, auth=email/password |
 | bible-supabase-sdk | supabase | adopted | |
 | bible-supabase-options | supabase | adopted | |
 | bible-env-variables | env | adopted | Onboarded: jet-env |
-| bible-project-structure | project | adopted | Onboarded: app_folder=apps/web |
+| bible-project-structure | project | adopted | Onboarded: app_folder=frontend/vite |
 | bible-skill-extension | meta | adopted | |

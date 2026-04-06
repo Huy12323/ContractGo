@@ -20,7 +20,7 @@ No decisions — pattern is universal.
 No decisions — ANTD v6 is the standard.
 
 **Scaffolding:**
-- Created `apps/web/src/providers/antd/Provider_ANTD.tsx`
+- Created `frontend/vite/src/providers/antd/Provider_ANTD.tsx`
 
 ## bible-env-variables
 
@@ -28,12 +28,12 @@ No decisions — ANTD v6 is the standard.
 - **Vite prefix:** `VITE_`
 
 **Scaffolding:**
-- Created `apps/web/src/utils/ENVs/ENVs.ts`
+- Created `frontend/vite/src/utils/ENVs/ENVs.ts`
 - Installed `jet-env`
 
 ## bible-project-structure
 
-- **Frontend app folder:** `apps/web` (monorepo layout)
+- **Frontend app folder:** `frontend/vite` (Bible standard layout)
 
 ## bible-supabase-schema
 
@@ -55,8 +55,8 @@ No decisions — ANTD v6 is the standard.
 ## bible-supabase-migrations
 
 - **Delete strategy:** hard deletes
-- **Type gen output:** `packages/shared/src/types/database.types.ts`
-- **Type gen command:** `pnpm db:types` (root script)
+- **Type gen output:** `frontend/vite/src/types/database.types.ts`
+- **Type gen command:** `pnpm sb:dev:types` (root script)
 
 ## bible-supabase-edge-functions
 
@@ -64,8 +64,8 @@ No decisions — conventions are universal.
 
 ## bible-supabase-cli
 
-- **Supabase directory:** root `supabase/`
-- **project_id:** `worldcraft`
+- **Supabase directory:** `frontend/vite/supabase/`
+- **project_id:** `aiur-hr`
 
 ## bible-supabase-auth
 
@@ -78,29 +78,29 @@ No decisions — conventions are universal.
 No decisions — `sb_*` naming is standard.
 
 **Scaffolding:**
-- Supabase client exists at `apps/web/src/api/supabase.ts` — needs migration to `apps/web/src/configs/supabase/config.ts` and ENVs integration
+- Supabase client at `frontend/vite/src/configs/supabase/config.ts` with ENVs integration
 
 ## bible-supabase-options
 
 No decisions — `const_*` naming is standard.
 
 **Scaffolding:**
-- Created `apps/web/src/utils/options/EnumsToOptions.ts`
+- Created `frontend/vite/src/utils/options/EnumsToOptions.ts`
 
 ## bible-tanstack-query-mutation
 
 - **Cache invalidation:** manual
 
 **Scaffolding:**
-- Created `apps/web/src/utils/query/queryKeys.ts`
-- Created `apps/web/src/types/utility.types.ts`
+- Created `frontend/vite/src/utils/query/queryKeys.ts`
+- Created `frontend/vite/src/types/utility.types.ts`
 
 ## bible-tanstack-router
 
 No decisions — file-based routing is standard.
 
 **Scaffolding:**
-- Root route already exists at `apps/web/src/routes/__root.tsx`
+- Root route already exists at `frontend/vite/src/routes/__root.tsx`
 
 ## bible-tanstack-store
 
