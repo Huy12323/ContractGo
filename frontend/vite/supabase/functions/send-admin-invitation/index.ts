@@ -1,11 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-const SENDER_EMAIL = Deno.env.get("RESEND_SENDER_EMAIL") ?? "noreply@e.aiursoftware.com";
-const SENDER_NAME = Deno.env.get("RESEND_SENDER_NAME") ?? "AIUR HR";
-const APP_URL = Deno.env.get("APP_URL") ?? "http://localhost:5173";
+function requireEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const SUPABASE_URL = requireEnv("SUPABASE_URL");
+const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const APP_URL = requireEnv("APP_URL");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,7 +80,7 @@ Deno.serve(async (req) => {
     const token = crypto.randomUUID();
 
     const { data: invitation, error: upsertError } = await supabaseAdmin
-      .from("org_admin_invitations")
+      .from("admin_invitations")
       .upsert(
         {
           organization_id,
@@ -99,39 +102,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Send email via Resend
+    // Send email via shared--send-email service
     const invitationLink = `${APP_URL}/invitation?token=${invitation.token}`;
 
-    const resendRes = await fetch("https://api.resend.com/emails", {
+    const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/shared--send-email`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-        to: [email],
-        subject: `You're invited to join ${org.name} on AIUR HR`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 0;">
-            <h2 style="color: #1a1a1a; margin-bottom: 8px;">You've been invited!</h2>
-            <p style="color: #666; font-size: 15px; line-height: 1.5;">
-              You've been invited to join <strong>${org.name}</strong> as an admin on AIUR HR.
-            </p>
-            <a href="${invitationLink}" style="display: inline-block; background: #0958d9; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; margin: 16px 0;">
-              Accept Invitation
-            </a>
-            <p style="color: #999; font-size: 13px; margin-top: 24px;">
-              This invitation expires in 7 days. If you didn't expect this, you can safely ignore it.
-            </p>
-          </div>
-        `,
+        scenario: "admin_invitation",
+        to: email,
+        payload: { orgName: org.name, invitationLink },
       }),
     });
 
-    if (!resendRes.ok) {
-      const resendError = await resendRes.text();
-      console.error("Resend error:", resendError);
+    if (!emailRes.ok) {
+      const emailError = await emailRes.text();
+      console.error("Email service error:", emailError);
       return new Response(JSON.stringify({ error: "Failed to send invitation email" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
