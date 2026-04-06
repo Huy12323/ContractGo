@@ -23,18 +23,20 @@ CREATE TABLE public.productions (
 );
 ```
 
-**Child tables** (any depth below top-level): trigger-populated, `DEFAULT ''`.
+**Child tables** (any depth below top-level): trigger-populated with FK validation.
 
 ```sql
 CREATE TABLE public.shots (
     id TEXT PRIMARY KEY DEFAULT generate_id('sht'),
     scene_id UUID NOT NULL REFERENCES public.scenes(id) ON DELETE CASCADE,
-    organization_id TEXT DEFAULT '' NOT NULL,  -- trigger-populated
+    organization_id TEXT DEFAULT '' NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,  -- trigger-populated
     -- ...
 );
 ```
 
-**Why `DEFAULT ''`?** Supabase type generation makes `NOT NULL` columns with a DEFAULT optional on Insert. Without the DEFAULT, the generated TypeScript type requires `organization_id` on every `.insert()` call — but the frontend doesn't pass it (the trigger handles it). The empty string is never committed because the BEFORE INSERT trigger always sets the real value.
+**Why `DEFAULT '' NOT NULL` with FK?** Two purposes:
+1. `DEFAULT ''` — Supabase type generation makes `NOT NULL` columns with a DEFAULT optional on Insert. Without the DEFAULT, the generated TypeScript type requires `organization_id` on every `.insert()` call — but the frontend doesn't pass it (the trigger handles it). The empty string is never committed because the BEFORE INSERT trigger always sets the real value.
+2. `REFERENCES organizations(id)` — PostgreSQL evaluates BEFORE INSERT triggers before FK constraints, so the trigger sets the real org_id first, then the FK check passes. The FK adds: JOIN capability to organizations, orphan detection, CASCADE delete safety, and validation that the trigger worked correctly.
 
 ## Standard RLS Policy Pattern
 
@@ -138,7 +140,8 @@ WHERE user_id = auth.uid()
 | RLS policy joins through FK chain to reach org_members | `organization_id` directly on row, 1-hop check |
 | `EXISTS (SELECT 1 FROM parent JOIN grandparent JOIN ...)` | `organization_id IN (SELECT ... FROM organization_members)` |
 | Multi-hop trigger (reads through FK chain) | 1-hop trigger (reads from direct parent) |
-| `organization_id TEXT NOT NULL` on child table (no DEFAULT) | `organization_id TEXT DEFAULT '' NOT NULL` (type gen compatibility) |
+| `organization_id TEXT NOT NULL` on child table (no DEFAULT) | `organization_id TEXT DEFAULT '' NOT NULL REFERENCES ...` (type gen + FK validation) |
+| Child `organization_id` without FK | Always include `REFERENCES public.organizations(id) ON DELETE CASCADE` — trigger fires before FK check |
 | Omitting `TO authenticated` on policy | Always explicit `TO authenticated` |
 | `auth.uid()` without SELECT subquery wrapper | `(SELECT auth.uid())` for per-query evaluation |
 

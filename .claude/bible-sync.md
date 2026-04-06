@@ -1,8 +1,8 @@
 # Bible Sync
 
 Bible: git@github.com:aiursoftware/bible.git
-Last synced: a004ffdbd3fc5f9deaa2356cda07641ca4a2fab9
-Synced on: 2026-04-02
+Last synced: 87ee102
+Synced on: 2026-04-06
 Consumer type: standard
 
 ## Tracked Files

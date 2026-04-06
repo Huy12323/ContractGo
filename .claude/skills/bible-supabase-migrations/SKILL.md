@@ -92,7 +92,7 @@ ALTER TABLE public.my_table ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.my_child_table (
     id TEXT PRIMARY KEY DEFAULT generate_id('chd'),
     parent_id TEXT NOT NULL REFERENCES public.parent_table(id) ON DELETE CASCADE,
-    organization_id TEXT DEFAULT '' NOT NULL,  -- trigger-populated
+    organization_id TEXT DEFAULT '' NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,  -- trigger-populated
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -130,7 +130,7 @@ ALTER TABLE public.my_child_table ENABLE ROW LEVEL SECURITY;
 ## New Table Checklist
 
 - [ ] Create table with proper schema (see your schema design skill)
-- [ ] Add `organization_id` — native FK (top-level) or `DEFAULT '' NOT NULL` (child)
+- [ ] Add `organization_id` — native FK (top-level) or `DEFAULT '' NOT NULL REFERENCES ...` (child, trigger-populated)
 - [ ] Add indexes for foreign keys + `organization_id`
 - [ ] Create BEFORE INSERT trigger for `organization_id` (child tables only)
 - [ ] Enable RLS with single-hop `organization_id` policies (see your RLS skill)

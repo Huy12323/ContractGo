@@ -92,7 +92,7 @@ CREATE INDEX idx_productions_organization_id ON public.productions(organization_
 CREATE TABLE public.shots (
     id TEXT PRIMARY KEY DEFAULT generate_id('sht'),
     scene_id UUID NOT NULL REFERENCES public.scenes(id) ON DELETE CASCADE,
-    organization_id TEXT DEFAULT '' NOT NULL,  -- trigger-populated, not a FK
+    organization_id TEXT DEFAULT '' NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,  -- trigger-populated
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -103,9 +103,11 @@ CREATE INDEX idx_shots_organization_id ON public.shots(organization_id);
 ```
 
 **Key differences:**
-- Top-level: `organization_id TEXT NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE` — native FK
-- Child: `organization_id TEXT DEFAULT '' NOT NULL` — no FK, populated by BEFORE INSERT trigger from parent
+- Top-level: `organization_id TEXT NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE` — native FK, frontend passes value
+- Child: `organization_id TEXT DEFAULT '' NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE` — FK + BEFORE INSERT trigger from parent
 - `DEFAULT ''` is required so Supabase type gen treats it as optional on Insert (trigger always overrides it)
+
+**Why child tables keep the FK:** PostgreSQL evaluates BEFORE INSERT triggers before FK constraints. The trigger sets the real `organization_id` from the parent row, then the FK check passes. The `DEFAULT ''` is never committed. The FK provides: JOIN capability to organizations, orphan detection, CASCADE delete safety, and validation that the trigger worked correctly.
 
 **Required columns:** `id`, `organization_id` (native or trigger-populated), `created_at`, `updated_at`. See your RLS skill for trigger and policy templates.
 

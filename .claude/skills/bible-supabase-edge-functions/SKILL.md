@@ -19,7 +19,7 @@ supabase/functions/
 ├── storage_generate-upload-url/
 │   ├── index.ts
 │   └── deno.json
-└── _shared_validate-token/
+└── shared--validate-token/
     ├── index.ts
     └── deno.json
 ```
@@ -144,8 +144,14 @@ Add appropriate imports based on dependencies needed.
 import { serve } from "http-server";
 import { createClient } from "supabase";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+function requireEnv(name: string): string {
+    const value = Deno.env.get(name);
+    if (!value) throw new Error(`Missing required environment variable: ${name}`);
+    return value;
+}
+
+const supabaseUrl = requireEnv("SUPABASE_URL");
+const supabaseServiceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -169,15 +175,17 @@ serve(async (req: Request) => {
 
 ## Shared/Utility Functions
 
-Use `_shared_` prefix for cross-cutting functions:
+Use `shared--` prefix for cross-cutting functions:
 
 ```
-_shared_validate-token
-_shared_check-permissions
-_shared_send-notification
+shared--validate-token
+shared--check-permissions
+shared--send-email
 ```
 
-**When to use `_shared_`:**
+**CRITICAL:** Never use `_` as the first character in a function folder name. Supabase CLI treats `_` prefixed folders as internal modules and **skips them during function discovery** — they will not be deployed or served.
+
+**When to use `shared--`:**
 
 - Authentication/authorization utilities
 - Functions called by multiple namespaces
@@ -190,7 +198,7 @@ Edge function URLs use the folder name directly:
 | Function Name                           | URL                                                |
 | --------------------------------------- | -------------------------------------------------- |
 | `page-dashboard_users_send-invitation`  | `/functions/v1/page-dashboard_users_send-invitation`|
-| `_shared_validate-token`                | `/functions/v1/_shared_validate-token`              |
+| `shared--validate-token`                | `/functions/v1/shared--validate-token`              |
 
 ## Common Mistakes
 
@@ -229,6 +237,8 @@ page-dashboard_users_send-invitation
 | Bare npm imports without mapping | Map in `deno.json` imports |
 | No CORS headers | Always handle OPTIONS + return CORS headers |
 | Uppercase in function names | All lowercase |
+| `_` prefix on function folder | `shared--` prefix (CLI skips `_` prefixed folders) |
+| `Deno.env.get("VAR")!` or `?? "fallback"` | `requireEnv("VAR")` with runtime validation |
 
 ## Onboarding
 
