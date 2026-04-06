@@ -1,8 +1,16 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Card, Typography, Row, Col, Button, Space, Spin, Empty, theme } from 'antd'
-import { PlusOutlined, SettingOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Card, Typography, Row, Col, Button, Space, Spin, Empty, Tag, Avatar, theme } from 'antd'
+import {
+  PlusOutlined,
+  MoreOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  TeamOutlined,
+  CalendarOutlined,
+} from '@ant-design/icons'
 import { useQ_Tables_MyOrganizations } from '@/hooks/useQ_Tables_MyOrganizations'
+import type { Tables_MyOrganizations_QueryData } from '@/hooks/useQ_Tables_MyOrganizations'
 import { useQ_Tables_MyInvitations } from '@/hooks/useQ_Tables_MyInvitations'
 import { useQ_Tables_MyRole } from '@/hooks/useQ_Tables_MyRole'
 import { useM_PageHome_InvitationAccept } from '@/hooks/useM_PageHome_InvitationAccept'
@@ -22,7 +30,6 @@ function HomePage() {
   const mAcceptInvitation = useM_PageHome_InvitationAccept()
   const mRejectInvitation = useM_PageHome_InvitationReject()
 
-  const [settingsOrg, setSettingsOrg] = useState<{ id: string; name: string } | null>(null)
   const [createOrgOpen, setCreateOrgOpen] = useState(false)
 
   if (qOrganizations.query.isLoading || qInvitations.query.isLoading) {
@@ -46,44 +53,28 @@ function HomePage() {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
         {/* Create org card */}
-        <Col xs={12} sm={8} md={6}>
+        <Col xs={12} sm={8} md={6} xl={4}>
           <Card
             hoverable
             onClick={() => setCreateOrgOpen(true)}
             style={{
-              height: 160,
-              border: `2px dashed ${themeToken.colorBorderSecondary}`,
-              background: 'transparent',
+              height: '100%',
+              border: `2px dashed ${themeToken.colorPrimaryBorder}`,
+              background: themeToken.colorPrimaryBg,
             }}
             styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 0 } }}
           >
             <Space direction="vertical" align="center" size={4}>
-              <PlusOutlined style={{ fontSize: 24, color: themeToken.colorTextSecondary }} />
-              <Typography.Text type="secondary">Create Organization</Typography.Text>
+              <PlusOutlined style={{ fontSize: 24, color: themeToken.colorPrimary }} />
+              <Typography.Text style={{ color: themeToken.colorPrimary }}>Create Organization</Typography.Text>
             </Space>
           </Card>
         </Col>
 
         {/* Org cards */}
         {qOrganizations.organizations.map((org) => (
-          <Col xs={12} sm={8} md={6} key={org.id}>
-            <Card
-              style={{
-                height: 160,
-                borderLeft: `3px solid ${themeToken.colorPrimary}`,
-              }}
-              styles={{ body: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' } }}
-            >
-              <Typography.Title level={5} style={{ margin: 0 }}>
-                {org.name}
-              </Typography.Title>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <OrgOwnerSettingsButton
-                  organizationId={org.id}
-                  onClick={() => setSettingsOrg(org)}
-                />
-              </div>
-            </Card>
+          <Col xs={12} sm={8} md={6} xl={4} key={org.id}>
+            <PageHome_OrgCard org={org} />
           </Col>
         ))}
       </Row>
@@ -102,10 +93,10 @@ function HomePage() {
       ) : (
         <Row gutter={[16, 16]}>
           {pendingInvitations.map((inv) => (
-            <Col xs={12} sm={8} md={6} key={inv.id}>
+            <Col xs={12} sm={8} md={6} xl={4} key={inv.id}>
               <Card
                 style={{
-                  height: 160,
+                  height: 180,
                   borderLeft: `3px solid ${themeToken.colorWarning}`,
                 }}
                 styles={{ body: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' } }}
@@ -143,16 +134,6 @@ function HomePage() {
         </Row>
       )}
 
-      {/* Settings modal */}
-      {settingsOrg && (
-        <App_OrgSettingsModal
-          open={!!settingsOrg}
-          onClose={() => setSettingsOrg(null)}
-          organizationId={settingsOrg.id}
-          organizationName={settingsOrg.name}
-        />
-      )}
-
       {/* Create org modal */}
       <App_CreateOrgModal
         open={createOrgOpen}
@@ -162,23 +143,120 @@ function HomePage() {
   )
 }
 
-function OrgOwnerSettingsButton({
-  organizationId,
-  onClick,
-}: {
-  organizationId: string
-  onClick: () => void
-}) {
-  const qRole = useQ_Tables_MyRole({ organizationId })
+const ROLE_COLORS: Record<string, string> = {
+  owner: 'gold',
+  admin: 'blue',
+  employee: 'default',
+}
 
-  if (qRole.role !== 'owner') return null
+const getOrgHue = (name: string) => {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return Math.abs(hash) % 360
+}
+
+function PageHome_OrgCard({ org }: { org: Tables_MyOrganizations_QueryData[number] }) {
+  const { token: themeToken } = theme.useToken()
+  const navigate = useNavigate()
+  const qRole = useQ_Tables_MyRole({ organizationId: org.id })
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const hue = getOrgHue(org.name)
+  const bannerGradient = `linear-gradient(135deg, hsl(${hue}, 45%, 88%) 0%, hsl(${(hue + 40) % 360}, 40%, 92%) 50%, hsl(${(hue + 80) % 360}, 35%, 90%) 100%)`
+  const orgInitial = org.name.charAt(0).toUpperCase()
 
   return (
-    <Button
-      type="text"
-      size="small"
-      icon={<SettingOutlined />}
-      onClick={onClick}
-    />
+    <>
+      <Card
+        hoverable
+        onClick={() => navigate({ to: '/$organizationId/dashboard', params: { organizationId: org.id } })}
+        style={{ cursor: 'pointer', overflow: 'hidden', height: '100%' }}
+        styles={{ body: { padding: 0, height: '100%', display: 'flex', flexDirection: 'column' } }}
+      >
+        {/* Banner / image placeholder */}
+        <div
+          style={{
+            height: 72,
+            background: bannerGradient,
+            position: 'relative',
+          }}
+        >
+          {/* Subtle pattern overlay */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.08,
+              backgroundImage:
+                'radial-gradient(circle at 20% 50%, #000 1px, transparent 1px), radial-gradient(circle at 80% 20%, #000 1px, transparent 1px), radial-gradient(circle at 50% 80%, #000 1.5px, transparent 1.5px)',
+              backgroundSize: '40px 40px, 60px 60px, 50px 50px',
+            }}
+          />
+          {qRole.role === 'owner' && (
+            <Button
+              size="small"
+              icon={<MoreOutlined />}
+              onClick={(e) => { e.stopPropagation(); setSettingsOpen(true) }}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+              }}
+            />
+          )}
+        </div>
+
+        {/* Details section */}
+        <div style={{ padding: '12px 16px 16px', background: themeToken.colorBgContainer, flex: 1 }}>
+          {/* Avatar + name + settings */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <Avatar
+              size={36}
+              style={{
+                backgroundColor: `hsl(${hue}, 50%, 45%)`,
+                fontSize: 16,
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              {orgInitial}
+            </Avatar>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Typography.Text strong ellipsis style={{ display: 'block', fontSize: 14 }}>
+                {org.name}
+              </Typography.Text>
+              {qRole.role && (
+                <Tag
+                  color={ROLE_COLORS[qRole.role] ?? 'default'}
+                  style={{ marginTop: 2, fontSize: 11 }}
+                >
+                  {qRole.role.charAt(0).toUpperCase() + qRole.role.slice(1)}
+                </Tag>
+              )}
+            </div>
+          </div>
+
+          {/* Meta */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              <TeamOutlined style={{ marginRight: 4 }} />
+              — members
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              <CalendarOutlined style={{ marginRight: 4 }} />
+              — joined
+            </Typography.Text>
+          </div>
+        </div>
+      </Card>
+
+      <App_OrgSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        organizationId={org.id}
+        organizationName={org.name}
+      />
+    </>
   )
 }

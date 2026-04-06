@@ -2,17 +2,18 @@ import { useMemo } from 'react'
 import { useQ_Tables_MyOrganizations } from '@/hooks/useQ_Tables_MyOrganizations'
 import { useQ_Tables_MyRole } from '@/hooks/useQ_Tables_MyRole'
 import { useQ_Tables_OrgPermissions } from '@/hooks/useQ_Tables_OrgPermissions'
+import { useProvider_Organization } from '@/providers/organization/Provider_Organization'
 import type { Enums } from '@worldcraft/shared/types'
 
 export type OrgRole = 'owner' | 'admin' | 'employee'
 type AppPermission = Enums<'app_permission'>
 
 export const useOrganization = () => {
-  const qOrganizations = useQ_Tables_MyOrganizations()
+  const pOrganization = useProvider_Organization()
+  const organizationId = pOrganization.state.organizationId
 
-  // Auto-select first org (multi-org switcher is future)
-  const organization = qOrganizations.organizations[0] ?? null
-  const organizationId = organization?.id ?? ''
+  const qOrganizations = useQ_Tables_MyOrganizations()
+  const organization = qOrganizations.organizations.find((o) => o.id === organizationId) ?? null
 
   const qRole = useQ_Tables_MyRole({ organizationId })
   const role = (qRole.role ?? null) as OrgRole | null
@@ -38,6 +39,7 @@ export const useOrganization = () => {
 
   return {
     organization,
+    organizationId,
     role,
     permissions,
     hasPermission,

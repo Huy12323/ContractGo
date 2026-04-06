@@ -34,6 +34,143 @@ export type Database = {
   }
   public: {
     Tables: {
+      currencies: {
+        Row: {
+          code: string
+          display_name: string
+        }
+        Insert: {
+          code: string
+          display_name: string
+        }
+        Update: {
+          code?: string
+          display_name?: string
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          created_at: string | null
+          entity_id: string
+          id: string
+          name: string
+          organization_id: string
+          parent_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          name: string
+          organization_id?: string
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entities: {
+        Row: {
+          created_at: string | null
+          id: string
+          locale: string | null
+          name: string
+          organization_id: string
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          locale?: string | null
+          name: string
+          organization_id: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          locale?: string | null
+          name?: string
+          organization_id?: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_employees: {
+        Row: {
+          created_at: string | null
+          entity_id: string
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          organization_id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_employees_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_employees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_admin_invitations: {
         Row: {
           created_at: string

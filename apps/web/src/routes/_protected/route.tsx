@@ -1,15 +1,17 @@
-import { createFileRoute, Outlet, redirect, Link, useLocation } from '@tanstack/react-router'
-import { useOrganization } from '@/hooks/useOrganization'
+import { createFileRoute, Outlet, redirect, Link, useLocation, useMatch } from '@tanstack/react-router'
 import { useQ_Me } from '@/hooks/useQ_Me'
 import { Utils_String_GetInitials } from '@/utils/Utils_String_GetInitials'
-import { Layout, Menu, Button, Spin, Avatar, Dropdown, theme } from 'antd'
+import { Layout, Menu, Button, Avatar, Dropdown, theme } from 'antd'
 import {
   DashboardOutlined,
+  ApartmentOutlined,
   MenuOutlined,
   LogoutOutlined,
 } from '@ant-design/icons'
 import { useStore_Sidebar_Collapsed, Store_Sidebar_Actions } from '@/stores/Store_Sidebar'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { App_OrgSwitcher } from '@/components/organization/App_OrgSwitcher'
+import { App_ViewSwitcherMock } from '@/components/app-shell/App_ViewSwitcherMock'
 import { supabase } from '@/configs/supabase/config'
 
 const { Sider, Header, Content } = Layout
@@ -47,25 +49,24 @@ export const Route = createFileRoute('/_protected')({
 })
 
 function ProtectedLayout() {
-  const { loading: orgLoading } = useOrganization()
   const qMe = useQ_Me()
   const collapsed = useStore_Sidebar_Collapsed()
   const location = useLocation()
   const { token } = theme.useToken()
 
-  if (orgLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    )
-  }
+  const orgMatch = useMatch({ from: '/_protected/$organizationId', shouldThrow: false })
+  const organizationId = orgMatch?.params?.organizationId
+  const isHome = location.pathname === '/home'
 
   const displayName = qMe.profile?.full_name ?? qMe.profile?.email ?? 'User'
   const initials = Utils_String_GetInitials(qMe.profile?.full_name)
 
-  const menuKey = location.pathname.startsWith('/dashboard')
-    ? '/dashboard'
+  const menuKey = organizationId
+    ? (location.pathname.includes('/dashboard')
+      ? `/${organizationId}/dashboard`
+      : location.pathname.includes('/org-chart')
+        ? `/${organizationId}/org-chart`
+        : location.pathname)
     : location.pathname
 
   return (
@@ -87,12 +88,14 @@ function ProtectedLayout() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button
-            type="text"
-            icon={<MenuOutlined />}
-            onClick={Store_Sidebar_Actions.toggle}
-            style={{ fontSize: 16 }}
-          />
+          {!isHome && (
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={Store_Sidebar_Actions.toggle}
+              style={{ fontSize: 16 }}
+            />
+          )}
           <Link to="/home" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <span style={{ fontWeight: 700, fontSize: 16, color: token.colorText }}>
               AIUR-HR
@@ -135,43 +138,65 @@ function ProtectedLayout() {
       </Header>
 
       <Layout>
-        {/* Light sidebar */}
-        <Sider
-          trigger={null}
-          collapsible
-          collapsed={collapsed}
-          width={240}
-          collapsedWidth={64}
-          breakpoint="md"
-          onBreakpoint={(broken) => {
-            if (broken) Store_Sidebar_Actions.setCollapsed(true)
-          }}
-          style={{
-            background: token.colorBgContainer,
-            borderRight: `1px solid ${token.colorBorderSecondary}`,
-            height: 'calc(100vh - 48px)',
-            position: 'sticky',
-            top: 48,
-            left: 0,
-            overflow: 'auto',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Menu
-              mode="inline"
-              selectedKeys={[menuKey]}
-              style={{ flex: 1, borderRight: 0 }}
-              items={[
-                {
-                  key: '/dashboard',
-                  icon: <DashboardOutlined />,
-                  label: <Link to="/dashboard">Dashboard</Link>,
-                },
-              ]}
-            />
-            {/* Bottom area reserved for org switcher + view switcher (AHR-141) */}
-          </div>
-        </Sider>
+        {!isHome && (
+          <Sider
+            trigger={null}
+            collapsible
+            collapsed={collapsed}
+            width={240}
+            collapsedWidth={64}
+            breakpoint="md"
+            onBreakpoint={(broken) => {
+              if (broken) Store_Sidebar_Actions.setCollapsed(true)
+            }}
+            style={{
+              background: token.colorBgContainer,
+              borderRight: `1px solid ${token.colorBorderSecondary}`,
+              height: 'calc(100vh - 48px)',
+              position: 'sticky',
+              top: 48,
+              left: 0,
+              overflow: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Menu
+                mode="inline"
+                selectedKeys={[menuKey]}
+                style={{ flex: 1, borderRight: 0 }}
+                items={organizationId ? [
+                  {
+                    key: `/${organizationId}/dashboard`,
+                    icon: <DashboardOutlined />,
+                    label: (
+                      <Link
+                        to="/$organizationId/dashboard"
+                        params={{ organizationId }}
+                      >
+                        Dashboard
+                      </Link>
+                    ),
+                  },
+                  {
+                    key: `/${organizationId}/org-chart`,
+                    icon: <ApartmentOutlined />,
+                    label: (
+                      <Link
+                        to="/$organizationId/org-chart"
+                        params={{ organizationId }}
+                      >
+                        Org Chart
+                      </Link>
+                    ),
+                  },
+                ] : []}
+              />
+              {/* Bottom area: view switcher + org switcher */}
+              <App_ViewSwitcherMock collapsed={collapsed} />
+              <App_OrgSwitcher collapsed={collapsed} />
+            </div>
+          </Sider>
+        )}
 
         <Content style={{ padding: 24, overflow: 'auto' }}>
           <Outlet />
