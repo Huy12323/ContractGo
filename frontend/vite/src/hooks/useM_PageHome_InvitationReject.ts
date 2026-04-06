@@ -9,15 +9,15 @@ export const useM_PageHome_InvitationReject = () => {
 
     const mutation = useMutation({
         mutationFn: async (invitationId: string) => {
-            const sb_FromOrgAdminInvitations_Update = await supabase
-                .from("org_admin_invitations")
+            const sb_FromAdminInvitations_Update = await supabase
+                .from("admin_invitations")
                 .update({ status: "rejected" })
                 .eq("id", invitationId);
-            if (sb_FromOrgAdminInvitations_Update.error) throw sb_FromOrgAdminInvitations_Update.error;
+            if (sb_FromAdminInvitations_Update.error) throw sb_FromAdminInvitations_Update.error;
         },
         onSuccess: () => {
             message.success("Invitation declined");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.orgAdminInvitations.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.adminInvitations.all() });
         },
         onError: () => {
             message.error("Failed to decline invitation");

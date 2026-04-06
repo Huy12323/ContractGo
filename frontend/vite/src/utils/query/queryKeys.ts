@@ -11,15 +11,11 @@ export const QueryKeys = {
         me: () => [...QueryKeys.profiles.all(), "me"] as const,
         record: (id: string) => [...QueryKeys.profiles.all(), id] as const,
     },
-    orgAdminInvitations: {
-        all: () => ["orgAdminInvitations"] as const,
-        list: () => [...QueryKeys.orgAdminInvitations.all(), "list"] as const,
-        mine: () => [...QueryKeys.orgAdminInvitations.all(), "mine"] as const,
-        record: (id: string) => [...QueryKeys.orgAdminInvitations.all(), id] as const,
-    },
-    currencies: {
-        all: () => ["currencies"] as const,
-        list: () => [...QueryKeys.currencies.all(), "list"] as const,
+    adminInvitations: {
+        all: () => ["adminInvitations"] as const,
+        list: () => [...QueryKeys.adminInvitations.all(), "list"] as const,
+        mine: () => [...QueryKeys.adminInvitations.all(), "mine"] as const,
+        record: (id: string) => [...QueryKeys.adminInvitations.all(), id] as const,
     },
     entities: {
         all: () => ["entities"] as const,

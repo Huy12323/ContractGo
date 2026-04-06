@@ -9,11 +9,11 @@ export const useM_OrgSettings_InvitationCancel = ({ organizationId }: { organiza
 
     const mutation = useMutation({
         mutationFn: async (invitationId: string) => {
-            const sb_FromOrgAdminInvitations_Delete = await supabase
-                .from("org_admin_invitations")
+            const sb_FromAdminInvitations_Delete = await supabase
+                .from("admin_invitations")
                 .delete()
                 .eq("id", invitationId);
-            if (sb_FromOrgAdminInvitations_Delete.error) throw sb_FromOrgAdminInvitations_Delete.error;
+            if (sb_FromAdminInvitations_Delete.error) throw sb_FromAdminInvitations_Delete.error;
         },
         onSuccess: () => {
             message.success("Invitation cancelled");

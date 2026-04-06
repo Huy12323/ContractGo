@@ -4,7 +4,7 @@ import { ExclamationCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import { Utils_String_GetInitials } from "@/utils/Utils_String_GetInitials";
 import { useQ_Tables_EntityEmployees } from "@/hooks/useQ_Tables_EntityEmployees";
 import { useQ_Tables_EntityDepartments } from "@/hooks/useQ_Tables_EntityDepartments";
-import { useQ_Tables_OrgAdmins } from "@/hooks/useQ_Tables_OrgAdmins";
+import { useQ_Tables_Admins } from "@/hooks/useQ_Tables_Admins";
 import { useM_EntitySettings_EntityUpdate } from "@/hooks/useM_EntitySettings_EntityUpdate";
 import { useM_EntitySettings_EntityDelete } from "@/hooks/useM_EntitySettings_EntityDelete";
 import { useM_EntitySettings_EntityEmployeeAdd } from "@/hooks/useM_EntitySettings_EntityEmployeeAdd";
@@ -25,7 +25,7 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName, o
 
     const qEmployees = useQ_Tables_EntityEmployees({ entityId });
     const qDepartments = useQ_Tables_EntityDepartments({ entityId });
-    const qAdmins = useQ_Tables_OrgAdmins({ organizationId });
+    const qAdmins = useQ_Tables_Admins({ organizationId });
     const mEntityUpdate = useM_EntitySettings_EntityUpdate({ entityId });
     const mEntityDelete = useM_EntitySettings_EntityDelete({ entityId, onSuccess: onClose });
     const mEmployeeAdd = useM_EntitySettings_EntityEmployeeAdd({ entityId });

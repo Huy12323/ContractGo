@@ -9,11 +9,11 @@ export const useM_PageHome_InvitationAccept = () => {
 
     const mutation = useMutation({
         mutationFn: async (invitationToken: string) => {
-            const sb_RpcAcceptAdminInvitation = await supabase.rpc("accept_admin_invitation", {
+            const sb_RpcAcceptInvitation = await supabase.rpc("accept_invitation", {
                 invitation_token: invitationToken,
             });
-            if (sb_RpcAcceptAdminInvitation.error) throw sb_RpcAcceptAdminInvitation.error;
-            return sb_RpcAcceptAdminInvitation.data;
+            if (sb_RpcAcceptInvitation.error) throw sb_RpcAcceptInvitation.error;
+            return sb_RpcAcceptInvitation.data;
         },
         onSuccess: () => {
             message.success("Invitation accepted");

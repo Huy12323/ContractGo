@@ -5,8 +5,8 @@ import { useM_OrgSettings_InvitationCancel } from "@/hooks/useM_OrgSettings_Invi
 import { useM_OrgSettings_OrganizationDelete } from "@/hooks/useM_OrgSettings_OrganizationDelete";
 import { Modal, Tabs, Table, Input, Button, Avatar, Tag, Space, Typography, Alert } from "antd";
 import { SendOutlined, DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { useQ_Tables_OrgAdmins } from "@/hooks/useQ_Tables_OrgAdmins";
-import { useQ_Tables_OrgInvitations } from "@/hooks/useQ_Tables_OrgInvitations";
+import { useQ_Tables_Admins } from "@/hooks/useQ_Tables_Admins";
+import { useQ_Tables_AdminInvitations } from "@/hooks/useQ_Tables_AdminInvitations";
 
 interface OrgSettingsModalProps {
     open: boolean;
@@ -19,8 +19,8 @@ export const App_OrgSettingsModal = ({ open, onClose, organizationId, organizati
     const [inviteEmail, setInviteEmail] = useState("");
     const [deleteConfirm, setDeleteConfirm] = useState("");
 
-    const qAdmins = useQ_Tables_OrgAdmins({ organizationId });
-    const qInvitations = useQ_Tables_OrgInvitations({ organizationId });
+    const qAdmins = useQ_Tables_Admins({ organizationId });
+    const qInvitations = useQ_Tables_AdminInvitations({ organizationId });
     const mInvitationCreate = useM_OrgSettings_InvitationCreate({ organizationId });
     const mInvitationCancel = useM_OrgSettings_InvitationCancel({ organizationId });
     const mOrganizationDelete = useM_OrgSettings_OrganizationDelete({ organizationId, onSuccess: onClose });
