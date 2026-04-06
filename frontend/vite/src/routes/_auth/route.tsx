@@ -7,9 +7,9 @@ export const Route = createFileRoute('/_auth')({
     const sb_Auth_GetSession = await supabase.auth.getSession()
     const session = sb_Auth_GetSession.data.session
 
-    const allowAuthenticated = ['/reset-password', '/setup-organization', '/invitation']
+    const allowAuthenticated = ['/reset-password', '/invitation', '/verify-email']
     if (session && !allowAuthenticated.includes(location.pathname)) {
-      throw redirect({ to: '/home' })
+      throw redirect({ to: '/' })
     }
   },
   component: AuthLayout,

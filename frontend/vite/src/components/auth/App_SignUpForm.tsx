@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Form, Input, Button, Typography, Divider, theme } from 'antd'
+import { App, Form, Input, Button, Typography, Divider, theme } from 'antd'
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { supabase } from '@/configs/supabase/config'
 import { useNavigate } from '@tanstack/react-router'
 
 interface SignUpValues {
@@ -14,6 +15,7 @@ interface SignUpValues {
 export const App_SignUpForm = () => {
   const [loading, setLoading] = useState(false)
   const { token } = theme.useToken()
+  const { message: messageApi } = App.useApp()
   const navigate = useNavigate()
   const [form] = Form.useForm<SignUpValues>()
 
@@ -21,12 +23,15 @@ export const App_SignUpForm = () => {
     setLoading(true)
     try {
       await Store_Auth_Actions.signUp(values.email, values.password, values.fullName)
-      navigate({ to: '/verify-email', search: { email: values.email } })
+      await supabase.functions.invoke('auth_send-verification', { body: { type: 'verification' } })
+      navigate({ to: '/verify-email', state: { email: values.email } })
     } catch (err) {
-      form.setFields([{
-        name: 'email',
-        errors: [err instanceof Error ? err.message : 'Sign up failed'],
-      }])
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('already registered')) {
+        form.setFields([{ name: 'email', errors: ['This email is already registered'] }])
+      } else {
+        messageApi.error(msg || 'Sign up failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }

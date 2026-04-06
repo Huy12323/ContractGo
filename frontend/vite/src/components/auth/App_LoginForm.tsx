@@ -24,12 +24,12 @@ export const App_LoginForm = ({ redirect: redirectTo }: LoginFormProps) => {
     setLoading(true)
     try {
       await Store_Auth_Actions.signInWithPassword(values.email, values.password)
-      navigate({ to: redirectTo || '/dashboard' })
+      navigate({ to: redirectTo || '/' })
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
 
       if (message.includes('Email not confirmed')) {
-        navigate({ to: '/verify-email', search: { email: values.email } })
+        navigate({ to: '/verify-email', state: { email: values.email } })
         return
       }
 

@@ -1,86 +1,28 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Button, Result, Typography, theme } from 'antd'
-import { MailOutlined, TeamOutlined } from '@ant-design/icons'
-import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { supabase } from '@/configs/supabase/config'
+import { Page_VerifyEmail } from '@/pages/Page_VerifyEmail/Page_VerifyEmail'
 
 export const Route = createFileRoute('/_auth/verify-email')({
   validateSearch: (search: Record<string, unknown>) => ({
-    email: typeof search.email === 'string' ? search.email : undefined,
+    token: typeof search.token === 'string' ? search.token : undefined,
   }),
-  component: VerifyEmailPage,
-})
+  beforeLoad: async ({ search }) => {
+    // If there's a token param, let the page handle verification — don't redirect
+    if (search.token) return
 
-function VerifyEmailPage() {
-  const { email } = Route.useSearch()
-  const { token } = theme.useToken()
-  const [resending, setResending] = useState(false)
-  const [resent, setResent] = useState(false)
+    // If user has a session, check if already verified — redirect out if so
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email_verified')
+        .eq('id', session.user.id)
+        .single()
 
-  async function handleResend() {
-    if (!email) return
-    setResending(true)
-    try {
-      await Store_Auth_Actions.resendVerification(email)
-      setResent(true)
-    } catch {
-      // silently fail — don't reveal if email exists
-    } finally {
-      setResending(false)
+      if (profile?.email_verified) {
+        throw redirect({ to: '/' })
+      }
     }
-  }
-
-  return (
-    <>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 10,
-            background: token.colorPrimary,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-          }}
-        >
-          <TeamOutlined style={{ fontSize: 24, color: '#fff' }} />
-        </div>
-        <Typography.Title level={4} style={{ marginBottom: 0 }}>
-          AIUR-HR
-        </Typography.Title>
-      </div>
-
-      <Result
-        icon={<MailOutlined style={{ color: token.colorPrimary }} />}
-        title="Check your email"
-        subTitle={
-          email
-            ? `We sent a verification link to ${email}. Click the link to activate your account.`
-            : 'We sent a verification link to your email. Click the link to activate your account.'
-        }
-        style={{ padding: '0 0 16px' }}
-      />
-
-      {email && (
-        <div style={{ textAlign: 'center' }}>
-          {resent ? (
-            <Typography.Text type="success">Verification email resent!</Typography.Text>
-          ) : (
-            <Button type="link" loading={resending} onClick={handleResend}>
-              Didn't receive the email? Resend
-            </Button>
-          )}
-        </div>
-      )}
-
-      <div style={{ textAlign: 'center', marginTop: 16 }}>
-        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-          Already verified?{' '}
-          <Typography.Link href="/login">Sign in</Typography.Link>
-        </Typography.Text>
-      </div>
-    </>
-  )
-}
+  },
+  component: Page_VerifyEmail,
+})

@@ -39,7 +39,7 @@ export const App_OrgSwitcher = ({ collapsed }: App_OrgSwitcherProps) => {
     ),
     onClick: () => {
       if (org.id !== currentOrgId) {
-        navigate({ to: '/$organizationId/dashboard', params: { organizationId: org.id } })
+        navigate({ to: '/$organizationId', params: { organizationId: org.id } })
       }
     },
   }))

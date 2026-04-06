@@ -11,18 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
-import { Route as AuthSetupOrganizationRouteImport } from './routes/_auth/setup-organization'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthInvitationRouteImport } from './routes/_auth/invitation'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as ProtectedOrganizationIdRouteRouteImport } from './routes/_protected/$organizationId/route'
-import { Route as ProtectedHomeIndexRouteImport } from './routes/_protected/home/index'
+import { Route as ProtectedOrganizationIdIndexRouteImport } from './routes/_protected/$organizationId/index'
 import { Route as ProtectedOrganizationIdOrgChartIndexRouteImport } from './routes/_protected/$organizationId/org-chart/index'
-import { Route as ProtectedOrganizationIdDashboardIndexRouteImport } from './routes/_protected/$organizationId/dashboard/index'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -32,10 +30,10 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -45,11 +43,6 @@ const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
 const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/signup',
   path: '/signup',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthSetupOrganizationRoute = AuthSetupOrganizationRouteImport.update({
-  id: '/setup-organization',
-  path: '/setup-organization',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
@@ -78,55 +71,44 @@ const ProtectedOrganizationIdRouteRoute =
     path: '/$organizationId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
-const ProtectedHomeIndexRoute = ProtectedHomeIndexRouteImport.update({
-  id: '/home/',
-  path: '/home/',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
+const ProtectedOrganizationIdIndexRoute =
+  ProtectedOrganizationIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
 const ProtectedOrganizationIdOrgChartIndexRoute =
   ProtectedOrganizationIdOrgChartIndexRouteImport.update({
     id: '/org-chart/',
     path: '/org-chart/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdDashboardIndexRoute =
-  ProtectedOrganizationIdDashboardIndexRouteImport.update({
-    id: '/dashboard/',
-    path: '/dashboard/',
-    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof ProtectedIndexRoute
   '/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
-  '/setup-organization': typeof AuthSetupOrganizationRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
-  '/home/': typeof ProtectedHomeIndexRoute
-  '/$organizationId/dashboard/': typeof ProtectedOrganizationIdDashboardIndexRoute
+  '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
   '/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
+  '/': typeof ProtectedIndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
-  '/setup-organization': typeof AuthSetupOrganizationRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
-  '/home': typeof ProtectedHomeIndexRoute
-  '/$organizationId/dashboard': typeof ProtectedOrganizationIdDashboardIndexRoute
+  '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
   '/$organizationId/org-chart': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/_protected/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
@@ -134,11 +116,10 @@ export interface FileRoutesById {
   '/_auth/invitation': typeof AuthInvitationRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
-  '/_auth/setup-organization': typeof AuthSetupOrganizationRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
-  '/_protected/home/': typeof ProtectedHomeIndexRoute
-  '/_protected/$organizationId/dashboard/': typeof ProtectedOrganizationIdDashboardIndexRoute
+  '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
   '/_protected/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRouteTypes {
@@ -150,29 +131,23 @@ export interface FileRouteTypes {
     | '/invitation'
     | '/login'
     | '/reset-password'
-    | '/setup-organization'
     | '/signup'
     | '/verify-email'
-    | '/home/'
-    | '/$organizationId/dashboard/'
+    | '/$organizationId/'
     | '/$organizationId/org-chart/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/$organizationId'
     | '/forgot-password'
     | '/invitation'
     | '/login'
     | '/reset-password'
-    | '/setup-organization'
     | '/signup'
     | '/verify-email'
-    | '/home'
-    | '/$organizationId/dashboard'
+    | '/$organizationId'
     | '/$organizationId/org-chart'
   id:
     | '__root__'
-    | '/'
     | '/_auth'
     | '/_protected'
     | '/_protected/$organizationId'
@@ -180,16 +155,14 @@ export interface FileRouteTypes {
     | '/_auth/invitation'
     | '/_auth/login'
     | '/_auth/reset-password'
-    | '/_auth/setup-organization'
     | '/_auth/signup'
     | '/_auth/verify-email'
-    | '/_protected/home/'
-    | '/_protected/$organizationId/dashboard/'
+    | '/_protected/'
+    | '/_protected/$organizationId/'
     | '/_protected/$organizationId/org-chart/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
 }
@@ -210,12 +183,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_protected/': {
+      id: '/_protected/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
     }
     '/_auth/verify-email': {
       id: '/_auth/verify-email'
@@ -229,13 +202,6 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof AuthSignupRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/setup-organization': {
-      id: '/_auth/setup-organization'
-      path: '/setup-organization'
-      fullPath: '/setup-organization'
-      preLoaderRoute: typeof AuthSetupOrganizationRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/reset-password': {
@@ -273,25 +239,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrganizationIdRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/home/': {
-      id: '/_protected/home/'
-      path: '/home'
-      fullPath: '/home/'
-      preLoaderRoute: typeof ProtectedHomeIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/$organizationId/': {
+      id: '/_protected/$organizationId/'
+      path: '/'
+      fullPath: '/$organizationId/'
+      preLoaderRoute: typeof ProtectedOrganizationIdIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
     '/_protected/$organizationId/org-chart/': {
       id: '/_protected/$organizationId/org-chart/'
       path: '/org-chart'
       fullPath: '/$organizationId/org-chart/'
       preLoaderRoute: typeof ProtectedOrganizationIdOrgChartIndexRouteImport
-      parentRoute: typeof ProtectedOrganizationIdRouteRoute
-    }
-    '/_protected/$organizationId/dashboard/': {
-      id: '/_protected/$organizationId/dashboard/'
-      path: '/dashboard'
-      fullPath: '/$organizationId/dashboard/'
-      preLoaderRoute: typeof ProtectedOrganizationIdDashboardIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
   }
@@ -302,7 +261,6 @@ interface AuthRouteRouteChildren {
   AuthInvitationRoute: typeof AuthInvitationRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
-  AuthSetupOrganizationRoute: typeof AuthSetupOrganizationRoute
   AuthSignupRoute: typeof AuthSignupRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
 }
@@ -312,7 +270,6 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthInvitationRoute: AuthInvitationRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
-  AuthSetupOrganizationRoute: AuthSetupOrganizationRoute,
   AuthSignupRoute: AuthSignupRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
 }
@@ -322,14 +279,13 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 )
 
 interface ProtectedOrganizationIdRouteRouteChildren {
-  ProtectedOrganizationIdDashboardIndexRoute: typeof ProtectedOrganizationIdDashboardIndexRoute
+  ProtectedOrganizationIdIndexRoute: typeof ProtectedOrganizationIdIndexRoute
   ProtectedOrganizationIdOrgChartIndexRoute: typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 
 const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRouteChildren =
   {
-    ProtectedOrganizationIdDashboardIndexRoute:
-      ProtectedOrganizationIdDashboardIndexRoute,
+    ProtectedOrganizationIdIndexRoute: ProtectedOrganizationIdIndexRoute,
     ProtectedOrganizationIdOrgChartIndexRoute:
       ProtectedOrganizationIdOrgChartIndexRoute,
   }
@@ -341,13 +297,13 @@ const ProtectedOrganizationIdRouteRouteWithChildren =
 
 interface ProtectedRouteRouteChildren {
   ProtectedOrganizationIdRouteRoute: typeof ProtectedOrganizationIdRouteRouteWithChildren
-  ProtectedHomeIndexRoute: typeof ProtectedHomeIndexRoute
+  ProtectedIndexRoute: typeof ProtectedIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedOrganizationIdRouteRoute:
     ProtectedOrganizationIdRouteRouteWithChildren,
-  ProtectedHomeIndexRoute: ProtectedHomeIndexRoute,
+  ProtectedIndexRoute: ProtectedIndexRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
@@ -355,7 +311,6 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
 }
