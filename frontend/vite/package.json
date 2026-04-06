@@ -17,11 +17,12 @@
     "@tanstack/react-router": "^1.103.3",
     "@tanstack/react-store": "^0.7.7",
     "@tanstack/store": "^0.7.7",
-    "type-fest": "^5.5.0",
     "antd": "^6.3.5",
     "jet-env": "^1.1.6",
+    "lucide-react": "^1.7.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "type-fest": "^5.5.0"
   },
   "devDependencies": {
     "@tanstack/router-plugin": "^1.103.3",
