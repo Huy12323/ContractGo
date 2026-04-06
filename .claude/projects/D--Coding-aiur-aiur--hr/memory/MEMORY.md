@@ -1,0 +1,1 @@
+- [No env fallbacks](feedback_no-env-fallbacks.md) — never use `??` fallbacks or `!` assertions for env vars; validate and throw
