@@ -1,14 +1,9 @@
 import { useState, useEffect } from "react";
-import { Modal, Tabs, Input, Button, Form, Typography, Alert, Table, Select, Space, Avatar } from "antd";
-import { ExclamationCircleOutlined, DeleteOutlined } from "@ant-design/icons";
-import { Utils_String_GetInitials } from "@/utils/Utils_String_GetInitials";
-import { useQ_Tables_EntityEmployees } from "@/hooks/useQ_Tables_EntityEmployees";
+import { Modal, Tabs, Input, Button, Form, Typography, Alert } from "antd";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useQ_Tables_EntityDepartments } from "@/hooks/useQ_Tables_EntityDepartments";
-import { useQ_Tables_Admins } from "@/hooks/useQ_Tables_Admins";
 import { useM_EntitySettings_EntityUpdate } from "@/hooks/useM_EntitySettings_EntityUpdate";
 import { useM_EntitySettings_EntityDelete } from "@/hooks/useM_EntitySettings_EntityDelete";
-import { useM_EntitySettings_EntityEmployeeAdd } from "@/hooks/useM_EntitySettings_EntityEmployeeAdd";
-import { useM_EntitySettings_EntityEmployeeRemove } from "@/hooks/useM_EntitySettings_EntityEmployeeRemove";
 
 interface EntitySettingsModalProps {
     open: boolean;
@@ -18,18 +13,13 @@ interface EntitySettingsModalProps {
     organizationId: string;
 }
 
-export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName, organizationId }: EntitySettingsModalProps) => {
+export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName }: EntitySettingsModalProps) => {
     const [form] = Form.useForm<{ name: string; timezone: string; locale: string }>();
     const [deleteConfirm, setDeleteConfirm] = useState("");
-    const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
 
-    const qEmployees = useQ_Tables_EntityEmployees({ entityId });
     const qDepartments = useQ_Tables_EntityDepartments({ entityId });
-    const qAdmins = useQ_Tables_Admins({ organizationId });
     const mEntityUpdate = useM_EntitySettings_EntityUpdate({ entityId });
     const mEntityDelete = useM_EntitySettings_EntityDelete({ entityId, onSuccess: onClose });
-    const mEmployeeAdd = useM_EntitySettings_EntityEmployeeAdd({ entityId });
-    const mEmployeeRemove = useM_EntitySettings_EntityEmployeeRemove({ entityId });
 
     useEffect(() => {
         if (open) {
@@ -40,9 +30,6 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName, o
 
     const hasDepartments = qDepartments.departments.length > 0;
     const deleteEnabled = deleteConfirm === entityName && !hasDepartments;
-
-    const assignedUserIds = new Set(qEmployees.employees.map((e) => e.user_id));
-    const availableMembers = qAdmins.admins.filter((a) => !assignedUserIds.has(a.user_id));
 
     return (
         <Modal
@@ -79,86 +66,6 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName, o
                                     Save
                                 </Button>
                             </Form>
-                        ),
-                    },
-                    {
-                        key: "employees",
-                        label: "Entity Employees",
-                        children: (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                                <Space.Compact style={{ maxWidth: 400 }}>
-                                    <Select
-                                        showSearch
-                                        optionFilterProp="label"
-                                        placeholder="Add employee..."
-                                        value={selectedUserId}
-                                        onChange={setSelectedUserId}
-                                        style={{ flex: 1 }}
-                                        options={availableMembers.map((a) => ({
-                                            label: a.profiles?.full_name ?? a.profiles?.email ?? "Unknown",
-                                            value: a.user_id,
-                                        }))}
-                                    />
-                                    <Button
-                                        type="primary"
-                                        disabled={!selectedUserId}
-                                        loading={mEmployeeAdd.mutation.isPending}
-                                        onClick={() => {
-                                            if (selectedUserId) {
-                                                mEmployeeAdd.mutation.mutate(selectedUserId, {
-                                                    onSuccess: () => setSelectedUserId(undefined),
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        Add
-                                    </Button>
-                                </Space.Compact>
-                                <Table
-                                    dataSource={qEmployees.employees}
-                                    rowKey="id"
-                                    loading={qEmployees.query.isLoading}
-                                    pagination={false}
-                                    size="small"
-                                    locale={{ emptyText: "No employees assigned to this entity" }}
-                                    columns={[
-                                        {
-                                            title: "Employee",
-                                            key: "employee",
-                                            render: (_, record) => (
-                                                <Space>
-                                                    <Avatar size={28} style={{ backgroundColor: "#0958d9" }}>
-                                                        {Utils_String_GetInitials(record.profiles?.full_name)}
-                                                    </Avatar>
-                                                    <div>
-                                                        <Typography.Text strong style={{ display: "block", fontSize: 13 }}>
-                                                            {record.profiles?.full_name ?? "No name"}
-                                                        </Typography.Text>
-                                                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                                            {record.profiles?.email}
-                                                        </Typography.Text>
-                                                    </div>
-                                                </Space>
-                                            ),
-                                        },
-                                        {
-                                            title: "",
-                                            key: "action",
-                                            width: 60,
-                                            render: (_, record) => (
-                                                <Button
-                                                    type="text"
-                                                    danger
-                                                    size="small"
-                                                    icon={<DeleteOutlined />}
-                                                    loading={mEmployeeRemove.mutation.isPending}
-                                                    onClick={() => mEmployeeRemove.mutation.mutate(record.id)}
-                                                />
-                                            ),
-                                        },
-                                    ]}
-                                />
-                            </div>
                         ),
                     },
                     {

@@ -22,11 +22,6 @@ export const QueryKeys = {
         list: () => [...QueryKeys.entities.all(), "list"] as const,
         record: (id: string) => [...QueryKeys.entities.all(), id] as const,
     },
-    entityEmployees: {
-        all: () => ["entityEmployees"] as const,
-        list: () => [...QueryKeys.entityEmployees.all(), "list"] as const,
-        record: (id: string) => [...QueryKeys.entityEmployees.all(), id] as const,
-    },
     departments: {
         all: () => ["departments"] as const,
         list: () => [...QueryKeys.departments.all(), "list"] as const,
