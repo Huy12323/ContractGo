@@ -49,17 +49,5 @@ export const Page_Organization = () => {
     <div>123</div>
     <div>123</div>
     <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
-    <div>123</div>
   </div>
 }
