@@ -32,6 +32,7 @@ DROP POLICY IF EXISTS "Invitee can update own invitations" ON public.admin_invit
 
 DROP FUNCTION IF EXISTS public.is_org_member(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_organization_role(text) CASCADE;
+DROP FUNCTION IF EXISTS public.get_org_role(text) CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin_or_owner(text) CASCADE;
 DROP FUNCTION IF EXISTS public.has_pending_invitation(text) CASCADE;
 

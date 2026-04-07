@@ -1,3 +1,4 @@
+export type Json =
   | string
   | number
   | boolean
@@ -181,6 +182,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "departments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "departments_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
@@ -263,41 +271,34 @@ export type Database = {
           },
         ]
       }
-      entity_employees: {
+      organization_role_permissions: {
         Row: {
-          created_at: string | null
-          entity_id: string
+          created_at: string
           id: string
           organization_id: string
-          user_id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: string
         }
         Insert: {
-          created_at?: string | null
-          entity_id: string
+          created_at?: string
           id?: string
-          organization_id?: string
-          user_id: string
+          organization_id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: string
         }
         Update: {
-          created_at?: string | null
-          entity_id?: string
+          created_at?: string
           id?: string
           organization_id?: string
-          user_id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          role?: string
         }
         Relationships: [
           {
-            foreignKeyName: "entity_employees_entity_id_fkey"
-            columns: ["entity_id"]
+            foreignKeyName: "organization_role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_employees_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -364,12 +365,52 @@ export type Database = {
         }
         Relationships: []
       }
+      rel__department__employee: {
+        Row: {
+          created_at: string
+          department_id: string
+          employee_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          employee_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rel__department__employee_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rel__department__employee_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_invitation: { Args: { invitation_token: string }; Returns: Json }
+      authorize: {
+        Args: {
+          org_id: string
+          requested_permission: Database["public"]["Enums"]["app_permission"]
+        }
+        Returns: boolean
+      }
       cleanup_expired_auth_tokens: { Args: never; Returns: undefined }
       create_organization: { Args: { org_name: string }; Returns: string }
       generate_id: { Args: { prefix: string }; Returns: string }
@@ -388,9 +429,19 @@ export type Database = {
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
+      seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_permission:
+        | "manage_organization"
+        | "manage_members"
+        | "manage_roles"
+        | "view_all_employees"
+        | "manage_employees"
+        | "view_department_employees"
+        | "manage_departments"
+        | "view_own_profile"
+        | "edit_own_profile"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -520,7 +571,19 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      app_permission: [
+        "manage_organization",
+        "manage_members",
+        "manage_roles",
+        "view_all_employees",
+        "manage_employees",
+        "view_department_employees",
+        "manage_departments",
+        "view_own_profile",
+        "edit_own_profile",
+      ],
+    },
   },
 } as const
 
