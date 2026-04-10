@@ -20,7 +20,9 @@ import { Route as AuthInvitationRouteImport } from './routes/_auth/invitation'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as ProtectedOrganizationIdRouteRouteImport } from './routes/_protected/$organizationId/route'
 import { Route as ProtectedOrganizationIdIndexRouteImport } from './routes/_protected/$organizationId/index'
+import { Route as ProtectedOnboardingInvitationTokenRouteImport } from './routes/_protected/onboarding/$invitationToken'
 import { Route as ProtectedOrganizationIdOrgChartIndexRouteImport } from './routes/_protected/$organizationId/org-chart/index'
+import { Route as ProtectedOrganizationIdEmployeesIndexRouteImport } from './routes/_protected/$organizationId/employees/index'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -77,10 +79,22 @@ const ProtectedOrganizationIdIndexRoute =
     path: '/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
+const ProtectedOnboardingInvitationTokenRoute =
+  ProtectedOnboardingInvitationTokenRouteImport.update({
+    id: '/onboarding/$invitationToken',
+    path: '/onboarding/$invitationToken',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 const ProtectedOrganizationIdOrgChartIndexRoute =
   ProtectedOrganizationIdOrgChartIndexRouteImport.update({
     id: '/org-chart/',
     path: '/org-chart/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedOrganizationIdEmployeesIndexRoute =
+  ProtectedOrganizationIdEmployeesIndexRouteImport.update({
+    id: '/employees/',
+    path: '/employees/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
 
@@ -93,7 +107,9 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
+  '/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRoutesByTo {
@@ -104,7 +120,9 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
+  '/$organizationId/employees': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/$organizationId/org-chart': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRoutesById {
@@ -119,7 +137,9 @@ export interface FileRoutesById {
   '/_auth/signup': typeof AuthSignupRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
+  '/_protected/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/_protected/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 export interface FileRouteTypes {
@@ -133,7 +153,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
+    | '/onboarding/$invitationToken'
     | '/$organizationId/'
+    | '/$organizationId/employees/'
     | '/$organizationId/org-chart/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -144,7 +166,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
+    | '/onboarding/$invitationToken'
     | '/$organizationId'
+    | '/$organizationId/employees'
     | '/$organizationId/org-chart'
   id:
     | '__root__'
@@ -158,7 +182,9 @@ export interface FileRouteTypes {
     | '/_auth/signup'
     | '/_auth/verify-email'
     | '/_protected/'
+    | '/_protected/onboarding/$invitationToken'
     | '/_protected/$organizationId/'
+    | '/_protected/$organizationId/employees/'
     | '/_protected/$organizationId/org-chart/'
   fileRoutesById: FileRoutesById
 }
@@ -246,11 +272,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrganizationIdIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
+    '/_protected/onboarding/$invitationToken': {
+      id: '/_protected/onboarding/$invitationToken'
+      path: '/onboarding/$invitationToken'
+      fullPath: '/onboarding/$invitationToken'
+      preLoaderRoute: typeof ProtectedOnboardingInvitationTokenRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/$organizationId/org-chart/': {
       id: '/_protected/$organizationId/org-chart/'
       path: '/org-chart'
       fullPath: '/$organizationId/org-chart/'
       preLoaderRoute: typeof ProtectedOrganizationIdOrgChartIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/$organizationId/employees/': {
+      id: '/_protected/$organizationId/employees/'
+      path: '/employees'
+      fullPath: '/$organizationId/employees/'
+      preLoaderRoute: typeof ProtectedOrganizationIdEmployeesIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
   }
@@ -280,12 +320,15 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface ProtectedOrganizationIdRouteRouteChildren {
   ProtectedOrganizationIdIndexRoute: typeof ProtectedOrganizationIdIndexRoute
+  ProtectedOrganizationIdEmployeesIndexRoute: typeof ProtectedOrganizationIdEmployeesIndexRoute
   ProtectedOrganizationIdOrgChartIndexRoute: typeof ProtectedOrganizationIdOrgChartIndexRoute
 }
 
 const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRouteChildren =
   {
     ProtectedOrganizationIdIndexRoute: ProtectedOrganizationIdIndexRoute,
+    ProtectedOrganizationIdEmployeesIndexRoute:
+      ProtectedOrganizationIdEmployeesIndexRoute,
     ProtectedOrganizationIdOrgChartIndexRoute:
       ProtectedOrganizationIdOrgChartIndexRoute,
   }
@@ -298,12 +341,15 @@ const ProtectedOrganizationIdRouteRouteWithChildren =
 interface ProtectedRouteRouteChildren {
   ProtectedOrganizationIdRouteRoute: typeof ProtectedOrganizationIdRouteRouteWithChildren
   ProtectedIndexRoute: typeof ProtectedIndexRoute
+  ProtectedOnboardingInvitationTokenRoute: typeof ProtectedOnboardingInvitationTokenRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedOrganizationIdRouteRoute:
     ProtectedOrganizationIdRouteRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,
+  ProtectedOnboardingInvitationTokenRoute:
+    ProtectedOnboardingInvitationTokenRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(

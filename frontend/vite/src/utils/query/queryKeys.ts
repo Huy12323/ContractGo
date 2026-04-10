@@ -27,4 +27,33 @@ export const QueryKeys = {
         list: () => [...QueryKeys.departments.all(), "list"] as const,
         record: (id: string) => [...QueryKeys.departments.all(), id] as const,
     },
+    contractTemplates: {
+        all: () => ["contractTemplates"] as const,
+        list: () => [...QueryKeys.contractTemplates.all(), "list"] as const,
+        record: (id: string) => [...QueryKeys.contractTemplates.all(), id] as const,
+    },
+    employeeColumns: {
+        all: () => ["employeeColumns"] as const,
+        list: () => [...QueryKeys.employeeColumns.all(), "list"] as const,
+        record: (id: string) => [...QueryKeys.employeeColumns.all(), id] as const,
+    },
+    employeeColumnChoices: {
+        all: () => ["employeeColumnChoices"] as const,
+        list: () => [...QueryKeys.employeeColumnChoices.all(), "list"] as const,
+        record: (id: string) => [...QueryKeys.employeeColumnChoices.all(), id] as const,
+    },
+    onboardingInvitations: {
+        all: () => ["onboardingInvitations"] as const,
+        list: () => [...QueryKeys.onboardingInvitations.all(), "list"] as const,
+        mine: () => [...QueryKeys.onboardingInvitations.all(), "mine"] as const,
+        org: (organizationId: string) =>
+            [...QueryKeys.onboardingInvitations.all(), "org", organizationId] as const,
+        byToken: (token: string) => [...QueryKeys.onboardingInvitations.all(), "byToken", token] as const,
+        record: (id: string) => [...QueryKeys.onboardingInvitations.all(), id] as const,
+    },
+    contracts: {
+        all: () => ["contracts"] as const,
+        list: () => [...QueryKeys.contracts.all(), "list"] as const,
+        record: (id: string) => [...QueryKeys.contracts.all(), id] as const,
+    },
 };
