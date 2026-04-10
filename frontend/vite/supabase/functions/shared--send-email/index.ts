@@ -11,7 +11,7 @@ const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
 // --- Scenario Registry ---
 
-type EmailScenario = "auth_confirmation" | "auth_recovery" | "admin_invitation";
+type EmailScenario = "auth_confirmation" | "auth_recovery" | "admin_invitation" | "employee_onboarding_invitation";
 
 interface ScenarioConfig {
   subject: string;
@@ -30,6 +30,8 @@ const TEMPLATES: Record<EmailScenario, string> = {
     `<h2>Reset your password</h2><p>Hi {{name}}, we received a request to reset your password. Click the button below to choose a new one.</p><div class="btn-wrap"><a href="{{recoveryUrl}}" class="btn" style="color:#fff!important;text-decoration:none!important">Reset Password</a></div><div class="divider"></div><p class="muted">This link expires in 24 hours. If you didn't request a password reset, you can safely ignore this email.</p>`),
   admin_invitation: TEMPLATE_SHELL("You're invited - AIUR-HR",
     `<h2>You've been invited!</h2><p>You've been invited to join <strong>{{orgName}}</strong> as an admin on AIUR HR.</p><div class="btn-wrap"><a href="{{invitationLink}}" class="btn" style="color:#fff!important;text-decoration:none!important">Accept Invitation</a></div><p class="muted">This invitation expires in 7 days. If you didn't expect this, you can safely ignore it.</p>`),
+  employee_onboarding_invitation: TEMPLATE_SHELL("Onboarding Invitation - AIUR-HR",
+    `<h2>Welcome aboard!</h2><p><strong>{{orgName}}</strong> has invited you to complete your onboarding contract. Click the button below to review and sign your employment contract.</p><div class="btn-wrap"><a href="{{invitationLink}}" class="btn" style="color:#fff!important;text-decoration:none!important">Complete Onboarding</a></div><div class="divider"></div><p class="muted">If you weren't expecting this invitation, you can safely ignore it.</p>`),
 };
 
 const SCENARIOS: Record<EmailScenario, ScenarioConfig> = {
@@ -46,6 +48,11 @@ const SCENARIOS: Record<EmailScenario, ScenarioConfig> = {
   admin_invitation: {
     subject: "You're invited to join {{orgName}} on AIUR HR",
     template: TEMPLATES.admin_invitation,
+    requiredFields: ["orgName", "invitationLink"],
+  },
+  employee_onboarding_invitation: {
+    subject: "Onboarding invitation from {{orgName}} - AIUR HR",
+    template: TEMPLATES.employee_onboarding_invitation,
     requiredFields: ["orgName", "invitationLink"],
   },
 };

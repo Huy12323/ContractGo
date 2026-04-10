@@ -88,7 +88,7 @@ export const App_LoginForm = ({ redirect: redirectTo }: LoginFormProps) => {
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>OR</Typography.Text>
       </Divider>
 
-      <Button block size="large" onClick={() => navigate({ to: '/signup' })}>
+      <Button block size="large" onClick={() => navigate({ to: '/signup', search: { redirect: redirectTo } })}>
         Create a new account
       </Button>
     </Form>

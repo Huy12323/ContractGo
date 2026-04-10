@@ -6,12 +6,15 @@ import { Building2, MoreHorizontal, Users } from 'lucide-react'
 import { useQ_Tables_MyOrganizations } from '@/hooks/useQ_Tables_MyOrganizations'
 import type { Tables_MyOrganizations_QueryData } from '@/hooks/useQ_Tables_MyOrganizations'
 import { useQ_Tables_MyRole } from '@/hooks/useQ_Tables_MyRole'
+import { useQ_Tables_MyOnboardingInvitations } from '@/hooks/useQ_Tables_MyOnboardingInvitations'
 import { App_OrgSettingsModal } from '@/components/organization/App_OrgSettingsModal'
 import { App_CreateOrgModal } from '@/components/organization/App_CreateOrgModal'
+import { PageHome_OnboardingInvitations } from './PageHome_OnboardingInvitations/PageHome_OnboardingInvitations'
 
 export const Page_Home = () => {
   const { token } = theme.useToken()
   const qOrganizations = useQ_Tables_MyOrganizations()
+  const qOnboardingInvitations = useQ_Tables_MyOnboardingInvitations()
   const [createOrgOpen, setCreateOrgOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -73,6 +76,8 @@ export const Page_Home = () => {
           </div>
         )
       })()}
+
+      <PageHome_OnboardingInvitations invitations={qOnboardingInvitations.invitations} />
 
       <App_CreateOrgModal
         open={createOrgOpen}

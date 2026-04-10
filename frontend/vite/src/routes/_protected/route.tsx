@@ -25,7 +25,7 @@ export const Route = createFileRoute('/_protected')({
       .single()
 
     if (sb_FromProfiles_Select.data && !sb_FromProfiles_Select.data.email_verified) {
-      throw redirect({ to: '/verify-email' })
+      throw redirect({ to: '/verify-email', search: { redirect: location.href } })
     }
 
   },
@@ -42,7 +42,7 @@ function ProtectedLayout() {
       <Layout style={{ height: `calc(100vh - ${const_AppShell_HorizontalNavHeight}px)` }}>
         <App_VerticalNav />
 
-        <Content style={{ padding: token.paddingLG, overflowY: 'auto', overflowX: 'hidden' }}>
+        <Content style={{ overflowY: 'auto', overflowX: 'hidden' }}>
           <Outlet />
         </Content>
       </Layout>

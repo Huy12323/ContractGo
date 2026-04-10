@@ -83,7 +83,7 @@ export const Page_Invitation = () => {
   }
 
   function handleSwitchAccount() {
-    Store_Auth_Actions.signOut()
+    Store_Auth_Actions.signOutAndRedirect(`/invitation?token=${invToken}`)
   }
 
   if (authLoading || loading) {
@@ -201,7 +201,7 @@ export const Page_Invitation = () => {
         <div style={{ marginTop: 12 }}>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>
             Don't have an account?{' '}
-            <Typography.Link onClick={() => navigate({ to: '/signup' })}>
+            <Typography.Link onClick={() => navigate({ to: '/signup', search: { redirect: `/invitation?token=${invToken}` } })}>
               Sign up
             </Typography.Link>
           </Typography.Text>

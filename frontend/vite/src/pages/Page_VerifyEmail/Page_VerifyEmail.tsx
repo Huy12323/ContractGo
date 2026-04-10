@@ -4,36 +4,86 @@ import { App, Button, Result, Typography, Spin, theme } from 'antd'
 import { MailOutlined, TeamOutlined, LogoutOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { supabase } from '@/configs/supabase/config'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import { consumePostVerifyRedirect, POST_VERIFY_REDIRECT_KEY } from '@/configs/auth/postVerifyRedirect'
 
 export const Page_VerifyEmail = () => {
-  const { token: searchToken } = useSearch({ from: '/_auth/verify-email' })
+  const { token: searchToken, redirect } = useSearch({ from: '/_auth/verify-email' })
 
-  return searchToken ? <TokenVerification token={searchToken} /> : <WaitingForEmail />
+  return searchToken
+    ? <TokenVerification token={searchToken} redirectTo={redirect} />
+    : <WaitingForEmail redirectTo={redirect} />
+}
+
+// supabase.functions.invoke wraps non-2xx responses in a FunctionsHttpError whose
+// .message is always "Edge Function returned a non-2xx status code" — useless to users.
+// The real message lives in the underlying Response's JSON body, accessible via
+// the SDK's undocumented `.context` property. This helper extracts it, with a
+// friendly fallback if anything about the parsing fails.
+const extractEdgeFunctionErrorMessage = async (error: unknown, fallback: string): Promise<string> => {
+  if (!error || typeof error !== 'object') return fallback
+  const ctx = (error as { context?: Response }).context
+  if (!ctx || typeof ctx.json !== 'function') return fallback
+  try {
+    const body = await ctx.json()
+    if (body && typeof body === 'object') {
+      const serverError = (body as { error?: unknown }).error
+      if (typeof serverError === 'string' && serverError.trim()) return serverError
+    }
+  } catch {
+    // Body wasn't JSON, or was already consumed — fall through
+  }
+  return fallback
 }
 
 // --- Mode 1: User clicked the email link ---
 
-function TokenVerification({ token }: { token: string }) {
+function TokenVerification({ token, redirectTo }: { token: string; redirectTo?: string }) {
   const { token: themeToken } = theme.useToken()
   const navigate = useNavigate()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
   const [errorMessage, setErrorMessage] = useState('')
+  const [hasSession, setHasSession] = useState(false)
+  const [resolvedRedirect, setResolvedRedirect] = useState<string | undefined>(redirectTo)
 
   useEffect(() => {
     const verify = async () => {
-      try {
-        const res = await supabase.functions.invoke('auth_verify-token', {
-          body: { token, type: 'verification' },
-        })
-        if (res.error) throw res.error
-        setStatus('success')
-      } catch (err) {
+      // Session check runs regardless of verification outcome so both success
+      // and error states know whether to show "Back to Home" vs "Sign In".
+      const sessionCheck = await supabase.auth.getSession()
+      setHasSession(!!sessionCheck.data.session)
+
+      const res = await supabase.functions.invoke('auth_verify-token', {
+        body: { token, type: 'verification' },
+      })
+
+      if (res.error) {
+        const message = await extractEdgeFunctionErrorMessage(
+          res.error,
+          'This verification link is invalid or has already been used.',
+        )
         setStatus('error')
-        setErrorMessage(err instanceof Error ? err.message : 'Invalid or expired verification link')
+        setErrorMessage(message)
+        return
       }
+
+      // URL redirect takes precedence; fall back to localStorage for cross-tab signup flow.
+      // Consume (read + delete) so stale values don't leak into unrelated sessions.
+      const stored = consumePostVerifyRedirect()
+      if (!redirectTo && stored) setResolvedRedirect(stored)
+
+      setStatus('success')
     }
     verify()
-  }, [token])
+  }, [token, redirectTo])
+
+  const handleContinue = () => {
+    if (hasSession && resolvedRedirect) {
+      // Already signed in + have a target — go straight there, skip /login entirely.
+      window.location.href = resolvedRedirect
+      return
+    }
+    navigate({ to: '/login', search: { redirect: resolvedRedirect } })
+  }
 
   if (status === 'verifying') {
     return (
@@ -47,17 +97,21 @@ function TokenVerification({ token }: { token: string }) {
   }
 
   if (status === 'success') {
+    const buttonLabel = hasSession && resolvedRedirect ? 'Continue' : 'Sign In'
+    const subTitle = hasSession && resolvedRedirect
+      ? 'Your email has been verified. Continuing where you left off...'
+      : 'Your email has been verified. You can now sign in.'
     return (
       <>
         <Logo themeToken={themeToken} />
         <Result
           icon={<CheckCircleOutlined style={{ color: themeToken.colorSuccess }} />}
           title="Email verified!"
-          subTitle="Your email has been verified. You can now sign in."
+          subTitle={subTitle}
           style={{ padding: '0 0 16px' }}
         />
-        <Button type="primary" block size="large" onClick={() => navigate({ to: '/login', search: { redirect: undefined } })}>
-          Sign In
+        <Button type="primary" block size="large" onClick={handleContinue}>
+          {buttonLabel}
         </Button>
       </>
     )
@@ -68,26 +122,46 @@ function TokenVerification({ token }: { token: string }) {
       <Logo themeToken={themeToken} />
       <Result
         status="warning"
-        title="Verification failed"
-        subTitle={errorMessage}
+        title="Can't verify this link"
+        subTitle={
+          <>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>
+              {errorMessage}
+            </Typography.Paragraph>
+            <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
+              This usually means the link was already used, has expired, or was meant for a different account. You can request a new verification email after signing in.
+            </Typography.Paragraph>
+          </>
+        }
         style={{ padding: '0 0 16px' }}
       />
-      <Button type="primary" block size="large" onClick={() => navigate({ to: '/login', search: { redirect: undefined } })}>
+      <Button type="primary" block size="large" onClick={() => navigate({ to: '/login', search: { redirect: resolvedRedirect } })}>
         Go to Sign In
       </Button>
+      {hasSession && (
+        <Button type="text" block style={{ marginTop: 8 }} onClick={() => { window.location.href = '/' }}>
+          Back to Home
+        </Button>
+      )}
     </>
   )
 }
 
 // --- Mode 2: User just signed up, waiting for email ---
 
-function WaitingForEmail() {
+function WaitingForEmail({ redirectTo }: { redirectTo?: string }) {
   const { token: themeToken } = theme.useToken()
   const { message: messageApi } = App.useApp()
 
   const [email, setEmail] = useState<string | null>(null)
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(0)
+
+  // Mirror the URL redirect into localStorage so cross-tab verification
+  // (user opens the email in a different tab) can still resolve the destination.
+  useEffect(() => {
+    if (redirectTo) localStorage.setItem(POST_VERIFY_REDIRECT_KEY, redirectTo)
+  }, [redirectTo])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {

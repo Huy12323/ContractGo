@@ -17,6 +17,7 @@ export const useStore_Auth_Session = () => useStore(Store_Auth, (s) => s.session
 export const useStore_Auth_Loading = () => useStore(Store_Auth, (s) => s.loading);
 
 let userInitiatedSignOut = false;
+let userInitiatedSignOutDestination: string | null = null;
 
 // Actions
 export const Store_Auth_Actions = {
@@ -45,9 +46,21 @@ export const Store_Auth_Actions = {
                     queryClient.clear();
                     if (userInitiatedSignOut) {
                         userInitiatedSignOut = false;
-                        window.location.href = "/login";
+                        // If the caller specified a destination to return to after re-login,
+                        // honor it. Otherwise land on /login with no redirect (the plain
+                        // sign-out-from-nav case).
+                        if (userInitiatedSignOutDestination) {
+                            const dest = userInitiatedSignOutDestination;
+                            userInitiatedSignOutDestination = null;
+                            window.location.href = `/login?redirect=${encodeURIComponent(dest)}`;
+                        } else {
+                            window.location.href = "/login";
+                        }
                     } else {
-                        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+                        // Session expired or external sign-out — try to bring the user back
+                        // to where they were.
+                        const currentPath = window.location.pathname + window.location.search;
+                        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
                     }
                     return;
             }
@@ -70,9 +83,27 @@ export const Store_Auth_Actions = {
 
     signOut: async () => {
         userInitiatedSignOut = true;
+        userInitiatedSignOutDestination = null;
         const sb_Auth_SignOut = await supabase.auth.signOut();
         if (sb_Auth_SignOut.error) {
             userInitiatedSignOut = false;
+            throw sb_Auth_SignOut.error;
+        }
+    },
+
+    /**
+     * Sign out the current user and, after returning to /login, preserve a
+     * destination path so that successfully signing in as a different user
+     * lands them on that path. Used by wrong-account screens (e.g. an onboarding
+     * invitation link opened while signed in as the wrong email).
+     */
+    signOutAndRedirect: async (destination: string) => {
+        userInitiatedSignOut = true;
+        userInitiatedSignOutDestination = destination;
+        const sb_Auth_SignOut = await supabase.auth.signOut();
+        if (sb_Auth_SignOut.error) {
+            userInitiatedSignOut = false;
+            userInitiatedSignOutDestination = null;
             throw sb_Auth_SignOut.error;
         }
     },

@@ -1,9 +1,11 @@
+import { useSearch } from '@tanstack/react-router'
 import { App_SignUpForm } from '@/components/auth/App_SignUpForm'
 import { Typography, theme } from 'antd'
 import { TeamOutlined } from '@ant-design/icons'
 
 export const Page_SignUp = () => {
   const { token } = theme.useToken()
+  const { redirect } = useSearch({ from: '/_auth/signup' })
 
   return (
     <>
@@ -27,7 +29,7 @@ export const Page_SignUp = () => {
         </Typography.Title>
         <Typography.Text type="secondary">Create your workspace</Typography.Text>
       </div>
-      <App_SignUpForm />
+      <App_SignUpForm redirect={redirect} />
     </>
   )
 }

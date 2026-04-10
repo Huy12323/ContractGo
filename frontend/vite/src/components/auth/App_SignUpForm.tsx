@@ -4,6 +4,7 @@ import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
 import { supabase } from '@/configs/supabase/config'
 import { useNavigate } from '@tanstack/react-router'
+import { POST_VERIFY_REDIRECT_KEY } from '@/configs/auth/postVerifyRedirect'
 
 interface SignUpValues {
   fullName: string
@@ -12,7 +13,11 @@ interface SignUpValues {
   confirmPassword: string
 }
 
-export const App_SignUpForm = () => {
+interface SignUpFormProps {
+  redirect?: string
+}
+
+export const App_SignUpForm = ({ redirect: redirectTo }: SignUpFormProps) => {
   const [loading, setLoading] = useState(false)
   const { token } = theme.useToken()
   const { message: messageApi } = App.useApp()
@@ -24,7 +29,14 @@ export const App_SignUpForm = () => {
     try {
       await Store_Auth_Actions.signUp(values.email, values.password, values.fullName)
       await supabase.functions.invoke('auth_send-verification', { body: { type: 'verification' } })
-      navigate({ to: '/verify-email', state: { email: values.email } })
+      // Cross-tab fallback — if the user opens the verification email in a different tab,
+      // the URL's `?redirect=` is lost but this localStorage value survives.
+      if (redirectTo) localStorage.setItem(POST_VERIFY_REDIRECT_KEY, redirectTo)
+      navigate({
+        to: '/verify-email',
+        search: { redirect: redirectTo },
+        state: { email: values.email },
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
       if (msg.includes('already registered')) {
@@ -100,7 +112,7 @@ export const App_SignUpForm = () => {
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>OR</Typography.Text>
       </Divider>
 
-      <Button block size="large" onClick={() => navigate({ to: '/login', search: { redirect: undefined } })}>
+      <Button block size="large" onClick={() => navigate({ to: '/login', search: { redirect: redirectTo } })}>
         Sign in to existing account
       </Button>
     </Form>
