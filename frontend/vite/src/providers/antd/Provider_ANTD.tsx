@@ -17,6 +17,16 @@ const themeConfig = {
             paddingInline: 12,
             borderRadius: 32,
         },
+        // Global borderRadius: 16 causes inner/outer radius clipping in
+        // nested-container components. Override with coordinated values.
+        Segmented: {
+            borderRadius: 6,
+            borderRadiusLG: 8,
+            borderRadiusSM: 4,
+        },
+        Checkbox: {
+            borderRadiusSM: 4,
+        },
     },
 };
 
