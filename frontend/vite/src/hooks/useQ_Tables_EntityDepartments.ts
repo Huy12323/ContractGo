@@ -18,7 +18,7 @@ export type Tables_EntityDepartments_QueryData = Awaited<ReturnType<typeof fetch
 export const useQ_Tables_EntityDepartments = ({ entityId }: { entityId: string }) => {
     const query = useQuery({
         enabled: !!entityId,
-        queryKey: [...QueryKeys.entities.record(entityId), ...QueryKeys.departments.list()],
+        queryKey: [...QueryKeys.departments.list(), { entityId }],
         queryFn: () => fetchEntityDepartments(entityId),
     });
 
