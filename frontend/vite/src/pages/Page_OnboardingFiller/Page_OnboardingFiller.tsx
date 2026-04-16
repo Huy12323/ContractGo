@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Button, Card, Spin, Typography, theme, App, Space, Tag } from 'antd'
-import { CloseCircleOutlined, SwapOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, SwapOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/core'
 import { App_ContractFiller } from '@/components/employees/App_ContractFiller'
 import { App_SignaturePad } from '@/components/employees/App_SignaturePad'
 import { useQ_PageOnboardingFiller_InvitationByToken } from '@/hooks/useQ_PageOnboardingFiller_InvitationByToken'
+import { useQ_PageOnboardingFiller_InvitationPreview } from '@/hooks/useQ_PageOnboardingFiller_InvitationPreview'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_Onboarding_SubmitContract } from '@/hooks/useM_Onboarding_SubmitContract'
@@ -68,6 +69,11 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     const qMe = useQ_Me()
     const qInvitation = useQ_PageOnboardingFiller_InvitationByToken({ invitationToken })
     const invitation = qInvitation.invitation
+    const qPreview = useQ_PageOnboardingFiller_InvitationPreview({
+        invitationToken,
+        enabled: qInvitation.query.isFetched && !invitation,
+    })
+    const preview = qPreview.preview
     const organizationId = invitation?.organization_id ?? ''
     const template = invitation?.contract_templates
     const layout = useMemo(
@@ -154,7 +160,9 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         }
     }
 
-    if (qInvitation.query.isLoading || qMe.query.isLoading) {
+    const primarySettled = qInvitation.query.isFetched
+    const waitingForPreview = primarySettled && !invitation && (qPreview.query.isLoading || !qPreview.query.isFetched)
+    if (qInvitation.query.isLoading || qMe.query.isLoading || waitingForPreview) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
                 <Spin size="large" />
@@ -163,6 +171,92 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     }
 
     if (!invitation) {
+        // Primary RLS-bound query returned nothing. Fall back to the preview RPC
+        // to distinguish mismatched email / consumed invitation from a truly
+        // invalid token.
+        if (preview?.status === 'sent') {
+            return (
+                <CenteredMessage>
+                    <div
+                        style={{
+                            width: 48, height: 48, borderRadius: 10, background: token.colorWarning,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                        }}
+                    >
+                        <SwapOutlined style={{ fontSize: 24, color: '#fff' }} />
+                    </div>
+                    <Typography.Title level={4}>Different account needed</Typography.Title>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                        This invitation was sent to <strong>{preview.employee_email}</strong>
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                        You're signed in as <strong>{qMe.profile?.email ?? 'unknown'}</strong>
+                    </Typography.Text>
+                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                        <Button onClick={() => navigate({ to: '/' })}>
+                            Go to Home
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<SwapOutlined />}
+                            loading={signingOut}
+                            onClick={handleSwitchAccount}
+                        >
+                            Switch Account
+                        </Button>
+                    </div>
+                </CenteredMessage>
+            )
+        }
+
+        if (preview?.status === 'accepted') {
+            return (
+                <CenteredMessage>
+                    <div
+                        style={{
+                            width: 48, height: 48, borderRadius: 10, background: token.colorSuccess,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                        }}
+                    >
+                        <CheckCircleOutlined style={{ fontSize: 24, color: '#fff' }} />
+                    </div>
+                    <Typography.Title level={4} style={{ marginBottom: 4 }}>
+                        Already accepted
+                    </Typography.Title>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                        This invitation has already been accepted. If you believe this is an error, contact your admin.
+                    </Typography.Text>
+                    <Button type="primary" onClick={() => navigate({ to: '/' })}>
+                        Go to Home
+                    </Button>
+                </CenteredMessage>
+            )
+        }
+
+        if (preview?.status === 'expired' || preview?.status === 'revoked') {
+            return (
+                <CenteredMessage>
+                    <div
+                        style={{
+                            width: 48, height: 48, borderRadius: 10, background: token.colorWarning,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+                        }}
+                    >
+                        <ClockCircleOutlined style={{ fontSize: 24, color: '#fff' }} />
+                    </div>
+                    <Typography.Title level={4} style={{ marginBottom: 4 }}>
+                        No longer available
+                    </Typography.Title>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                        This invitation is no longer valid (expired or revoked). Contact your admin to request a new invitation.
+                    </Typography.Text>
+                    <Button type="primary" onClick={() => navigate({ to: '/' })}>
+                        Go to Home
+                    </Button>
+                </CenteredMessage>
+            )
+        }
+
         return (
             <CenteredMessage>
                 <div
@@ -177,7 +271,7 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                     Invitation not available
                 </Typography.Title>
                 <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
-                    This onboarding invitation does not exist, has already been accepted, or is not addressed to your email.
+                    This onboarding invitation does not exist or the link is invalid.
                 </Typography.Text>
                 <Button type="primary" onClick={() => navigate({ to: '/' })}>
                     Go to Home
@@ -191,6 +285,10 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     const emailMatches = signedInEmail === invitationEmail
 
     if (!emailMatches) {
+        // Defensive: the invitee RLS policy requires email match, so reaching
+        // this branch means the caller is an admin of the org viewing the row
+        // through the admin policy. Admins shouldn't fill out someone else's
+        // contract — send them home.
         return (
             <CenteredMessage>
                 <div

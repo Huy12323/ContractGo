@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
+import type { Database } from "@/types/database.types";
 
 export type UseM_EntitySettings_EntityCreate_Params = {
     organization_id: string;
     name: string;
-    timezone?: string;
+    timezone?: Database["public"]["Enums"]["iana_timezone"] | null;
     locale?: string;
 };
 
@@ -25,7 +26,7 @@ export const useM_EntitySettings_EntityCreate = () => {
             return sb_FromEntities_Insert.data;
         },
         onSuccess: () => {
-            message.success("Entity created");
+            message.success("Entity created");``
             queryClient.invalidateQueries({ queryKey: QueryKeys.entities.all() });
         },
         onError: (err) => {

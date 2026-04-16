@@ -2,11 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
+import type { Database } from "@/types/database.types";
 
 export type UseM_EntitySettings_EntityUpdate_Params = { entityId: string };
 export type UseM_EntitySettings_EntityUpdate_Body = Partial<{
     name: string;
-    timezone: string;
+    timezone: Database["public"]["Enums"]["iana_timezone"] | null;
     locale: string;
 }>;
 

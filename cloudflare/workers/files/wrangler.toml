@@ -1,0 +1,42 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "aiur-hr-files-dev"
+main = "src/index.js"
+compatibility_date = "2026-04-16"
+compatibility_flags = ["nodejs_compat"]
+account_id = "156c6587f5eeeef516ea33aba5b50fb2"
+
+# Default environment = local `wrangler dev` and dev deploys
+[[r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "aiurhr--dev"
+
+[vars]
+ENVIRONMENT = "development"
+
+# Staging environment
+[env.staging]
+name = "aiur-hr-files-staging"
+vars = { ENVIRONMENT = "staging" }
+
+[[env.staging.r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "aiurhr--stag"
+
+# Production environment
+[env.production]
+name = "aiur-hr-files-prod"
+vars = { ENVIRONMENT = "production" }
+
+[[env.production.r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "aiurhr--prod"
+
+# Secrets — set per environment via:
+#   wrangler secret put WORKER_JWT_SECRET --env staging
+#   wrangler secret put WORKER_JWT_SECRET --env production
+# WORKER_JWT_SECRET must match the value used by the Supabase Edge Function
+# that signs read tokens (AHR-805).
+
+# Custom domain mapping (via Cloudflare Dashboard → Workers & Pages → Triggers)
+# Staging:    files-staging.{TODO-domain} → aiur-hr-files-staging
+# Production: files.{TODO-domain}         → aiur-hr-files-prod

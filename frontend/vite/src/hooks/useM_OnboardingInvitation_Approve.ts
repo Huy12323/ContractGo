@@ -37,6 +37,9 @@ export const useM_OnboardingInvitation_Approve = () => {
             queryClient.invalidateQueries({
                 queryKey: QueryKeys.contracts.all(),
             });
+            queryClient.invalidateQueries({
+                queryKey: QueryKeys.departments.all(),
+            });
         },
         onError: (err) => {
             console.error(err);

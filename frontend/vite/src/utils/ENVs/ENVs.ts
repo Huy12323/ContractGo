@@ -4,6 +4,7 @@ const baseENVs = jetEnv(
     {
         ViteSupabaseUrl: str,
         ViteSupabaseAnonKey: str,
+        ViteR2WorkerUrl: str,
     },
     { getValue: (key) => import.meta.env[key] },
 );

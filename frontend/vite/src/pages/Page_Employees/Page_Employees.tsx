@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { Typography, Button, Tooltip, Modal, Input, Form, Card, Tag, Segmented, theme } from 'antd'
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { Typography, Button, Tooltip, Modal, Input, Form, Segmented, theme } from 'antd'
 import {
   ZoomInOutlined,
   ZoomOutOutlined,
@@ -15,6 +15,8 @@ import {
 } from '@ant-design/icons'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
+import { useQ_Tables_OrgDepartments } from '@/hooks/useQ_Tables_OrgDepartments'
+import { useQ_Tables_OrgEmployeesWithDepartments } from '@/hooks/useQ_Tables_OrgEmployeesWithDepartments'
 import { useM_EntitySettings_EntityCreate } from '@/hooks/useM_EntitySettings_EntityCreate'
 import { useM_DeptSettings_DepartmentCreate } from '@/hooks/useM_DeptSettings_DepartmentCreate'
 import { App_EntitySettingsModal } from '@/components/organization/App_EntitySettingsModal'
@@ -23,116 +25,28 @@ import { App_ViewFormsModal } from '@/components/employees/App_ViewFormsModal'
 import { App_FieldManagerModal } from '@/components/employees/App_FieldManagerModal'
 import { App_OnboardingModal } from '@/components/employees/App_OnboardingModal'
 import { Utils_OrgTree_BuildTree, type OrgTreeNode } from '@/utils/Utils_OrgTree_BuildTree'
+import { Provider_Page_Employees_List } from '@/providers/employees/Provider_Page_Employees_List'
+import { PageEmployees_ListView } from './PageEmployees_ListView/PageEmployees_ListView'
 
-// --- Layout constants ---
-const LEVEL_SIZES = [
-  { w: 260, fontSize: 14 },
-  { w: 230, fontSize: 13 },
-  { w: 200, fontSize: 12 },
-]
-const getLevelSize = (depth: number) => LEVEL_SIZES[Math.min(depth, LEVEL_SIZES.length - 1)]!
-const GAP_X = 36
-const GAP_Y = 56
+// --- Chart constants ---
+const CARD_WIDTH = 300
+const GAP_X = 40
+const CONNECTOR_HEIGHT = 32
+const CONNECTOR_THICKNESS = 2.5
 const EXPAND_BTN_SIZE = 28
-const EXPAND_BTN_OVERLAP = 14
-const EXPAND_BTN_SPACE = EXPAND_BTN_SIZE - EXPAND_BTN_OVERLAP
-const CARD_HEIGHT = 36
 const ZOOM_MIN = 0.25
 const ZOOM_MAX = 2
 const ZOOM_STEP = 0.1
 const HEADER_HEIGHT = 48
 
-const computeCardHeight = () => CARD_HEIGHT
-
-// --- Layout types ---
-type LayoutNode = {
-  id: string
-  x: number
-  y: number
-  w: number
-  h: number
-  depth: number
-  node: OrgTreeNode
-  children: LayoutNode[]
-}
-
-// --- Layout algorithm ---
-const computeLayout = (node: OrgTreeNode, expandedIds: Set<string>, depth = 0): LayoutNode => {
-  const size = getLevelSize(depth)
-  const h = computeCardHeight()
-  const isExpanded = expandedIds.has(node.id)
-  const childLayouts = isExpanded && node.children.length > 0
-    ? node.children.map((c) => computeLayout(c, expandedIds, depth + 1))
-    : []
-  return { id: node.id, x: 0, y: 0, w: size.w, h, depth, node, children: childLayouts }
-}
-
-const measureSubtreeWidth = (ln: LayoutNode): number => {
-  if (ln.children.length === 0) return ln.w
-  const childrenWidth = ln.children.reduce((sum, c) => sum + measureSubtreeWidth(c), 0)
-  return Math.max(ln.w, childrenWidth + GAP_X * (ln.children.length - 1))
-}
-
-const positionSubtree = (ln: LayoutNode, left: number) => {
-  const subtreeW = measureSubtreeWidth(ln)
-  ln.x = left + subtreeW / 2 - ln.w / 2
-  if (ln.children.length > 0) {
-    let childLeft = left
-    for (const child of ln.children) {
-      positionSubtree(child, childLeft)
-      childLeft += measureSubtreeWidth(child) + GAP_X
-    }
-  }
-}
-
-const positionVertical = (allNodes: LayoutNode[]) => {
-  const depthMaxH: Record<number, number> = {}
-  for (const n of allNodes) {
-    depthMaxH[n.depth] = Math.max(depthMaxH[n.depth] ?? 0, n.h)
-  }
-  const depthY: Record<number, number> = { 0: 0 }
-  const maxDepth = Math.max(...allNodes.map((n) => n.depth), 0)
-  for (let d = 1; d <= maxDepth; d++) {
-    const prevH = depthMaxH[d - 1] ?? 0
-    depthY[d] = (depthY[d - 1] ?? 0) + prevH + EXPAND_BTN_SPACE + GAP_Y
-  }
-  for (const n of allNodes) n.y = depthY[n.depth] ?? 0
-}
-
-const flattenLayout = (ln: LayoutNode): LayoutNode[] => {
-  const result: LayoutNode[] = [ln]
-  for (const child of ln.children) result.push(...flattenLayout(child))
-  return result
-}
-
-type Edge = { x1: number; y1: number; x2: number; y2: number }
-const collectEdges = (ln: LayoutNode): Edge[] => {
-  const edges: Edge[] = []
-  for (const child of ln.children) {
-    edges.push({ x1: ln.x + ln.w / 2, y1: ln.y + ln.h, x2: child.x + child.w / 2, y2: child.y })
-    edges.push(...collectEdges(child))
-  }
-  return edges
-}
-
-const buildTreeLayout = (root: OrgTreeNode, expandedIds: Set<string>) => {
-  const rootLayout = computeLayout(root, expandedIds, 0)
-  positionSubtree(rootLayout, 0)
-  const allNodes = flattenLayout(rootLayout)
-  positionVertical(allNodes)
-  const allEdges = collectEdges(rootLayout)
-  const maxX = allNodes.length > 0 ? Math.max(...allNodes.map((n) => n.x + n.w)) : 400
-  const maxY = allNodes.length > 0 ? Math.max(...allNodes.map((n) => n.y + n.h)) : 200
-  return { nodes: allNodes, edges: allEdges, canvasW: maxX + 80, canvasH: maxY + 100 }
-}
-
 type ViewMode = 'chart' | 'list'
 
-// --- Main component ---
 export const Page_Employees = () => {
   const { token } = theme.useToken()
   const { organization, organizationId } = useOrganization()
   const qEntities = useQ_Tables_OrgEntities({ organizationId })
+  const qDepartments = useQ_Tables_OrgDepartments({ organizationId })
+  const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ organizationId })
 
   const [viewMode, setViewMode] = useState<ViewMode>('chart')
   const [viewFormsOpen, setViewFormsOpen] = useState(false)
@@ -141,18 +55,15 @@ export const Page_Employees = () => {
 
   // Build tree from flat data
   const tree = useMemo(
-    () => Utils_OrgTree_BuildTree(organization?.name ?? 'Organization', 'org-root', qEntities.entities, []),
-    [organization?.name, qEntities.entities],
+    () => Utils_OrgTree_BuildTree(organization?.name ?? 'Organization', 'org-root', qEntities.entities, qDepartments.departments),
+    [organization?.name, qEntities.entities, qDepartments.departments],
   )
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(['org-root']))
   const [zoom, setZoom] = useState(0.85)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
   const isPanning = useRef(false)
-  const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+  const panStart = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
-  const didInitialFit = useRef(false)
-  const anchorRef = useRef<{ id: string; x: number; y: number } | null>(null)
 
   // Selected node for modals
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -178,43 +89,43 @@ export const Page_Employees = () => {
     }
   }, [qEntities.entities])
 
-  const { nodes, edges, canvasW, canvasH } = useMemo(
-    () => buildTreeLayout(tree, expandedIds),
-    [tree, expandedIds],
-  )
+  // Level color scheme (semantic colors from ANTD theme tokens)
+  const levelColors = useMemo(() => [
+    { bg: token.colorPrimaryBg, border: token.colorPrimary },    // org
+    { bg: token.colorInfoBg, border: token.colorInfo },            // entity
+    { bg: token.colorSuccessBg, border: token.colorSuccess },      // department + sub-dept
+  ], [token])
+
+  // Anchor preservation: keep the toggled node at the same screen position after re-render
+  const anchorRef = useRef<{ id: string; screenX: number; screenY: number } | null>(null)
 
   const handleToggle = useCallback((id: string) => {
-    const current = nodes.find((n) => n.id === id)
-    if (current) anchorRef.current = { id, x: current.x, y: current.y }
+    const el = viewportRef.current?.querySelector(`[data-node-id="${id}"]`) as HTMLElement | null
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      anchorRef.current = { id, screenX: rect.left, screenY: rect.top }
+    }
     setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
-  }, [nodes])
+  }, [])
 
-  // Initial fit
   useEffect(() => {
-    if (didInitialFit.current || !viewportRef.current) return
-    didInitialFit.current = true
-    const vw = viewportRef.current.clientWidth
-    const fitZoom = Math.min(0.9, (vw - 60) / canvasW)
-    const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fitZoom))
-    setZoom(clamped)
-    setPan({ x: Math.max(0, (vw - canvasW * clamped) / 2), y: 24 })
-  }, [canvasW])
-
-  // Anchor preservation
-  useEffect(() => {
-    if (!anchorRef.current) return
-    const { id, x: oldX, y: oldY } = anchorRef.current
+    if (!anchorRef.current || !viewportRef.current) return
+    const { id, screenX, screenY } = anchorRef.current
     anchorRef.current = null
-    const newNode = nodes.find((n) => n.id === id)
-    if (!newNode) return
-    const dx = (newNode.x - oldX) * zoom
-    const dy = (newNode.y - oldY) * zoom
-    if (dx !== 0 || dy !== 0) setPan((prev) => ({ x: prev.x - dx, y: prev.y - dy }))
-  }, [nodes, zoom])
+    const el = viewportRef.current.querySelector(`[data-node-id="${id}"]`) as HTMLElement | null
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const dx = rect.left - screenX
+    const dy = rect.top - screenY
+    if (dx !== 0 || dy !== 0) {
+      viewportRef.current.scrollLeft += dx
+      viewportRef.current.scrollTop += dy
+    }
+  })
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
@@ -224,36 +135,155 @@ export const Page_Employees = () => {
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     isPanning.current = true
-    panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }
-  }, [pan])
+    const vp = viewportRef.current
+    panStart.current = { x: e.clientX, y: e.clientY, scrollX: vp?.scrollLeft ?? 0, scrollY: vp?.scrollTop ?? 0 }
+  }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning.current) return
-    setPan({
-      x: panStart.current.panX + (e.clientX - panStart.current.x),
-      y: panStart.current.panY + (e.clientY - panStart.current.y),
-    })
+    if (!isPanning.current || !viewportRef.current) return
+    viewportRef.current.scrollLeft = panStart.current.scrollX - (e.clientX - panStart.current.x)
+    viewportRef.current.scrollTop = panStart.current.scrollY - (e.clientY - panStart.current.y)
   }, [])
 
   const handleMouseUp = useCallback(() => { isPanning.current = false }, [])
 
+  const didDrag = useRef(false)
+  const handleMouseDownWrapped = useCallback((e: React.MouseEvent) => {
+    didDrag.current = false
+    handleMouseDown(e)
+  }, [handleMouseDown])
+  const handleMouseMoveWrapped = useCallback((e: React.MouseEvent) => {
+    if (isPanning.current) didDrag.current = true
+    handleMouseMove(e)
+  }, [handleMouseMove])
+
   const handleFit = useCallback(() => {
-    if (!viewportRef.current) return
-    const vw = viewportRef.current.clientWidth
-    const vh = viewportRef.current.clientHeight
-    const fitZoom = Math.min((vw - 60) / canvasW, (vh - 60) / canvasH, 1)
-    const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fitZoom))
-    setZoom(clamped)
-    setPan({
-      x: Math.max(0, (vw - canvasW * clamped) / 2),
-      y: Math.max(0, (vh - canvasH * clamped) / 2),
-    })
-  }, [canvasW, canvasH])
+    setZoom(0.85)
+  }, [])
 
   const handleNodeClick = (node: OrgTreeNode) => {
+    if (didDrag.current) return
     setSelectedNodeId(node.id)
     if (node.type === 'entity') setSelectedEntity({ id: node.sourceId!, name: node.name })
     if (node.type === 'department') setSelectedDept({ id: node.sourceId!, name: node.name })
+  }
+
+  const connectorColor = token.colorBorder
+
+  const renderNode = (node: OrgTreeNode, depth: number): React.ReactNode => {
+    const colors = levelColors[Math.min(depth, levelColors.length - 1)]!
+    const isSelected = selectedNodeId === node.id
+    const isExpanded = expandedIds.has(node.id)
+    const hasChildren = node.children.length > 0
+    const isDept = node.type === 'department'
+    const people = isDept ? (qEmployees.peopleByDeptId[node.id] || { managers: [], employees: [] }) : { managers: [], employees: [] }
+    const typeLabel = node.type === 'org' ? 'Organization' : node.type === 'entity' ? 'Entity' : depth >= 3 ? 'Sub-department' : 'Department'
+    return (
+      <div key={node.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Card */}
+        <div
+          data-node-id={node.id}
+          onClick={(e) => { e.stopPropagation(); handleNodeClick(node) }}
+          style={{
+            width: CARD_WIDTH, cursor: 'pointer',
+            borderRadius: token.borderRadiusLG,
+            background: token.colorBgContainer,
+            border: isSelected ? `2px solid ${colors.border}` : `1px solid ${token.colorBorderSecondary}`,
+            boxShadow: isSelected ? `0 0 0 3px ${colors.bg}` : '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'box-shadow 0.2s, border-color 0.2s',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Colored label */}
+          <div style={{ background: colors.border, padding: `8px ${token.paddingMD}px` }}>
+            <Typography.Text strong ellipsis style={{ fontSize: 14, color: '#fff', display: 'block' }}>{node.name}</Typography.Text>
+            <Typography.Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{typeLabel}</Typography.Text>
+          </div>
+
+          {/* Body — org */}
+          {node.type === 'org' && (
+            <div style={{ padding: `6px ${token.paddingMD}px` }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
+            </div>
+          )}
+
+          {/* Body — entity */}
+          {node.type === 'entity' && node.children.length > 0 && (
+            <div style={{ padding: `6px ${token.paddingMD}px` }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}><TeamOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
+            </div>
+          )}
+
+          {/* Body — department: always show managers section */}
+          {isDept && (
+            <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: `4px ${token.paddingMD}px`, fontSize: 11, color: token.colorTextTertiary }}>
+                <SettingOutlined style={{ fontSize: 10 }} />
+                <span>Managers{people.managers.length > 0 ? ` (${people.managers.length})` : ''}</span>
+              </div>
+              {people.managers.length > 0 ? people.managers.map((p) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: `4px ${token.paddingMD}px`, fontSize: 13 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: token.colorFillTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: token.colorTextSecondary, flexShrink: 0 }}>
+                    {(p.first_name?.[0] || '?').toUpperCase()}
+                  </div>
+                  <Typography.Text ellipsis style={{ fontSize: 13 }}>{p.first_name} {p.last_name}</Typography.Text>
+                </div>
+              )) : (
+                <div style={{ padding: `2px ${token.paddingMD}px 6px`, fontSize: 12, color: token.colorTextQuaternary }}>
+                  No managers assigned
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Buttons below card */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 4, zIndex: 2 }}>
+          {hasChildren && (
+            <div onClick={(e) => { e.stopPropagation(); handleToggle(node.id) }}
+              style={{ width: EXPAND_BTN_SIZE, height: EXPAND_BTN_SIZE, borderRadius: '50%', background: token.colorBgContainer, border: `1.5px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = token.colorPrimary }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = token.colorBorderSecondary }}>
+              <DownOutlined style={{ fontSize: 12, color: token.colorTextSecondary, transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }} />
+            </div>
+          )}
+          <div onClick={(e) => {
+              e.stopPropagation()
+              if (node.type === 'org') setCreateEntityOpen(true)
+              if (node.type === 'entity') setCreateDeptContext({ entityId: node.sourceId! })
+              if (node.type === 'department') setCreateDeptContext({ entityId: node.entityId!, parentId: node.sourceId! })
+            }}
+            style={{ height: EXPAND_BTN_SIZE, minWidth: EXPAND_BTN_SIZE, borderRadius: EXPAND_BTN_SIZE / 2, background: token.colorBgContainer, border: `1.5px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', padding: '0 8px', gap: 4 }}>
+            <PlusOutlined style={{ fontSize: 12, color: token.colorTextSecondary }} />
+            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>{node.type === 'org' ? 'Add Entity' : node.type === 'entity' ? 'Add Dept' : 'Add Sub-dept'}</span>
+          </div>
+        </div>
+
+        {/* Connector + children */}
+        {isExpanded && hasChildren && (
+          <>
+            {/* Vertical line down from buttons */}
+            <div style={{ width: CONNECTOR_THICKNESS, height: CONNECTOR_HEIGHT, background: connectorColor }} />
+
+            {/* Children row — each child draws its own rail segments */}
+            <div style={{ display: 'flex', gap: GAP_X }}>
+              {node.children.map((child, i) => (
+                <div key={child.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                  {node.children.length > 1 && i > 0 && (
+                    <div style={{ position: 'absolute', top: 0, right: '50%', width: `calc(50% + ${GAP_X / 2}px)`, height: CONNECTOR_THICKNESS, background: connectorColor }} />
+                  )}
+                  {node.children.length > 1 && i < node.children.length - 1 && (
+                    <div style={{ position: 'absolute', top: 0, left: '50%', width: `calc(50% + ${GAP_X / 2}px)`, height: CONNECTOR_THICKNESS, background: connectorColor }} />
+                  )}
+                  <div style={{ width: CONNECTOR_THICKNESS, height: node.children.length > 1 ? CONNECTOR_HEIGHT / 2 : 0, background: connectorColor, flexShrink: 0 }} />
+                  {renderNode(child, depth + 1)}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -294,32 +324,9 @@ export const Page_Employees = () => {
 
       {/* View content */}
       {viewMode === 'chart' ? (
-        <div
-          ref={viewportRef}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            cursor: isPanning.current ? 'grabbing' : 'grab',
-            position: 'relative',
-            background: `radial-gradient(circle, ${token.colorBorderSecondary}25 1px, transparent 1px)`,
-            backgroundSize: '24px 24px',
-          }}
-        >
-          {/* Guide text — top left */}
-          <Typography.Text
-            type="secondary"
-            style={{ position: 'absolute', top: 8, left: 12, fontSize: 12, zIndex: 10, pointerEvents: 'none', userSelect: 'none' }}
-          >
-            Click a node to view settings · Scroll to zoom · Drag to pan
-          </Typography.Text>
-
-          {/* Zoom controls — top right */}
-          <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {/* Zoom controls — fixed overlay top right */}
+          <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: 4, background: token.colorBgContainer, padding: '4px 8px', borderRadius: token.borderRadiusSM, boxShadow: token.boxShadowTertiary }}>
             <Tooltip title="Zoom out">
               <Button size="small" icon={<ZoomOutOutlined />} onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))} />
             </Tooltip>
@@ -334,140 +341,40 @@ export const Page_Employees = () => {
             </Tooltip>
           </div>
 
-          <div style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: '0 0',
-            position: 'absolute',
-            width: canvasW,
-            height: canvasH,
-          }}>
-            {/* SVG connectors */}
-            <svg width={canvasW} height={canvasH} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-              {edges.map((e, i) => {
-                const midY = e.y1 + (e.y2 - e.y1) * 0.5
-                return (
-                  <path
-                    key={i}
-                    d={`M ${e.x1} ${e.y1} C ${e.x1} ${midY}, ${e.x2} ${midY}, ${e.x2} ${e.y2}`}
-                    fill="none"
-                    stroke={token.colorTextQuaternary}
-                    strokeWidth={2}
-                    opacity={0.7}
-                  />
-                )
-              })}
-            </svg>
+          {/* Guide text — top left */}
+          <Typography.Text
+            type="secondary"
+            style={{ position: 'absolute', top: 8, left: 12, fontSize: 12, zIndex: 10, pointerEvents: 'none', userSelect: 'none' }}
+          >
+            Click a node to view settings · Scroll to zoom · Drag to pan
+          </Typography.Text>
 
-            {/* Node cards */}
-            {nodes.map((ln) => {
-              const size = getLevelSize(ln.depth)
-              const isSelected = selectedNodeId === ln.id
-              const isExpanded = expandedIds.has(ln.id)
-              const hasChildren = ln.node.children.length > 0
-
-              return (
-                <div key={ln.id} style={{ position: 'absolute', left: ln.x, top: ln.y, width: ln.w, animation: 'fadeScaleIn 0.25s ease-out' }}>
-                  <div
-                    onClick={(e) => { e.stopPropagation(); handleNodeClick(ln.node) }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <Card
-                      size="small"
-                      hoverable
-                      style={{
-                        width: '100%',
-                        height: CARD_HEIGHT,
-                        border: isSelected
-                          ? `2px solid ${token.colorPrimary}`
-                          : `1px solid ${token.colorBorderSecondary}`,
-                        boxShadow: isSelected
-                          ? `0 0 0 3px ${token.colorPrimaryBg}`
-                          : '0 1px 6px rgba(0,0,0,0.06)',
-                        background: token.colorBgContainer,
-                        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
-                      }}
-                      styles={{ body: { padding: 0, height: '100%', display: 'flex', alignItems: 'center' } }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', width: '100%' }}>
-                        <Typography.Text strong ellipsis style={{ flex: 1, fontSize: size.fontSize }}>
-                          {ln.node.name}
-                        </Typography.Text>
-                        <Tag style={{ margin: 0, fontSize: 10, lineHeight: '18px' }}>
-                          <TeamOutlined /> {ln.node.children.length}
-                        </Tag>
-                      </div>
-                    </Card>
-                  </div>
-
-                  {/* Bottom buttons: expand (center) + add (right of center) */}
-                  <div style={{ position: 'absolute', left: '50%', bottom: EXPAND_BTN_OVERLAP - EXPAND_BTN_SIZE, transform: 'translateX(-50%)', zIndex: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {/* Expand/collapse */}
-                    {hasChildren && (
-                      <div
-                        onClick={(e) => { e.stopPropagation(); handleToggle(ln.id) }}
-                        style={{
-                          width: EXPAND_BTN_SIZE, height: EXPAND_BTN_SIZE, borderRadius: '50%',
-                          background: token.colorBgContainer, border: `1.5px solid ${token.colorBorderSecondary}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                          transition: 'background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = token.colorPrimary; e.currentTarget.style.boxShadow = `0 2px 10px ${token.colorPrimaryBg}` }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = token.colorBorderSecondary; e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)' }}
-                      >
-                        <DownOutlined style={{ fontSize: 12, color: token.colorTextSecondary, transition: 'transform 0.3s ease', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-                      </div>
-                    )}
-
-                    {/* Add button */}
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (ln.node.type === 'org') setCreateEntityOpen(true)
-                        if (ln.node.type === 'entity') setCreateDeptContext({ entityId: ln.node.sourceId! })
-                        if (ln.node.type === 'department') setCreateDeptContext({ entityId: ln.node.entityId!, parentId: ln.node.sourceId! })
-                      }}
-                      style={{
-                        height: EXPAND_BTN_SIZE, minWidth: EXPAND_BTN_SIZE, borderRadius: EXPAND_BTN_SIZE / 2,
-                        background: token.colorBgContainer, border: `1.5px solid ${token.colorBorderSecondary}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                        transition: 'all 0.25s ease',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                        padding: '0 4px', overflow: 'hidden', whiteSpace: 'nowrap',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = token.colorPrimary
-                        e.currentTarget.style.boxShadow = `0 2px 10px ${token.colorPrimaryBg}`
-                        e.currentTarget.style.padding = '0 10px'
-                        const label = e.currentTarget.querySelector<HTMLSpanElement>('[data-add-label]')
-                        if (label) { label.style.opacity = '1'; label.style.maxWidth = '120px'; label.style.marginLeft = '4px' }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = token.colorBorderSecondary
-                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)'
-                        e.currentTarget.style.padding = '0 4px'
-                        const label = e.currentTarget.querySelector<HTMLSpanElement>('[data-add-label]')
-                        if (label) { label.style.opacity = '0'; label.style.maxWidth = '0'; label.style.marginLeft = '0' }
-                      }}
-                    >
-                      <PlusOutlined style={{ fontSize: 12, color: token.colorTextSecondary, flexShrink: 0 }} />
-                      <span
-                        data-add-label
-                        style={{ fontSize: 11, color: token.colorTextSecondary, opacity: 0, maxWidth: 0, marginLeft: 0, transition: 'all 0.25s ease', overflow: 'hidden', whiteSpace: 'nowrap' }}
-                      >
-                        {ln.node.type === 'org' ? 'Add Entity' : ln.node.type === 'entity' ? 'Add Department' : 'Add Sub-dept'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+          {/* Scrollable + pannable viewport */}
+          <div
+            ref={viewportRef}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDownWrapped}
+            onMouseMove={handleMouseMoveWrapped}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{
+              width: '100%', height: '100%',
+              overflow: 'hidden',
+              cursor: 'grab',
+              userSelect: 'none',
+              background: `radial-gradient(circle, ${token.colorBorderSecondary}25 1px, transparent 1px)`,
+              backgroundSize: '24px 24px',
+            }}
+          >
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', padding: `${CONNECTOR_HEIGHT}px ${GAP_X}px`, display: 'inline-flex', minWidth: '100%', justifyContent: 'center' }}>
+              {renderNode(tree, 0)}
+            </div>
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography.Text type="secondary">Employee list view coming soon.</Typography.Text>
-        </div>
+        <Provider_Page_Employees_List>
+          <PageEmployees_ListView organizationId={organizationId} />
+        </Provider_Page_Employees_List>
       )}
 
       {/* Field Manager Modal */}
@@ -507,7 +414,7 @@ export const Page_Employees = () => {
           onFinish={(values) => {
             mEntityCreate.mutation.mutate(
               { organization_id: organizationId, name: values.name },
-              { onSuccess: () => { setCreateEntityOpen(false); createEntityForm.resetFields() } },
+              { onSuccess: () => { setCreateEntityOpen(false); createEntityForm.resetFields(); setExpandedIds((prev) => new Set(prev).add('org-root')) } },
             )
           }}
         >
@@ -535,7 +442,19 @@ export const Page_Employees = () => {
             if (!createDeptContext) return
             mDeptCreate.mutation.mutate(
               { name: values.name, entity_id: createDeptContext.entityId, parent_id: createDeptContext.parentId },
-              { onSuccess: () => { setCreateDeptContext(null); createDeptForm.resetFields() } },
+              {
+                onSuccess: () => {
+                  const ctx = createDeptContext
+                  setCreateDeptContext(null)
+                  createDeptForm.resetFields()
+                  setExpandedIds((prev) => {
+                    const next = new Set(prev)
+                    next.add(ctx.entityId)
+                    if (ctx.parentId) next.add(ctx.parentId)
+                    return next
+                  })
+                },
+              },
             )
           }}
         >
@@ -550,7 +469,7 @@ export const Page_Employees = () => {
       {selectedEntity && (
         <App_EntitySettingsModal
           open={!!selectedEntity}
-          onClose={() => setSelectedEntity(null)}
+          onClose={() => { setSelectedEntity(null); setSelectedNodeId(null) }}
           entityId={selectedEntity.id}
           entityName={selectedEntity.name}
           organizationId={organizationId}
@@ -559,7 +478,7 @@ export const Page_Employees = () => {
       {selectedDept && (
         <App_DepartmentSettingsModal
           open={!!selectedDept}
-          onClose={() => setSelectedDept(null)}
+          onClose={() => { setSelectedDept(null); setSelectedNodeId(null) }}
           departmentId={selectedDept.id}
           departmentName={selectedDept.name}
         />

@@ -1,0 +1,13 @@
+[
+    {
+        "AllowedOrigins": [
+            "http://localhost:5173",
+            "https://TODO-staging-domain.example.com",
+            "https://TODO-production-domain.example.com"
+        ],
+        "AllowedMethods": ["PUT", "GET", "HEAD"],
+        "AllowedHeaders": ["Content-Type", "Content-Length"],
+        "ExposeHeaders": ["ETag"],
+        "MaxAgeSeconds": 3600
+    }
+]
