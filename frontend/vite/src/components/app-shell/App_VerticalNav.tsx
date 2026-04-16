@@ -1,6 +1,6 @@
 import { Link, useMatch, useLocation } from '@tanstack/react-router'
 import { Layout, Menu, theme } from 'antd'
-import { TeamOutlined } from '@ant-design/icons'
+import { DashboardOutlined, TeamOutlined } from '@ant-design/icons'
 import { useStore_VerticalNav_Collapsed } from '@/stores/Store_VerticalNav'
 import { App_OrgSwitcher } from '@/components/organization/App_OrgSwitcher'
 import { App_ViewSwitcherMock } from '@/components/app-shell/App_ViewSwitcherMock'
@@ -45,9 +45,27 @@ export const App_VerticalNav = () => {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Menu
           mode="inline"
-          selectedKeys={location.pathname.includes('/employees') ? [`/${organizationId}/employees`] : []}
+          selectedKeys={
+            location.pathname.includes('/employees')
+              ? [`/${organizationId}/employees`]
+              : location.pathname === `/${organizationId}`
+                ? [`/${organizationId}`]
+                : []
+          }
           style={{ flex: 1, borderRight: 0 }}
           items={[
+            {
+              key: `/${organizationId}`,
+              icon: <DashboardOutlined />,
+              label: (
+                <Link
+                  to="/$organizationId"
+                  params={{ organizationId }}
+                >
+                  Dashboard
+                </Link>
+              ),
+            },
             {
               key: `/${organizationId}/employees`,
               icon: <TeamOutlined />,

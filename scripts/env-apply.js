@@ -9,10 +9,11 @@
  * to their respective destinations based on section headers.
  *
  * Sections:
- *   [VITE]               -> apps/web/.env
- *   [SUPABASE_CONFIG]    -> supabase/.env
- *   [SUPABASE_FUNCTIONS] -> supabase/functions/.env
- *   [MCP]                -> .env (PM scripts: Plane, Outline)
+ *   [VITE]                 -> frontend/vite/.env
+ *   [SUPABASE_CONFIG]      -> frontend/vite/supabase/.env
+ *   [SUPABASE_FUNCTIONS]   -> frontend/vite/supabase/functions/.env
+ *   [WORKER_FILE_STORAGE]  -> cloudflare/workers/files/.dev.vars
+ *   [MCP]                  -> .env (PM scripts: Plane, Outline)
  */
 
 const fs = require("fs");
@@ -22,6 +23,7 @@ const SECTION_DESTINATIONS = {
     VITE: "frontend/vite",
     SUPABASE_CONFIG: "frontend/vite/supabase",
     SUPABASE_FUNCTIONS: "frontend/vite/supabase/functions",
+    WORKER_FILE_STORAGE: "cloudflare/workers/files",
     MCP: ".",
 };
 
@@ -102,7 +104,8 @@ function writeSection(sectionName, variables, shared, projectRoot, envSuffix) {
         return false;
     }
 
-    const fullPath = path.join(projectRoot, destPath, ".env");
+    const fileName = sectionName === "WORKER_FILE_STORAGE" ? ".dev.vars" : ".env";
+    const fullPath = path.join(projectRoot, destPath, fileName);
     const dirPath = path.dirname(fullPath);
 
     if (!fs.existsSync(dirPath)) {

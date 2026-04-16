@@ -405,7 +405,7 @@ export const Page_OrgChart = () => {
                           data-add-label
                           style={{ fontSize: 11, color: token.colorTextSecondary, opacity: 0, maxWidth: 0, marginLeft: 0, transition: 'all 0.25s ease', overflow: 'hidden', whiteSpace: 'nowrap' }}
                         >
-                          {ln.node.type === 'org' ? 'Add Entity' : ln.node.type === 'entity' ? 'Add Department' : 'Add Sub-dept'}
+                          {ln.node.type === 'org' ? 'Entity' : 'Department'}
                         </span>
                       </div>
                   </div>

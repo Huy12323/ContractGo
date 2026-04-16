@@ -27,10 +27,11 @@ const PG_TYPE_MAP: Record<string, string> = {
     number: "numeric",
     date: "date",
     boolean: "boolean",
+    single_select: "text",
     multi_select: "text[]",
 };
 
-const VALID_TYPES = ["text", "number", "date", "boolean", "multi_select"];
+const VALID_TYPES = ["text", "number", "date", "boolean", "single_select", "multi_select"];
 
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
@@ -58,10 +59,10 @@ Deno.serve(async (req) => {
         }
 
         // Parse request body
-        const { label, type, options, organization_id } = await req.json() as {
+        const { label, type, choices, organization_id } = await req.json() as {
             label?: string;
             type?: string;
-            options?: unknown;
+            choices?: unknown;
             organization_id?: string;
         };
 
@@ -117,13 +118,13 @@ Deno.serve(async (req) => {
             return jsonResponse({ error: "Failed to create column metadata" }, 500);
         }
 
-        // Create choice rows for multi_select columns
-        if (type === "multi_select" && Array.isArray(options) && options.length > 0) {
-            const choiceRows = (options as string[])
-                .filter((o: string) => typeof o === "string" && o.trim())
-                .map((label: string, idx: number) => ({
+        // Create choice rows for single_select / multi_select columns
+        if ((type === "single_select" || type === "multi_select") && Array.isArray(choices) && choices.length > 0) {
+            const choiceRows = (choices as string[])
+                .filter((c: string) => typeof c === "string" && c.trim())
+                .map((choiceLabel: string, idx: number) => ({
                     employee_column_id: column.id,
-                    label: label.trim(),
+                    label: choiceLabel.trim(),
                     sort_order: idx,
                 }));
 

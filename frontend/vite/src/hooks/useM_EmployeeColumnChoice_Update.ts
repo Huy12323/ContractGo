@@ -24,7 +24,7 @@ export const useM_EmployeeColumnChoice_Update = ({ choiceId }: UseM_EmployeeColu
         },
         onSuccess: () => {
             message.success("Choice updated");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employeeColumnChoices.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_column_choices.all() });
         },
         onError: (err) => {
             console.error(err);

@@ -6,12 +6,12 @@ import {
   ExpandOutlined,
   PlusOutlined,
   DownOutlined,
-  TeamOutlined,
-  FileTextOutlined,
+  BankOutlined,
+  BranchesOutlined,
+  BorderOutlined,
   SolutionOutlined,
   ApartmentOutlined,
   UnorderedListOutlined,
-  SettingOutlined,
 } from '@ant-design/icons'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
@@ -21,12 +21,10 @@ import { useM_EntitySettings_EntityCreate } from '@/hooks/useM_EntitySettings_En
 import { useM_DeptSettings_DepartmentCreate } from '@/hooks/useM_DeptSettings_DepartmentCreate'
 import { App_EntitySettingsModal } from '@/components/organization/App_EntitySettingsModal'
 import { App_DepartmentSettingsModal } from '@/components/organization/App_DepartmentSettingsModal'
-import { App_ViewFormsModal } from '@/components/employees/App_ViewFormsModal'
-import { App_FieldManagerModal } from '@/components/employees/App_FieldManagerModal'
 import { App_OnboardingModal } from '@/components/employees/App_OnboardingModal'
 import { Utils_OrgTree_BuildTree, type OrgTreeNode } from '@/utils/Utils_OrgTree_BuildTree'
-import { Provider_Page_Employees_List } from '@/providers/employees/Provider_Page_Employees_List'
 import { PageEmployees_ListView } from './PageEmployees_ListView/PageEmployees_ListView'
+import { computeFitTransform, applyZoomAnchored } from './utils_PageEmployees_CanvasTransform'
 
 // --- Chart constants ---
 const CARD_WIDTH = 300
@@ -38,6 +36,7 @@ const ZOOM_MIN = 0.25
 const ZOOM_MAX = 2
 const ZOOM_STEP = 0.1
 const HEADER_HEIGHT = 48
+const FIT_MARGIN = 60
 
 type ViewMode = 'chart' | 'list'
 
@@ -49,8 +48,6 @@ export const Page_Employees = () => {
   const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ organizationId })
 
   const [viewMode, setViewMode] = useState<ViewMode>('chart')
-  const [viewFormsOpen, setViewFormsOpen] = useState(false)
-  const [fieldManagerOpen, setFieldManagerOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
 
   // Build tree from flat data
@@ -61,9 +58,18 @@ export const Page_Employees = () => {
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(['org-root']))
   const [zoom, setZoom] = useState(0.85)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [gridVisible, setGridVisible] = useState(true)
   const isPanning = useRef(false)
-  const panStart = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 })
+  const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const didInitialFit = useRef(false)
+  // Refs kept in sync with state so direct-DOM handlers always read the latest values
+  const zoomRef = useRef(zoom)
+  const panDuringDragRef = useRef<{ x: number; y: number } | null>(null)
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
 
   // Selected node for modals
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -89,11 +95,14 @@ export const Page_Employees = () => {
     }
   }, [qEntities.entities])
 
-  // Level color scheme (semantic colors from ANTD theme tokens)
+  // Level color scheme — maps each level to an ANTD semantic seed so brand changes
+  // via Provider_ANTD auto-cascade here. `border` drives BOTH the colored header
+  // strip and the selected-card outer border (intentional: one token, one visual
+  // identity per level). `bg` drives the pale selected-card outer glow.
   const levelColors = useMemo(() => [
     { bg: token.colorPrimaryBg, border: token.colorPrimary },    // org
-    { bg: token.colorInfoBg, border: token.colorInfo },            // entity
-    { bg: token.colorSuccessBg, border: token.colorSuccess },      // department + sub-dept
+    { bg: token.colorInfoBg, border: token.colorInfo },          // entity
+    { bg: token.colorSuccessBg, border: token.colorSuccess },    // department + sub-dept
   ], [token])
 
   // Anchor preservation: keep the toggled node at the same screen position after re-render
@@ -121,31 +130,67 @@ export const Page_Employees = () => {
     const rect = el.getBoundingClientRect()
     const dx = rect.left - screenX
     const dy = rect.top - screenY
-    if (dx !== 0 || dy !== 0) {
-      viewportRef.current.scrollLeft += dx
-      viewportRef.current.scrollTop += dy
-    }
+    if (dx !== 0 || dy !== 0) setPan((prev) => ({ x: prev.x - dx, y: prev.y - dy }))
   })
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
-    setZoom((prev) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prev + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP))))
-  }, [])
+    const vp = viewportRef.current
+    if (!vp) return
+    const vpRect = vp.getBoundingClientRect()
+    const anchor = { x: e.clientX - vpRect.left, y: e.clientY - vpRect.top }
+    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+    const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta))
+    if (newZoom === zoom) return
+    setPan(applyZoomAnchored({ prevPan: pan, prevZoom: zoom, newZoom, anchor }))
+    setZoom(newZoom)
+  }, [zoom, pan])
+
+  const zoomAtViewportCenter = useCallback((delta: number) => {
+    const vp = viewportRef.current
+    if (!vp) return
+    const anchor = { x: vp.clientWidth / 2, y: vp.clientHeight / 2 }
+    const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta))
+    if (newZoom === zoom) return
+    setPan(applyZoomAnchored({ prevPan: pan, prevZoom: zoom, newZoom, anchor }))
+    setZoom(newZoom)
+  }, [zoom, pan])
+
+  const handleZoomIn = useCallback(() => zoomAtViewportCenter(ZOOM_STEP), [zoomAtViewportCenter])
+  const handleZoomOut = useCallback(() => zoomAtViewportCenter(-ZOOM_STEP), [zoomAtViewportCenter])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     isPanning.current = true
-    const vp = viewportRef.current
-    panStart.current = { x: e.clientX, y: e.clientY, scrollX: vp?.scrollLeft ?? 0, scrollY: vp?.scrollTop ?? 0 }
-  }, [])
+    panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y }
+  }, [pan.x, pan.y])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning.current || !viewportRef.current) return
-    viewportRef.current.scrollLeft = panStart.current.scrollX - (e.clientX - panStart.current.x)
-    viewportRef.current.scrollTop = panStart.current.scrollY - (e.clientY - panStart.current.y)
+    if (!isPanning.current) return
+    const nx = panStart.current.panX + (e.clientX - panStart.current.x)
+    const ny = panStart.current.panY + (e.clientY - panStart.current.y)
+    panDuringDragRef.current = { x: nx, y: ny }
+    // Direct DOM update bypasses React re-render during drag (smooth 60fps).
+    // State is committed on mouseup so downstream effects (anchor preservation, fit) still see final pan.
+    const z = zoomRef.current
+    if (innerRef.current) {
+      innerRef.current.style.transform = `translate(${nx}px, ${ny}px) scale(${z})`
+    }
+    if (gridRef.current) {
+      const tileSize = 24 * z
+      const tx = ((nx % tileSize) + tileSize) % tileSize
+      const ty = ((ny % tileSize) + tileSize) % tileSize
+      gridRef.current.style.transform = `translate(${tx}px, ${ty}px)`
+    }
   }, [])
 
-  const handleMouseUp = useCallback(() => { isPanning.current = false }, [])
+  const handleMouseUp = useCallback(() => {
+    isPanning.current = false
+    if (panDuringDragRef.current) {
+      setPan(panDuringDragRef.current)
+      panDuringDragRef.current = null
+    }
+  }, [])
 
   const didDrag = useRef(false)
   const handleMouseDownWrapped = useCallback((e: React.MouseEvent) => {
@@ -158,17 +203,57 @@ export const Page_Employees = () => {
   }, [handleMouseMove])
 
   const handleFit = useCallback(() => {
-    setZoom(0.85)
+    const vp = viewportRef.current
+    const inner = innerRef.current
+    if (!vp || !inner) return
+    const fit = computeFitTransform({
+      vpW: vp.clientWidth,
+      vpH: vp.clientHeight,
+      contentW: inner.offsetWidth,
+      contentH: inner.offsetHeight,
+      zoomMin: ZOOM_MIN,
+      zoomMax: ZOOM_MAX,
+      margin: FIT_MARGIN,
+    })
+    setZoom(fit.zoom)
+    setPan(fit.pan)
   }, [])
 
-  const handleNodeClick = (node: OrgTreeNode) => {
+  // Initial fit: run once after layout settles with real data
+  useEffect(() => {
+    if (didInitialFit.current) return
+    const vp = viewportRef.current
+    const inner = innerRef.current
+    if (!vp || !inner || inner.offsetWidth === 0) return
+    if (qEntities.query.isPending) return
+    const hasEntities = qEntities.entities.length > 0
+    if (hasEntities && !expandedIds.has(qEntities.entities[0]!.id)) return
+    didInitialFit.current = true
+    const fit = computeFitTransform({
+      vpW: vp.clientWidth,
+      vpH: vp.clientHeight,
+      contentW: inner.offsetWidth,
+      contentH: inner.offsetHeight,
+      zoomMin: ZOOM_MIN,
+      zoomMax: ZOOM_MAX,
+      margin: FIT_MARGIN,
+    })
+    setZoom(fit.zoom)
+    setPan(fit.pan)
+  }, [tree, expandedIds, qEntities.entities, qEntities.query.isPending])
+
+  const handleNodeClick = useCallback((node: OrgTreeNode) => {
     if (didDrag.current) return
     setSelectedNodeId(node.id)
     if (node.type === 'entity') setSelectedEntity({ id: node.sourceId!, name: node.name })
     if (node.type === 'department') setSelectedDept({ id: node.sourceId!, name: node.name })
-  }
+  }, [])
 
   const connectorColor = token.colorBorder
+
+  const gridTileSize = 24 * zoom
+  const gridTx = ((pan.x % gridTileSize) + gridTileSize) % gridTileSize
+  const gridTy = ((pan.y % gridTileSize) + gridTileSize) % gridTileSize
 
   const renderNode = (node: OrgTreeNode, depth: number): React.ReactNode => {
     const colors = levelColors[Math.min(depth, levelColors.length - 1)]!
@@ -178,6 +263,7 @@ export const Page_Employees = () => {
     const isDept = node.type === 'department'
     const people = isDept ? (qEmployees.peopleByDeptId[node.id] || { managers: [], employees: [] }) : { managers: [], employees: [] }
     const typeLabel = node.type === 'org' ? 'Organization' : node.type === 'entity' ? 'Entity' : depth >= 3 ? 'Sub-department' : 'Department'
+    const LevelIcon = node.type === 'org' ? BankOutlined : node.type === 'entity' ? BranchesOutlined : ApartmentOutlined
     return (
       <div key={node.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Card */}
@@ -195,32 +281,31 @@ export const Page_Employees = () => {
           }}
         >
           {/* Colored label */}
-          <div style={{ background: colors.border, padding: `8px ${token.paddingMD}px` }}>
-            <Typography.Text strong ellipsis style={{ fontSize: 14, color: '#fff', display: 'block' }}>{node.name}</Typography.Text>
-            <Typography.Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{typeLabel}</Typography.Text>
+          <div style={{ background: colors.border, padding: `8px ${token.paddingMD}px`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <LevelIcon style={{ fontSize: 28, color: '#fff', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Typography.Text strong ellipsis style={{ fontSize: 14, color: '#fff', display: 'block' }}>{node.name}</Typography.Text>
+              <Typography.Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{typeLabel}</Typography.Text>
+            </div>
           </div>
 
           {/* Body — org */}
           {node.type === 'org' && (
             <div style={{ padding: `6px ${token.paddingMD}px` }}>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}><BranchesOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
             </div>
           )}
 
           {/* Body — entity */}
           {node.type === 'entity' && node.children.length > 0 && (
             <div style={{ padding: `6px ${token.paddingMD}px` }}>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}><TeamOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
             </div>
           )}
 
-          {/* Body — department: always show managers section */}
+          {/* Body — department: managers list */}
           {isDept && (
-            <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: `4px ${token.paddingMD}px`, fontSize: 11, color: token.colorTextTertiary }}>
-                <SettingOutlined style={{ fontSize: 10 }} />
-                <span>Managers{people.managers.length > 0 ? ` (${people.managers.length})` : ''}</span>
-              </div>
+            <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 4 }}>
               {people.managers.length > 0 ? people.managers.map((p) => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: `4px ${token.paddingMD}px`, fontSize: 13 }}>
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: token.colorFillTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: token.colorTextSecondary, flexShrink: 0 }}>
@@ -255,7 +340,7 @@ export const Page_Employees = () => {
             }}
             style={{ height: EXPAND_BTN_SIZE, minWidth: EXPAND_BTN_SIZE, borderRadius: EXPAND_BTN_SIZE / 2, background: token.colorBgContainer, border: `1.5px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', padding: '0 8px', gap: 4 }}>
             <PlusOutlined style={{ fontSize: 12, color: token.colorTextSecondary }} />
-            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>{node.type === 'org' ? 'Add Entity' : node.type === 'entity' ? 'Add Dept' : 'Add Sub-dept'}</span>
+            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>{node.type === 'org' ? 'Entity' : 'Department'}</span>
           </div>
         </div>
 
@@ -286,6 +371,16 @@ export const Page_Employees = () => {
     )
   }
 
+  // Memoize the full chart JSX — only rebuilds when something that affects rendering changes.
+  // Crucially, pan/zoom are NOT deps: they're applied via transform on the wrapper div, so
+  // panning/zooming never re-runs renderNode (hundreds of cards) through reconciliation.
+  // Stable references (useCallback/useMemo/primitive tokens) keep this memo warm across
+  // non-structural re-renders.
+  const renderedChart = useMemo(
+    () => renderNode(tree, 0),
+    [tree, expandedIds, selectedNodeId, qEmployees.peopleByDeptId, token, levelColors, connectorColor, handleNodeClick, handleToggle],
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header bar */}
@@ -310,12 +405,6 @@ export const Page_Employees = () => {
               { value: 'list', icon: <UnorderedListOutlined /> },
             ]}
           />
-          <Button icon={<SettingOutlined />} onClick={() => setFieldManagerOpen(true)}>
-            Manage Fields
-          </Button>
-          <Button icon={<FileTextOutlined />} onClick={() => setViewFormsOpen(true)}>
-            View Forms
-          </Button>
           <Button icon={<SolutionOutlined />} type="primary" onClick={() => setOnboardingOpen(true)}>
             Onboarding
           </Button>
@@ -328,16 +417,24 @@ export const Page_Employees = () => {
           {/* Zoom controls — fixed overlay top right */}
           <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: 4, background: token.colorBgContainer, padding: '4px 8px', borderRadius: token.borderRadiusSM, boxShadow: token.boxShadowTertiary }}>
             <Tooltip title="Zoom out">
-              <Button size="small" icon={<ZoomOutOutlined />} onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))} />
+              <Button size="small" icon={<ZoomOutOutlined />} onClick={handleZoomOut} />
             </Tooltip>
             <Typography.Text style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>
               {Math.round(zoom * 100)}%
             </Typography.Text>
             <Tooltip title="Zoom in">
-              <Button size="small" icon={<ZoomInOutlined />} onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))} />
+              <Button size="small" icon={<ZoomInOutlined />} onClick={handleZoomIn} />
             </Tooltip>
             <Tooltip title="Fit to view">
               <Button size="small" icon={<ExpandOutlined />} onClick={handleFit} />
+            </Tooltip>
+            <Tooltip title={gridVisible ? 'Hide dot grid' : 'Show dot grid'}>
+              <Button
+                size="small"
+                icon={<BorderOutlined />}
+                type={gridVisible ? 'primary' : 'default'}
+                onClick={() => setGridVisible((v) => !v)}
+              />
             </Tooltip>
           </div>
 
@@ -359,37 +456,47 @@ export const Page_Employees = () => {
             onMouseLeave={handleMouseUp}
             style={{
               width: '100%', height: '100%',
+              position: 'relative',
               overflow: 'hidden',
               cursor: 'grab',
               userSelect: 'none',
-              background: `radial-gradient(circle, ${token.colorBorderSecondary}25 1px, transparent 1px)`,
-              backgroundSize: '24px 24px',
             }}
           >
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', padding: `${CONNECTOR_HEIGHT}px ${GAP_X}px`, display: 'inline-flex', minWidth: '100%', justifyContent: 'center' }}>
-              {renderNode(tree, 0)}
+            {gridVisible && (
+              <div
+                ref={gridRef}
+                style={{
+                  position: 'absolute',
+                  left: -gridTileSize,
+                  top: -gridTileSize,
+                  width: `calc(100% + ${gridTileSize * 2}px)`,
+                  height: `calc(100% + ${gridTileSize * 2}px)`,
+                  background: `radial-gradient(circle, ${token.colorTextQuaternary} 1.2px, transparent 1.2px)`,
+                  backgroundSize: `${gridTileSize}px ${gridTileSize}px`,
+                  transform: `translate(${gridTx}px, ${gridTy}px)`,
+                  willChange: 'transform',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            <div
+              ref={innerRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: '0 0',
+                display: 'inline-flex',
+              }}
+            >
+              {renderedChart}
             </div>
           </div>
         </div>
       ) : (
-        <Provider_Page_Employees_List>
-          <PageEmployees_ListView organizationId={organizationId} />
-        </Provider_Page_Employees_List>
+        <PageEmployees_ListView organizationId={organizationId} />
       )}
-
-      {/* Field Manager Modal */}
-      <App_FieldManagerModal
-        open={fieldManagerOpen}
-        onClose={() => setFieldManagerOpen(false)}
-        organizationId={organizationId}
-      />
-
-      {/* View Forms Modal */}
-      <App_ViewFormsModal
-        open={viewFormsOpen}
-        onClose={() => setViewFormsOpen(false)}
-        organizationId={organizationId}
-      />
 
       {/* Onboarding Modal */}
       <App_OnboardingModal

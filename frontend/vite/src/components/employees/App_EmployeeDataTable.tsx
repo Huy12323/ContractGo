@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
-import { Table, Checkbox, Tag, Typography, Button, theme } from 'antd'
+import React, { useMemo, useRef, useState } from 'react'
+import { Table, Checkbox, Tag, Typography, Button, Tooltip, Dropdown, App, theme } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { Resizable } from 'react-resizable'
+import 'react-resizable/css/styles.css'
 import {
     AlignLeftOutlined,
     NumberOutlined,
@@ -9,19 +11,51 @@ import {
     TagsOutlined,
     CaretRightOutlined,
     CaretDownOutlined,
+    PlusOutlined,
+    DownOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    EyeInvisibleOutlined,
 } from '@ant-design/icons'
 import { useQ_Tables_OrgEmployees } from '@/hooks/useQ_Tables_OrgEmployees'
 import type { Tables_OrgEmployees_QueryData } from '@/hooks/useQ_Tables_OrgEmployees'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
+import { useM_EmployeeColumn_Delete } from '@/hooks/useM_EmployeeColumn_Delete'
 import type {
     EmployeeTable_FieldType,
     EmployeeTable_SortEntry,
     EmployeeTable_GroupEntry,
-    EmployeeTable_FilterGroup,
-    EmployeeTable_FilterNode,
+    EmployeeTable_FilterCondition,
     EmployeeTable_FilterOperator,
 } from '@/types/employeeTable.types'
+
+const ADD_FIELD_KEY = '__add_field__'
+const UNIVERSAL_KEYS = new Set(['first_name', 'last_name', 'email', 'birthday'])
+
+type ResizableHeaderCellProps = {
+    width?: number
+    onResize?: (e: React.SyntheticEvent, data: { size: { width: number; height: number } }) => void
+    onResizeStop?: (e: React.SyntheticEvent, data: { size: { width: number; height: number } }) => void
+} & React.HTMLAttributes<HTMLTableCellElement>
+
+const ResizableHeaderCell = ({ width, onResize, onResizeStop, ...restProps }: ResizableHeaderCellProps) => {
+    if (!width) return <th {...restProps} />
+    return (
+        <Resizable
+            width={width}
+            height={0}
+            minConstraints={[100, 0]}
+            maxConstraints={[600, 0]}
+            handle={<span className="column-resize-handle" onClick={(e) => e.stopPropagation()} />}
+            onResize={onResize}
+            onResizeStop={onResizeStop}
+            draggableOpts={{ enableUserSelectHack: false }}
+        >
+            <th {...restProps} />
+        </Resizable>
+    )
+}
 
 type EmployeeRow = Tables_OrgEmployees_QueryData[number]
 
@@ -49,6 +83,8 @@ const FieldTypeIcon = ({ type }: { type: EmployeeTable_FieldType }) => {
             return <CalendarOutlined />
         case 'boolean':
             return <CheckSquareOutlined />
+        case 'single_select':
+            return <TagsOutlined />
         case 'multi_select':
             return <TagsOutlined />
     }
@@ -58,29 +94,6 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString(undefin
 
 const isEmptyValue = (value: unknown) =>
     value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)
-
-const toDisplayString = (
-    value: unknown,
-    field: TableField,
-    choicesByField: Record<string, Record<string, string>>,
-): string => {
-    if (isEmptyValue(value)) return ''
-    switch (field.type) {
-        case 'date':
-            return formatDate(value as string)
-        case 'boolean':
-            return value ? 'yes' : 'no'
-        case 'multi_select': {
-            const labels = choicesByField[field.key] || {}
-            return (value as string[]).map((v) => labels[v] ?? v).join(' ')
-        }
-        case 'number':
-            return String(value)
-        case 'text':
-        default:
-            return String(value)
-    }
-}
 
 const compareFieldValues = (a: unknown, b: unknown, type: EmployeeTable_FieldType): number => {
     const aEmpty = isEmptyValue(a)
@@ -95,6 +108,8 @@ const compareFieldValues = (a: unknown, b: unknown, type: EmployeeTable_FieldTyp
             return new Date(a as string).getTime() - new Date(b as string).getTime()
         case 'boolean':
             return (a ? 1 : 0) - (b ? 1 : 0)
+        case 'single_select':
+            return String(a).localeCompare(String(b))
         case 'multi_select':
             return (a as string[]).join(',').localeCompare((b as string[]).join(','))
         case 'text':
@@ -146,14 +161,13 @@ const evaluateOperator = (
     }
 }
 
-const evaluateNode = (row: EmployeeRow, node: EmployeeTable_FilterNode): boolean => {
-    if (node.kind === 'condition') {
-        const fieldValue = (row as unknown as Record<string, unknown>)[node.field]
-        return evaluateOperator(fieldValue, node.operator, node.value)
-    }
-    if (node.children.length === 0) return true
-    if (node.combinator === 'and') return node.children.every((c) => evaluateNode(row, c))
-    return node.children.some((c) => evaluateNode(row, c))
+const evaluateFilter = (row: EmployeeRow, conditions: EmployeeTable_FilterCondition[]): boolean => {
+    if (conditions.length === 0) return true
+    return conditions.every((c) => evaluateOperator(
+        (row as unknown as Record<string, unknown>)[c.field],
+        c.operator,
+        c.value,
+    ))
 }
 
 type GroupHeaderRow = {
@@ -172,11 +186,16 @@ type Props = {
     organizationId: string
     filter?: (employee: EmployeeRow) => boolean
     sortState?: EmployeeTable_SortEntry[]
-    filterState?: EmployeeTable_FilterGroup | null
+    filterState?: EmployeeTable_FilterCondition[]
     groupBy?: EmployeeTable_GroupEntry[]
     hiddenKeys?: string[]
-    searchQuery?: string
     fieldOrder?: string[]
+    fieldWidths?: Record<string, number>
+    onColumnResize?: (columnKey: string, newWidth: number) => void
+    onColumnOrderChange?: (nextOrder: string[]) => void
+    onAddField?: () => void
+    onEditField?: (columnId: string) => void
+    onHideField?: (columnKey: string) => void
 }
 
 export const App_EmployeeDataTable = ({
@@ -186,14 +205,23 @@ export const App_EmployeeDataTable = ({
     filterState,
     groupBy,
     hiddenKeys,
-    searchQuery,
     fieldOrder,
+    fieldWidths,
+    onColumnResize,
+    onColumnOrderChange,
+    onAddField,
+    onEditField,
+    onHideField,
 }: Props) => {
     const { token } = theme.useToken()
+    const { modal } = App.useApp()
     const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set())
+    const [dragOverKey, setDragOverKey] = useState<{ key: string; position: 'before' | 'after' } | null>(null)
+    const dragKeyRef = useRef<string | null>(null)
     const qEmployees = useQ_Tables_OrgEmployees({ organizationId })
     const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
     const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const mDeleteColumn = useM_EmployeeColumn_Delete()
 
     const fields = useMemo<TableField[]>(() => {
         const dynamic: TableField[] = qColumns.columns.map((c) => ({
@@ -236,22 +264,11 @@ export const App_EmployeeDataTable = ({
         return filter ? rows.filter(filter) : rows
     }, [qEmployees.employees, filter])
 
-    const searchFilteredRows = useMemo(() => {
-        const q = (searchQuery ?? '').trim().toLowerCase()
-        if (!q) return baseRows
-        return baseRows.filter((row) =>
-            fields.some((f) =>
-                toDisplayString((row as unknown as Record<string, unknown>)[f.key], f, choicesByField)
-                    .toLowerCase()
-                    .includes(q),
-            ),
-        )
-    }, [baseRows, searchQuery, fields, choicesByField])
-
     const filteredRows = useMemo(() => {
-        if (!filterState) return searchFilteredRows
-        return searchFilteredRows.filter((row) => evaluateNode(row, filterState))
-    }, [searchFilteredRows, filterState])
+        const conditions = filterState ?? []
+        if (conditions.length === 0) return baseRows
+        return baseRows.filter((row) => evaluateFilter(row, conditions))
+    }, [baseRows, filterState])
 
     const sortedRows = useMemo(() => {
         const userEntries = sortState ?? []
@@ -352,6 +369,56 @@ export const App_EmployeeDataTable = ({
         return fields.filter((f) => !hidden.has(f.key))
     }, [fields, hiddenKeys])
 
+    // --- Column drag-reorder handlers ---
+    const handleColDragStart = (e: React.DragEvent, key: string) => {
+        dragKeyRef.current = key
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', key)
+    }
+    const handleColDragOver = (e: React.DragEvent, key: string) => {
+        if (dragKeyRef.current === null || dragKeyRef.current === key) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const midX = rect.left + rect.width / 2
+        const position: 'before' | 'after' = e.clientX < midX ? 'before' : 'after'
+        setDragOverKey((prev) => (prev?.key === key && prev.position === position ? prev : { key, position }))
+    }
+    const handleColDragEnd = () => {
+        dragKeyRef.current = null
+        setDragOverKey(null)
+    }
+    const handleColDrop = (e: React.DragEvent, targetKey: string) => {
+        e.preventDefault()
+        const sourceKey = dragKeyRef.current ?? e.dataTransfer.getData('text/plain')
+        const position: 'before' | 'after' = dragOverKey?.key === targetKey ? dragOverKey.position : 'after'
+        dragKeyRef.current = null
+        setDragOverKey(null)
+        if (!sourceKey || sourceKey === targetKey) return
+        if (!onColumnOrderChange) return
+        const baseOrder = fieldOrder && fieldOrder.length > 0 ? fieldOrder : fields.map((f) => f.key)
+        const next = [...baseOrder]
+        const sourceIdx = next.indexOf(sourceKey)
+        let targetIdx = next.indexOf(targetKey)
+        if (sourceIdx === -1 || targetIdx === -1) return
+        next.splice(sourceIdx, 1)
+        if (sourceIdx < targetIdx) targetIdx -= 1
+        const insertAt = position === 'after' ? targetIdx + 1 : targetIdx
+        next.splice(insertAt, 0, sourceKey)
+        onColumnOrderChange(next)
+    }
+
+    // --- Delete handler (chevron menu) ---
+    const handleDeleteField = (columnId: string, label: string) => {
+        modal.confirm({
+            title: 'Delete field?',
+            content: `"${label}" and all its data will be permanently removed. This cannot be undone.`,
+            okText: 'Delete',
+            okButtonProps: { danger: true },
+            onOk: () => mDeleteColumn.mutation.mutateAsync({ columnId }),
+        })
+    }
+
     const columns = useMemo<ColumnsType<DisplayRow>>(() => {
         const cellEllipsisStyle: React.CSSProperties = {
             display: 'block',
@@ -360,16 +427,79 @@ export const App_EmployeeDataTable = ({
             whiteSpace: 'nowrap',
         }
         const groupByArr = groupBy ?? []
-        const realCols: ColumnsType<DisplayRow> = visibleFields.map((f, i) => ({
+        const realCols: ColumnsType<DisplayRow> = visibleFields.map((f, i) => {
+            const isUniversal = UNIVERSAL_KEYS.has(f.key)
+            const width = fieldWidths?.[f.key] ?? COLUMN_WIDTH
+            const isDropTarget = dragOverKey?.key === f.key
+            const dropBefore = isDropTarget && dragOverKey?.position === 'before'
+            const dropAfter = isDropTarget && dragOverKey?.position === 'after'
+            return ({
             key: f.key,
             dataIndex: f.key,
-            width: COLUMN_WIDTH,
+            width,
             ellipsis: true,
+            onHeaderCell: () => ({
+                width,
+                onResize: () => {},
+                onResizeStop: (_e: React.SyntheticEvent, data: { size: { width: number } }) => {
+                    onColumnResize?.(f.key, data.size.width)
+                },
+            } as React.HTMLAttributes<HTMLTableCellElement>),
             title: (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <div
+                    draggable
+                    onDragStart={(e) => handleColDragStart(e, f.key)}
+                    onDragOver={(e) => handleColDragOver(e, f.key)}
+                    onDrop={(e) => handleColDrop(e, f.key)}
+                    onDragEnd={handleColDragEnd}
+                    className="emp-col-header"
+                    style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'grab',
+                        userSelect: 'none',
+                    }}
+                >
+                    {dropBefore && (
+                        <div style={{ position: 'absolute', left: -1, top: 0, bottom: 0, width: 2, background: token.colorPrimary, pointerEvents: 'none', zIndex: 1 }} />
+                    )}
+                    {dropAfter && (
+                        <div style={{ position: 'absolute', right: -1, top: 0, bottom: 0, width: 2, background: token.colorPrimary, pointerEvents: 'none', zIndex: 1 }} />
+                    )}
                     <FieldTypeIcon type={f.type} />
-                    {f.label}
-                </span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
+                    <Dropdown
+                        trigger={['click']}
+                        placement="bottomRight"
+                        menu={{
+                            items: [
+                                { key: 'edit', icon: <EditOutlined />, label: 'Edit field', disabled: isUniversal },
+                                { key: 'hide', icon: <EyeInvisibleOutlined />, label: 'Hide column' },
+                                { type: 'divider' },
+                                { key: 'delete', icon: <DeleteOutlined />, label: 'Delete field', danger: true, disabled: isUniversal },
+                            ],
+                            onClick: ({ key, domEvent }) => {
+                                domEvent.stopPropagation()
+                                if (key === 'edit') onEditField?.(f.key)
+                                else if (key === 'hide') onHideField?.(f.key)
+                                else if (key === 'delete') handleDeleteField(f.key, f.label)
+                            },
+                        }}
+                    >
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<DownOutlined />}
+                            className="emp-col-chevron"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            draggable={false}
+                            onDragStart={(e) => e.preventDefault()}
+                        />
+                    </Dropdown>
+                </div>
             ),
             onCell: (record) => {
                 if (isGroupHeader(record)) {
@@ -442,6 +572,15 @@ export const App_EmployeeDataTable = ({
                         return <span style={cellEllipsisStyle}>{formatDate(value as string)}</span>
                     case 'boolean':
                         return <Checkbox checked={value === true} disabled />
+                    case 'single_select': {
+                        const labels = choicesByField[f.key] || {}
+                        const key = value as string
+                        return (
+                            <span style={{ ...cellEllipsisStyle, maxWidth: '100%' }}>
+                                <Tag color={token.colorPrimary}>{labels[key] ?? key}</Tag>
+                            </span>
+                        )
+                    }
                     case 'multi_select': {
                         const labels = choicesByField[f.key] || {}
                         return (
@@ -458,9 +597,31 @@ export const App_EmployeeDataTable = ({
                         return <span style={cellEllipsisStyle}>{String(value)}</span>
                 }
             },
-        }))
-        return realCols
-    }, [visibleFields, choicesByField, token, groupBy, fieldsByKey, collapsedGroupIds])
+        })
+        })
+        // Virtual + column — last, not draggable/resizable, not in field_order/hidden_keys/field_widths
+        const addCol: ColumnsType<DisplayRow>[number] = {
+            key: ADD_FIELD_KEY,
+            width: 48,
+            onHeaderCell: () => ({
+                onClick: onAddField,
+                style: { cursor: 'pointer', textAlign: 'center', padding: 0 },
+            } as React.HTMLAttributes<HTMLTableCellElement>),
+            title: (
+                <Tooltip title="Add field">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        <PlusOutlined />
+                    </span>
+                </Tooltip>
+            ),
+            onCell: (record) => {
+                if (isGroupHeader(record)) return { colSpan: 0 }
+                return {}
+            },
+            render: () => null,
+        }
+        return [...realCols, addCol]
+    }, [visibleFields, choicesByField, token, groupBy, fieldsByKey, collapsedGroupIds, fieldWidths, dragOverKey, onColumnResize, onAddField, onEditField, onHideField])
 
     const isLoading = qEmployees.query.isLoading || qColumns.query.isLoading || qChoices.query.isLoading
 
@@ -484,6 +645,18 @@ export const App_EmployeeDataTable = ({
                 .emp-data-table .ant-table-container,
                 .emp-data-table .ant-table-thead > tr > th,
                 .emp-data-table .ant-table-tbody > tr > td { border-width: 2px !important; }
+                .emp-data-table .column-resize-handle {
+                    position: absolute;
+                    right: -5px;
+                    top: 0;
+                    bottom: 0;
+                    width: 10px;
+                    cursor: col-resize;
+                    z-index: 3;
+                }
+                .emp-data-table .emp-col-chevron { opacity: 0; transition: opacity 0.15s; margin-left: auto; flex-shrink: 0; }
+                .emp-data-table .ant-table-thead > tr > th:hover .emp-col-chevron { opacity: 1; }
+                .emp-data-table .ant-table-thead > tr > th { position: relative; }
             `}</style>
             <Table<DisplayRow>
                 className="emp-data-table"
@@ -499,18 +672,25 @@ export const App_EmployeeDataTable = ({
                 locale={{ emptyText }}
                 components={{
                     header: {
-                        cell: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
-                            <th
-                                {...props}
-                                style={{
-                                    ...props.style,
-                                    position: 'sticky',
-                                    top: 0,
-                                    zIndex: 2,
-                                    borderTop: `2px solid ${token.colorBorder}`,
-                                }}
-                            />
-                        ),
+                        cell: (props: ResizableHeaderCellProps) => {
+                            const { width, onResize, onResizeStop, style, ...rest } = props
+                            const mergedStyle: React.CSSProperties = {
+                                ...style,
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                borderTop: `2px solid ${token.colorBorder}`,
+                            }
+                            return (
+                                <ResizableHeaderCell
+                                    {...rest}
+                                    width={width}
+                                    onResize={onResize}
+                                    onResizeStop={onResizeStop}
+                                    style={mergedStyle}
+                                />
+                            )
+                        },
                     },
                 }}
             />

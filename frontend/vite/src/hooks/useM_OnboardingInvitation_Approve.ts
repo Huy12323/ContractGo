@@ -32,7 +32,7 @@ export const useM_OnboardingInvitation_Approve = () => {
         onSuccess: () => {
             message.success("Contract approved");
             queryClient.invalidateQueries({
-                queryKey: QueryKeys.onboardingInvitations.all(),
+                queryKey: QueryKeys.onboarding_invitations.all(),
             });
             queryClient.invalidateQueries({
                 queryKey: QueryKeys.contracts.all(),

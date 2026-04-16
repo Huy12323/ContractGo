@@ -13,7 +13,7 @@ export type Tables_MyOrganizations_QueryData = Awaited<ReturnType<typeof fetchMy
 
 export const useQ_Tables_MyOrganizations = () => {
     const query = useQuery({
-        queryKey: QueryKeys.organizations.mine(),
+        queryKey: [...QueryKeys.organizations.list(), "mine"],
         queryFn: fetchMyOrganizations,
     });
 

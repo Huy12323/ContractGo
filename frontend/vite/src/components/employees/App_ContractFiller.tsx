@@ -2,7 +2,6 @@ import { useMemo, useEffect, useCallback } from 'react'
 import { Typography, Input, InputNumber, DatePicker, Switch, Select, theme } from 'antd'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import { TableKit } from '@tiptap/extension-table'
 import { FieldInput, fieldInputPreviewKey } from './ext_TipTap_FieldInput'
@@ -97,7 +96,6 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
         content: layout,
         extensions: [
             StarterKit,
-            Underline,
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             TableKit,
             FieldInput,

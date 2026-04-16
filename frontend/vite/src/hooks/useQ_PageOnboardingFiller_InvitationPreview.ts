@@ -25,7 +25,7 @@ export const useQ_PageOnboardingFiller_InvitationPreview = ({
 }) => {
     const query = useQuery({
         enabled: !!invitationToken && enabled,
-        queryKey: QueryKeys.onboardingInvitations.preview(invitationToken),
+        queryKey: [...QueryKeys.onboarding_invitations.record(invitationToken), "preview"],
         queryFn: () => fetchInvitationPreview(invitationToken),
     });
 

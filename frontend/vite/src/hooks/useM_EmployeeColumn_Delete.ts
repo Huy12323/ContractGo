@@ -3,15 +3,13 @@ import { App } from "antd";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
-export type UseM_EmployeeColumn_Delete_Params = { columnId: string; onSuccess?: () => void };
-
-export const useM_EmployeeColumn_Delete = ({ columnId, onSuccess }: UseM_EmployeeColumn_Delete_Params) => {
+export const useM_EmployeeColumn_Delete = () => {
     const queryClient = useQueryClient();
     const { message } = App.useApp();
 
     const mutation = useMutation({
-        mutationKey: ["employeeColumns", "delete", columnId],
-        mutationFn: async () => {
+        mutationKey: ["employeeColumns", "delete"],
+        mutationFn: async ({ columnId }: { columnId: string }) => {
             const sb_FromEmployeeColumns_Delete = await supabase
                 .from("employee_columns")
                 .delete()
@@ -20,9 +18,8 @@ export const useM_EmployeeColumn_Delete = ({ columnId, onSuccess }: UseM_Employe
         },
         onSuccess: () => {
             message.success("Field deleted");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employeeColumns.all() });
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employeeColumnChoices.all() });
-            onSuccess?.();
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_columns.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_column_choices.all() });
         },
         onError: (err) => {
             console.error(err);

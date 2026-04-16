@@ -10,7 +10,6 @@ import {
     MinusOutlined,
     OrderedListOutlined,
     PlusOutlined,
-    SettingOutlined,
     StrikethroughOutlined,
     TableOutlined,
     UnderlineOutlined,
@@ -24,7 +23,6 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import { TableKit } from '@tiptap/extension-table'
 import { useQ_Tables_ContractTemplates } from '@/hooks/useQ_Tables_ContractTemplates'
@@ -34,7 +32,7 @@ import { useM_ContractTemplate_Create } from '@/hooks/useM_ContractTemplate_Crea
 import { useM_ContractTemplate_Update } from '@/hooks/useM_ContractTemplate_Update'
 import { FieldInput, fieldInputPreviewKey } from './ext_TipTap_FieldInput'
 import { App_ContractPreview } from './App_ContractPreview'
-import { App_FieldManagerModal } from './App_FieldManagerModal'
+import { App_EmployeeFieldComposerModal } from './App_EmployeeFieldComposerModal'
 import { isTipTapLayout, utils_FormBuilder_migrateLayout } from './utils_FormBuilder_migrateLayout'
 import type { Json } from '@/types/database.types'
 
@@ -168,7 +166,6 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const editor = useEditor({
         extensions: [
             StarterKit,
-            Underline,
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             TableKit,
             FieldInput,
@@ -532,7 +529,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                             <div style={{ flexShrink: 0, marginBottom: token.marginXS }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.marginXXS }}>
                                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>Available Fields</Typography.Text>
-                                    <Button type="link" size="small" icon={<SettingOutlined />} onClick={() => setFieldManagerOpen(true)} style={{ fontSize: 12, padding: 0, height: 'auto' }}>Manage</Button>
+                                    <Button type="link" size="small" icon={<PlusOutlined />} onClick={() => setFieldManagerOpen(true)} style={{ fontSize: 12, padding: 0, height: 'auto' }}>Add field</Button>
                                 </div>
                                 <Input
                                     placeholder="Search..."
@@ -760,7 +757,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                 </div>
             </div>
 
-            <App_FieldManagerModal
+            <App_EmployeeFieldComposerModal
                 open={fieldManagerOpen}
                 onClose={() => setFieldManagerOpen(false)}
                 organizationId={organizationId}

@@ -21,7 +21,7 @@ export const useM_EmployeeView_Reorder = () => {
             if (sb_RpcReorderEmployeeViews.error) throw sb_RpcReorderEmployeeViews.error;
         },
         onMutate: async ({ organizationId, orderedIds }) => {
-            const queryKey = [...QueryKeys.employeeViews.list(), { organizationId }] as const;
+            const queryKey = [...QueryKeys.employee_views.list(), { organizationId }] as const;
             await queryClient.cancelQueries({ queryKey });
             const previousViews = queryClient.getQueryData<Tables_OrgEmployeeViews_QueryData>(queryKey);
             if (previousViews) {

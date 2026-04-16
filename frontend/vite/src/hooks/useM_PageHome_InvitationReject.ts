@@ -17,7 +17,7 @@ export const useM_PageHome_InvitationReject = () => {
         },
         onSuccess: () => {
             message.success("Invitation declined");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.adminInvitations.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.admin_invitations.all() });
         },
         onError: () => {
             message.error("Failed to decline invitation");

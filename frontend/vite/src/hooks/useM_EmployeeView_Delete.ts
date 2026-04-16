@@ -19,7 +19,7 @@ export const useM_EmployeeView_Delete = () => {
         },
         onSuccess: () => {
             message.success("View deleted");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employeeViews.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_views.all() });
         },
         onError: (err) => {
             console.error(err);

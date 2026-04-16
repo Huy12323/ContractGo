@@ -25,7 +25,7 @@ export const useM_ContractTemplate_Update = ({ templateId }: UseM_ContractTempla
         },
         onSuccess: () => {
             message.success("Template updated");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.contractTemplates.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() });
         },
         onError: (err) => {
             console.error(err);

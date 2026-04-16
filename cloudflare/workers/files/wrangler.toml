@@ -9,6 +9,8 @@ account_id = "156c6587f5eeeef516ea33aba5b50fb2"
 [[r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "aiurhr--dev"
+preview_bucket_name = "aiurhr--dev"
+remote = true  # Use real R2 bucket in local dev (not local simulator)
 
 [vars]
 ENVIRONMENT = "development"

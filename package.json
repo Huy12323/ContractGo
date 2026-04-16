@@ -7,6 +7,7 @@
     "env:apply:dev": "node scripts/env-apply.js dev",
     "env:apply:stag": "node scripts/env-apply.js stag",
     "env:apply:prod": "node scripts/env-apply.js prod",
+    "mcp:gen": "node generate-mcp.js",
     "dev": "pnpm sb:dev:start && concurrently -n \"EF,W,WEB\" -c \"cyan,yellow,green\" \"pnpm dev:ef\" \"pnpm dev:w\" \"pnpm dev:web\"",
     "dev:web": "pnpm --filter @aiur-hr/web dev",
     "dev:w": "node scripts/wrangler-auto-restart.js",

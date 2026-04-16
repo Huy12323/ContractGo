@@ -19,7 +19,7 @@ export type Tables_OrgEmployeeViews_QueryData = Awaited<ReturnType<typeof fetchO
 export const useQ_Tables_OrgEmployeeViews = ({ organizationId }: { organizationId: string }) => {
     const query = useQuery({
         enabled: !!organizationId,
-        queryKey: [...QueryKeys.employeeViews.list(), { organizationId }],
+        queryKey: [...QueryKeys.employee_views.list(), { organizationId }],
         queryFn: () => fetchOrgEmployeeViews(organizationId),
     });
 

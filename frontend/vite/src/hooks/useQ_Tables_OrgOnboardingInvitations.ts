@@ -28,7 +28,7 @@ export const useQ_Tables_OrgOnboardingInvitations = ({
 }) => {
     const query = useQuery({
         enabled: !!organizationId,
-        queryKey: QueryKeys.onboardingInvitations.org(organizationId),
+        queryKey: [...QueryKeys.onboarding_invitations.list(), { organizationId }],
         queryFn: () => fetchOrgOnboardingInvitations(organizationId),
     });
 

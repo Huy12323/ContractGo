@@ -25,8 +25,7 @@ export const App_HorizontalNav = () => {
   return (
     <Header
       style={{
-        background: token.colorBgContainer,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        background: `linear-gradient(90deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
         padding: '0 16px',
         height: const_AppShell_HorizontalNavHeight,
         lineHeight: `${const_AppShell_HorizontalNavHeight}px`,
@@ -44,11 +43,11 @@ export const App_HorizontalNav = () => {
             type="text"
             icon={<MenuOutlined />}
             onClick={Store_VerticalNav_Actions.toggle}
-            style={{ fontSize: 16 }}
+            style={{ fontSize: 16, color: token.colorTextLightSolid }}
           />
         )}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: token.colorText }}>
+          <span style={{ fontWeight: 700, fontSize: 16, color: token.colorTextLightSolid }}>
             AIUR-HR
           </span>
         </Link>
@@ -78,9 +77,11 @@ export const App_HorizontalNav = () => {
         <Avatar
           size={28}
           style={{
-            backgroundColor: token.colorPrimary,
+            backgroundColor: token.colorBgContainer,
+            color: token.colorPrimary,
             cursor: 'pointer',
             fontSize: 12,
+            fontWeight: 600,
           }}
         >
           {initials}

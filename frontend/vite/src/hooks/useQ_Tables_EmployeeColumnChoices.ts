@@ -18,7 +18,7 @@ export type Tables_EmployeeColumnChoices_QueryData = Awaited<ReturnType<typeof f
 export const useQ_Tables_EmployeeColumnChoices = ({ organizationId }: { organizationId: string }) => {
     const query = useQuery({
         enabled: !!organizationId,
-        queryKey: [...QueryKeys.employeeColumnChoices.list(), { organizationId }],
+        queryKey: [...QueryKeys.employee_column_choices.list(), { organizationId }],
         queryFn: () => fetchEmployeeColumnChoices(organizationId),
     });
 

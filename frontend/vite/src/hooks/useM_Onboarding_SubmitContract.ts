@@ -30,7 +30,7 @@ export const useM_Onboarding_SubmitContract = () => {
         onSuccess: () => {
             message.success("Contract submitted for review");
             queryClient.invalidateQueries({
-                queryKey: QueryKeys.onboardingInvitations.all(),
+                queryKey: QueryKeys.onboarding_invitations.all(),
             });
         },
         onError: (err) => {

@@ -7,7 +7,6 @@ import { Modal, Tabs, Table, Input, Button, Avatar, Tag, Space, Typography, Aler
 import { SendOutlined, DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useQ_Tables_Admins } from "@/hooks/useQ_Tables_Admins";
 import { useQ_Tables_AdminInvitations } from "@/hooks/useQ_Tables_AdminInvitations";
-import { App_OnboardingFormsList } from "@/components/employees/App_OnboardingFormsList";
 
 interface OrgSettingsModalProps {
     open: boolean;
@@ -169,13 +168,6 @@ export const App_OrgSettingsModal = ({ open, onClose, organizationId, organizati
                             <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 480 }}>
                                 <Typography.Text type="secondary">More settings coming soon.</Typography.Text>
                             </div>
-                        ),
-                    },
-                    {
-                        key: "onboarding-forms",
-                        label: "Onboarding Forms",
-                        children: (
-                            <App_OnboardingFormsList organizationId={organizationId} />
                         ),
                     },
                     {

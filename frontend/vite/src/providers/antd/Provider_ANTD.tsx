@@ -3,7 +3,16 @@ import { App, ConfigProvider, theme as antdTheme } from "antd";
 const themeConfig = {
     algorithm: antdTheme.defaultAlgorithm,
     token: {
-        colorPrimary: "#0958d9",
+        // Semantic seeds — muted/saturated family anchored on a deep-teal primary.
+        // All picked with similar lightness (~25-45%) and matching saturation weight
+        // so they read as one cohesive palette. ANTD auto-derives the full 10-step
+        // Bg/Border/Hover/Active/Text palettes from each seed, so these five values
+        // cascade across the entire app.
+        colorPrimary: "#136a7b", // deep teal / petrol — brand
+        colorSuccess: "#2d7a4f", // forest green
+        colorWarning: "#c48a3c", // ochre / mustard
+        colorError: "#a73939",   // deep rose / burgundy
+        colorInfo: "#3a6ea5",    // steel blue (distinct from teal primary)
         // Cool-neutral border + tinted alt fill — shared across the app so
         // tables, cards, dividers, and banded rows have a consistent look.
         colorBorder: "#B1B4B6",

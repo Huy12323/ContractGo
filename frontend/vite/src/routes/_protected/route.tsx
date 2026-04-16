@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import { Layout, theme } from 'antd'
+import { Layout } from 'antd'
 import { App_VerticalNav } from '@/components/app-shell/App_VerticalNav'
 import { App_HorizontalNav } from '@/components/app-shell/App_HorizontalNav/App_HorizontalNav'
 import { supabase } from '@/configs/supabase/config'
@@ -33,8 +33,6 @@ export const Route = createFileRoute('/_protected')({
 })
 
 function ProtectedLayout() {
-  const { token } = theme.useToken()
-
   return (
     <Layout style={{ height: '100vh' }}>
       <App_HorizontalNav />

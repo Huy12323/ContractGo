@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from 'react'
-import { Modal, Steps, Button, Select, Checkbox, Input, Typography, Card, Descriptions, Tag, theme } from 'antd'
-import { SendOutlined, FileTextOutlined, TeamOutlined, BankOutlined } from '@ant-design/icons'
+import { Modal, Steps, Button, Select, Checkbox, Input, Typography, Card, Descriptions, Tag, Empty, App, theme } from 'antd'
+import { SendOutlined, FileTextOutlined, TeamOutlined, BankOutlined, PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
 import { useQ_Tables_EntityDepartments } from '@/hooks/useQ_Tables_EntityDepartments'
 import { useQ_Tables_ContractTemplates } from '@/hooks/useQ_Tables_ContractTemplates'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_OnboardingInvitation_Send } from '@/hooks/useM_OnboardingInvitation_Send'
+import { useM_ContractTemplate_Archive } from '@/hooks/useM_ContractTemplate_Archive'
 import { App_ContractFiller } from './App_ContractFiller'
+import { App_FormBuilderModal } from './App_FormBuilderModal'
 import type { JSONContent } from '@tiptap/core'
 
 type Props = {
@@ -25,6 +27,7 @@ const STEPS = [
 
 export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Props) => {
     const { token } = theme.useToken()
+    const { modal } = App.useApp()
 
     // Step state
     const [currentStep, setCurrentStep] = useState(0)
@@ -36,6 +39,12 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     const [prefilledFields, setPrefilledFields] = useState<Record<string, unknown>>({})
     const [employeeEmail, setEmployeeEmail] = useState('')
 
+    // Template management state (step 2)
+    const [templateSearch, setTemplateSearch] = useState('')
+    const [builderOpen, setBuilderOpen] = useState(false)
+    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+    const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null)
+
     // Data hooks
     const qEntities = useQ_Tables_OrgEntities({ organizationId })
     const qDepartments = useQ_Tables_EntityDepartments({ entityId: selectedEntityId || '' })
@@ -43,6 +52,7 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
     const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
     const mSend = useM_OnboardingInvitation_Send()
+    const mArchive = useM_ContractTemplate_Archive()
 
     // Derived
     const selectedTemplate = useMemo(
@@ -123,6 +133,36 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     const handleEntityChange = useCallback((entityId: string) => {
         setSelectedEntityId(entityId)
         setSelectedDepartmentIds([])
+    }, [])
+
+    // Filtered template list for search input (case-insensitive name match)
+    const filteredTemplates = useMemo(() => {
+        const q = templateSearch.trim().toLowerCase()
+        if (!q) return qTemplates.templates
+        return qTemplates.templates.filter((t) => t.name.toLowerCase().includes(q))
+    }, [qTemplates.templates, templateSearch])
+
+    const handleArchiveTemplate = useCallback((templateId: string, templateName: string) => {
+        modal.confirm({
+            title: 'Archive template?',
+            content: `"${templateName}" will be hidden from this list. Existing onboarding invitations that reference it will continue to work.`,
+            okText: 'Archive',
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                await mArchive.mutation.mutateAsync({ templateId })
+                if (selectedTemplateId === templateId) setSelectedTemplateId(null)
+            },
+        })
+    }, [modal, mArchive.mutation, selectedTemplateId])
+
+    const openBuilderCreate = useCallback(() => {
+        setEditingTemplateId(null)
+        setBuilderOpen(true)
+    }, [])
+
+    const openBuilderEdit = useCallback((templateId: string) => {
+        setEditingTemplateId(templateId)
+        setBuilderOpen(true)
     }, [])
 
     return (
@@ -221,35 +261,78 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
             {/* Step 2: Contract Template */}
             {currentStep === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
-                    <Typography.Text strong>Select Contract Template *</Typography.Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: token.marginXS, flexShrink: 0 }}>
+                        <Typography.Text strong style={{ flex: 1 }}>Select Contract Template *</Typography.Text>
+                        <Input
+                            placeholder="Search templates"
+                            prefix={<SearchOutlined />}
+                            value={templateSearch}
+                            onChange={(e) => setTemplateSearch(e.target.value)}
+                            allowClear
+                            style={{ width: 260 }}
+                        />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={openBuilderCreate}>
+                            Create
+                        </Button>
+                    </div>
+
                     {qTemplates.query.isLoading ? (
                         <Typography.Text type="secondary">Loading templates...</Typography.Text>
                     ) : qTemplates.templates.length === 0 ? (
-                        <Typography.Text type="secondary">
-                            No contract templates found. Create one via "View Forms" first.
-                        </Typography.Text>
+                        <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description="No contract templates yet"
+                            style={{ padding: `${token.paddingXL}px 0` }}
+                        >
+                            <Button type="primary" icon={<PlusOutlined />} onClick={openBuilderCreate}>
+                                Create your first template
+                            </Button>
+                        </Empty>
+                    ) : filteredTemplates.length === 0 ? (
+                        <Typography.Text type="secondary">No templates match &ldquo;{templateSearch}&rdquo;</Typography.Text>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
-                            {qTemplates.templates.map((t) => (
-                                <Card
-                                    key={t.id}
-                                    size="small"
-                                    hoverable
-                                    onClick={() => setSelectedTemplateId(t.id)}
-                                    style={{
-                                        border: selectedTemplateId === t.id
-                                            ? `2px solid ${token.colorPrimary}`
-                                            : `1px solid ${token.colorBorderSecondary}`,
-                                        cursor: 'pointer',
-                                    }}
-                                    styles={{ body: { padding: `${token.paddingSM}px ${token.paddingMD}px` } }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: token.marginSM }}>
-                                        <FileTextOutlined style={{ color: token.colorPrimary }} />
-                                        <Typography.Text strong>{t.name}</Typography.Text>
-                                    </div>
-                                </Card>
-                            ))}
+                            {filteredTemplates.map((t) => {
+                                const isSelected = selectedTemplateId === t.id
+                                const isHovered = hoveredTemplateId === t.id
+                                return (
+                                    <Card
+                                        key={t.id}
+                                        size="small"
+                                        hoverable
+                                        onClick={() => setSelectedTemplateId(t.id)}
+                                        onMouseEnter={() => setHoveredTemplateId(t.id)}
+                                        onMouseLeave={() => setHoveredTemplateId((id) => (id === t.id ? null : id))}
+                                        style={{
+                                            border: isSelected
+                                                ? `2px solid ${token.colorPrimary}`
+                                                : `1px solid ${token.colorBorderSecondary}`,
+                                            cursor: 'pointer',
+                                        }}
+                                        styles={{ body: { padding: `${token.paddingSM}px ${token.paddingMD}px` } }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: token.marginSM }}>
+                                            <FileTextOutlined style={{ color: token.colorPrimary }} />
+                                            <Typography.Text strong style={{ flex: 1 }}>{t.name}</Typography.Text>
+                                            <div style={{ display: 'flex', gap: token.marginXXS, opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s' }}>
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<EditOutlined />}
+                                                    onClick={(e) => { e.stopPropagation(); openBuilderEdit(t.id) }}
+                                                />
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={(e) => { e.stopPropagation(); handleArchiveTemplate(t.id, t.name) }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )
+                            })}
                         </div>
                     )}
                 </div>
@@ -315,6 +398,13 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
             )}
 
             </div>{/* end step content wrapper */}
+
+            <App_FormBuilderModal
+                open={builderOpen}
+                onClose={() => { setBuilderOpen(false); setEditingTemplateId(null) }}
+                organizationId={organizationId}
+                formId={editingTemplateId}
+            />
         </Modal>
     )
 }

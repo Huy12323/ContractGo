@@ -149,6 +149,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_archived: boolean
           layout: Json
           name: string
           organization_id: string
@@ -157,6 +158,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          is_archived?: boolean
           layout?: Json
           name: string
           organization_id: string
@@ -165,6 +167,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          is_archived?: boolean
           layout?: Json
           name?: string
           organization_id?: string
@@ -426,35 +429,50 @@ export type Database = {
       }
       employee_views: {
         Row: {
-          config: Json
           created_at: string | null
           created_by: string | null
+          field_order: Json
+          field_widths: Json
+          filter: Json
+          group_by: Json
+          hidden_keys: Json
           id: string
           is_default: boolean
           name: string
           organization_id: string
+          sort: Json
           sort_order: number
           updated_at: string | null
         }
         Insert: {
-          config?: Json
           created_at?: string | null
           created_by?: string | null
+          field_order?: Json
+          field_widths?: Json
+          filter?: Json
+          group_by?: Json
+          hidden_keys?: Json
           id?: string
           is_default?: boolean
           name: string
           organization_id: string
+          sort?: Json
           sort_order?: number
           updated_at?: string | null
         }
         Update: {
-          config?: Json
           created_at?: string | null
           created_by?: string | null
+          field_order?: Json
+          field_widths?: Json
+          filter?: Json
+          group_by?: Json
+          hidden_keys?: Json
           id?: string
           is_default?: boolean
           name?: string
           organization_id?: string
+          sort?: Json
           sort_order?: number
           updated_at?: string | null
         }
@@ -478,10 +496,7 @@ export type Database = {
       employees: {
         Row: {
           birthday: string
-          col_34rTppCGsFaxRD1i: string | null
-          col_B95hiP0a6U68AqbL: string[] | null
-          col_BbrubylYdfQPBzbv: string | null
-          col_X6MDhHHD5onD1ePT: string | null
+          col_jC4iUV6VwMAvUiUr: string | null
           created_at: string
           email: string
           first_name: string
@@ -493,10 +508,7 @@ export type Database = {
         }
         Insert: {
           birthday?: string
-          col_34rTppCGsFaxRD1i?: string | null
-          col_B95hiP0a6U68AqbL?: string[] | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
+          col_jC4iUV6VwMAvUiUr?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -508,10 +520,7 @@ export type Database = {
         }
         Update: {
           birthday?: string
-          col_34rTppCGsFaxRD1i?: string | null
-          col_B95hiP0a6U68AqbL?: string[] | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
+          col_jC4iUV6VwMAvUiUr?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -698,38 +707,6 @@ export type Database = {
           },
         ]
       }
-      organization_role_permissions: {
-        Row: {
-          created_at: string
-          id: string
-          organization_id: string
-          permission: Database["public"]["Enums"]["app_permission"]
-          role: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          organization_id: string
-          permission: Database["public"]["Enums"]["app_permission"]
-          role: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          organization_id?: string
-          permission?: Database["public"]["Enums"]["app_permission"]
-          role?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_role_permissions_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       organizations: {
         Row: {
           created_at: string
@@ -791,6 +768,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      realtime_table_events: {
+        Row: {
+          created_at: string
+          event_type: Database["public"]["Enums"]["realtime_table_events_event_type_enum"]
+          id: string
+          organization_id: string
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: Database["public"]["Enums"]["realtime_table_events_event_type_enum"]
+          id?: string
+          organization_id: string
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["realtime_table_events_event_type_enum"]
+          id?: string
+          organization_id?: string
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "realtime_table_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rel__department__employee: {
         Row: {
@@ -871,17 +883,11 @@ export type Database = {
         Args: { col_name: string; col_type: string }
         Returns: undefined
       }
-      authorize: {
-        Args: {
-          org_id: string
-          requested_permission: Database["public"]["Enums"]["app_permission"]
-        }
-        Returns: boolean
-      }
       clean_employee_view_filter_node: {
         Args: { deleted_field: string; node: Json }
         Returns: Json
       }
+      clean_old_realtime_events: { Args: never; Returns: undefined }
       cleanup_expired_auth_tokens: { Args: never; Returns: undefined }
       create_organization: { Args: { org_name: string }; Returns: string }
       generate_id: { Args: { prefix: string }; Returns: string }
@@ -904,24 +910,17 @@ export type Database = {
           name: string
         }[]
       }
+      get_organization_id_for_change: {
+        Args: { p_record_data: Json; p_table_name: string }
+        Returns: string
+      }
       get_organization_role: { Args: { org_id: string }; Returns: string }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
       reorder_employee_views: { Args: { p_ids: string[] }; Returns: undefined }
-      seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
     }
     Enums: {
-      app_permission:
-        | "manage_organization"
-        | "manage_members"
-        | "manage_roles"
-        | "view_all_employees"
-        | "manage_employees"
-        | "view_department_employees"
-        | "manage_departments"
-        | "view_own_profile"
-        | "edit_own_profile"
       contracts_status_enum: "draft" | "sent" | "filled" | "active" | "voided"
       employee_column_type:
         | "text"
@@ -929,6 +928,7 @@ export type Database = {
         | "date"
         | "boolean"
         | "multi_select"
+        | "single_select"
       iana_timezone:
         | "Africa/Abidjan"
         | "Africa/Accra"
@@ -1490,6 +1490,7 @@ export type Database = {
         | "expired"
         | "revoked"
         | "approved"
+      realtime_table_events_event_type_enum: "INSERT" | "UPDATE" | "DELETE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1620,17 +1621,6 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_permission: [
-        "manage_organization",
-        "manage_members",
-        "manage_roles",
-        "view_all_employees",
-        "manage_employees",
-        "view_department_employees",
-        "manage_departments",
-        "view_own_profile",
-        "edit_own_profile",
-      ],
       contracts_status_enum: ["draft", "sent", "filled", "active", "voided"],
       employee_column_type: [
         "text",
@@ -1638,6 +1628,7 @@ export const Constants = {
         "date",
         "boolean",
         "multi_select",
+        "single_select",
       ],
       iana_timezone: [
         "Africa/Abidjan",
@@ -2202,6 +2193,7 @@ export const Constants = {
         "revoked",
         "approved",
       ],
+      realtime_table_events_event_type_enum: ["INSERT", "UPDATE", "DELETE"],
     },
   },
 } as const

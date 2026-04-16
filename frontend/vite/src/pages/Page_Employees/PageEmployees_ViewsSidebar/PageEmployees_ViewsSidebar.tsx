@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Typography, Button, Input, Dropdown, theme } from 'antd'
+import { Typography, Button, Input, Dropdown, Tooltip, Empty, Spin, theme } from 'antd'
 import {
     PlusOutlined,
     SearchOutlined,
@@ -109,63 +109,67 @@ export const PageEmployees_ViewsSidebar = ({
         color: token.colorPrimary,
     }
 
+    const sidebarShell: React.CSSProperties = {
+        width: 240,
+        minWidth: 240,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgContainer,
+        overflow: 'hidden',
+    }
+
+    // Initial load — brief spinner instead of flashing the empty state
+    if (qViews.query.isLoading) {
+        return (
+            <div style={{ ...sidebarShell, alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="small" />
+            </div>
+        )
+    }
+
+    // Empty state — no views yet; single CTA
+    if (qViews.employeeViews.length === 0) {
+        return (
+            <div style={{ ...sidebarShell, alignItems: 'center', justifyContent: 'center', padding: token.paddingLG }}>
+                <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No views yet"
+                    style={{ marginBottom: token.marginMD }}
+                />
+                <Button type="primary" icon={<PlusOutlined />} onClick={onCreateView}>
+                    Create your first view
+                </Button>
+            </div>
+        )
+    }
+
     return (
-        <div style={{
-            width: 240,
-            minWidth: 240,
-            display: 'flex',
-            flexDirection: 'column',
-            borderRight: `1px solid ${token.colorBorderSecondary}`,
-            background: token.colorBgContainer,
-            overflow: 'hidden',
-        }}>
+        <div style={sidebarShell}>
             {/* Search + create */}
-            <div style={{ padding: token.paddingSM, display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
+            <div style={{
+                padding: token.paddingSM,
+                display: 'flex',
+                alignItems: 'center',
+                gap: token.marginXS,
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}>
                 <Input
-                    size="small"
+                    variant="borderless"
                     allowClear
                     placeholder="Search views..."
                     prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
+                    style={{ flex: 1 }}
                 />
-                <Button
-                    block
-                    type="dashed"
-                    size="small"
-                    icon={<PlusOutlined />}
-                    onClick={onCreateView}
-                >
-                    New View
-                </Button>
+                <Tooltip title="Create new view">
+                    <Button type="text" icon={<PlusOutlined />} onClick={onCreateView} />
+                </Tooltip>
             </div>
 
             {/* List */}
             <div style={{ flex: 1, overflowY: 'auto', padding: `0 ${token.paddingXS}px ${token.paddingSM}px` }}>
-                {/* Default — virtual, pinned */}
-                <div
-                    style={{
-                        ...rowBaseStyle,
-                        ...(activeViewId === undefined ? activeRowStyle : {}),
-                    }}
-                    onClick={() => navigate({ to: '.', search: { viewId: undefined } })}
-                    onMouseEnter={(e) => { if (activeViewId !== undefined) e.currentTarget.style.background = token.colorFillTertiary }}
-                    onMouseLeave={(e) => { if (activeViewId !== undefined) e.currentTarget.style.background = 'transparent' }}
-                >
-                    <TableOutlined style={{ fontSize: 14, flexShrink: 0 }} />
-                    <Typography.Text
-                        ellipsis
-                        style={{ flex: 1, fontSize: 13, color: activeViewId === undefined ? token.colorPrimary : undefined }}
-                    >
-                        Default
-                    </Typography.Text>
-                </div>
-
-                {/* Divider when saved views exist */}
-                {filteredViews.length > 0 && (
-                    <div style={{ height: 1, background: token.colorBorderSecondary, margin: `${token.marginXS}px 0` }} />
-                )}
-
                 {/* Saved views */}
                 {filter.trim().length > 0 && filteredViews.length === 0 && (
                     <Typography.Text type="secondary" style={{ fontSize: 12, padding: `${token.paddingXS}px ${token.paddingSM}px`, display: 'block' }}>

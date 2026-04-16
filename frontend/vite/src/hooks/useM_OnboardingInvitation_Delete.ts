@@ -33,7 +33,7 @@ export const useM_OnboardingInvitation_Delete = () => {
         onSuccess: () => {
             message.success("Invitation deleted");
             queryClient.invalidateQueries({
-                queryKey: QueryKeys.onboardingInvitations.all(),
+                queryKey: QueryKeys.onboarding_invitations.all(),
             });
         },
         onError: (err: Error) => {

@@ -27,7 +27,7 @@ export const useQ_PageOnboardingFiller_InvitationByToken = ({
 }) => {
     const query = useQuery({
         enabled: !!invitationToken,
-        queryKey: QueryKeys.onboardingInvitations.byToken(invitationToken),
+        queryKey: QueryKeys.onboarding_invitations.record(invitationToken),
         queryFn: () => fetchInvitationByToken(invitationToken),
     });
 

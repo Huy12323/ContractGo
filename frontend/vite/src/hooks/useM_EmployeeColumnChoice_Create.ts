@@ -25,7 +25,7 @@ export const useM_EmployeeColumnChoice_Create = () => {
         },
         onSuccess: () => {
             message.success("Choice added");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employeeColumnChoices.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_column_choices.all() });
         },
         onError: (err) => {
             console.error(err);

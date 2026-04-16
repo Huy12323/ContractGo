@@ -18,7 +18,7 @@ export type Tables_EmployeeColumns_QueryData = Awaited<ReturnType<typeof fetchEm
 export const useQ_Tables_EmployeeColumns = ({ organizationId }: { organizationId: string }) => {
     const query = useQuery({
         enabled: !!organizationId,
-        queryKey: [...QueryKeys.employeeColumns.list(), { organizationId }],
+        queryKey: [...QueryKeys.employee_columns.list(), { organizationId }],
         queryFn: () => fetchEmployeeColumns(organizationId),
     });
 

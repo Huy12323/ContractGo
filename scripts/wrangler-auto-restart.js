@@ -10,14 +10,17 @@
  * binding go stale and R2 fetches fail (uploads still work — they use
  * presigned URLs that bypass the Worker). Proactive restarts dodge this.
  *
- * Ported from lightcraft (scripts/wrangler-auto-restart.js). Differences:
- *   - WORKER_DIR points at cloudflare/workers/files (AHR layout)
- *   - No dotenv load — wrangler.toml carries account_id; no env vars needed
+ * Loads CLOUDFLARE_API_TOKEN from root .env and forwards it into the spawned
+ * wrangler subprocess. Needed because wrangler.toml points at the AIUR
+ * Cloudflare account, but the local OAuth session is for a different account;
+ * remote = true R2 bindings fail with 403 without an explicit token.
  */
 
 const { spawn, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const RESTART_INTERVAL_MS = 15 * 60 * 1000;
 const WORKER_DIR = path.join(__dirname, "../cloudflare/workers/files");
@@ -90,6 +93,10 @@ function startWrangler() {
         cwd: WORKER_DIR,
         stdio: "inherit",
         shell: true,
+        env: {
+            ...process.env,
+            CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+        },
     });
 
     wranglerProcess.on("error", (err) => {

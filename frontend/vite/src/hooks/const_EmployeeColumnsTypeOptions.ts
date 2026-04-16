@@ -9,6 +9,7 @@ const EmployeeColumns_Type: Record<
     number: { value: "number", label: "Number" },
     date: { value: "date", label: "Date" },
     boolean: { value: "boolean", label: "Boolean" },
+    single_select: { value: "single_select", label: "Single Select" },
     multi_select: { value: "multi_select", label: "Multi Select" },
 };
 

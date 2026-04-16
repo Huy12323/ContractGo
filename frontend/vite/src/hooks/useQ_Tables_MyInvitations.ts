@@ -22,7 +22,7 @@ export type Tables_MyInvitations_QueryData = Awaited<ReturnType<typeof fetchMyIn
 
 export const useQ_Tables_MyInvitations = () => {
     const query = useQuery({
-        queryKey: QueryKeys.adminInvitations.mine(),
+        queryKey: [...QueryKeys.admin_invitations.list(), "mine"],
         queryFn: fetchMyInvitations,
     });
 

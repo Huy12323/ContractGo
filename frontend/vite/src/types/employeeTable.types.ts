@@ -1,4 +1,4 @@
-export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "multi_select";
+export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "single_select" | "multi_select";
 
 export type EmployeeTable_FilterOperator =
     | "equals"
@@ -29,33 +29,16 @@ export type EmployeeTable_GroupEntry = {
 };
 
 export type EmployeeTable_FilterCondition = {
-    kind: "condition";
     field: string;
     operator: EmployeeTable_FilterOperator;
     value: unknown;
 };
 
-export type EmployeeTable_FilterGroup = {
-    kind: "group";
-    combinator: "and" | "or";
-    children: EmployeeTable_FilterNode[];
-};
-
-export type EmployeeTable_FilterNode = EmployeeTable_FilterCondition | EmployeeTable_FilterGroup;
-
-export type EmployeeTable_ToolState = {
-    sort: EmployeeTable_SortEntry[];
-    filter: EmployeeTable_FilterGroup | null;
-    groupBy: EmployeeTable_GroupEntry[];
-    hiddenKeys: string[];
-    fieldOrder: string[];
-    search: string;
-};
-
 export type EmployeeView_Config = {
+    filter: EmployeeTable_FilterCondition[];
     sort: EmployeeTable_SortEntry[];
-    filter: EmployeeTable_FilterGroup | null;
-    groupBy: EmployeeTable_GroupEntry[];
-    hiddenKeys: string[];
-    fieldOrder: string[];
+    group_by: EmployeeTable_GroupEntry[];
+    hidden_keys: string[];
+    field_order: string[];
+    field_widths: Record<string, number>;
 };

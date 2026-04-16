@@ -8,6 +8,7 @@ const fetchContractTemplates = async (organizationId: string) => {
         .from("contract_templates")
         .select("id, name, layout, created_at, updated_at")
         .eq("organization_id", organizationId)
+        .eq("is_archived", false)
         .order("created_at", { ascending: false });
     if (sb_FromContractTemplates_Select.error) throw sb_FromContractTemplates_Select.error;
     return sb_FromContractTemplates_Select.data;
@@ -18,7 +19,7 @@ export type Tables_ContractTemplates_QueryData = Awaited<ReturnType<typeof fetch
 export const useQ_Tables_ContractTemplates = ({ organizationId }: { organizationId: string }) => {
     const query = useQuery({
         enabled: !!organizationId,
-        queryKey: [...QueryKeys.contractTemplates.list(), { organizationId }],
+        queryKey: [...QueryKeys.contract_templates.list(), { organizationId }],
         queryFn: () => fetchContractTemplates(organizationId),
     });
 

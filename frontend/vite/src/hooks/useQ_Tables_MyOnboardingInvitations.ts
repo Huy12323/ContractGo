@@ -27,7 +27,7 @@ export type Tables_MyOnboardingInvitations_QueryData = Awaited<
 
 export const useQ_Tables_MyOnboardingInvitations = () => {
     const query = useQuery({
-        queryKey: QueryKeys.onboardingInvitations.mine(),
+        queryKey: [...QueryKeys.onboarding_invitations.list(), "mine"],
         queryFn: fetchMyOnboardingInvitations,
     });
 

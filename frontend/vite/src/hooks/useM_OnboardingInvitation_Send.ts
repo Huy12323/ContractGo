@@ -48,7 +48,7 @@ export const useM_OnboardingInvitation_Send = () => {
         onSuccess: () => {
             message.success("Onboarding invitation sent");
             queryClient.invalidateQueries({
-                queryKey: QueryKeys.onboardingInvitations.all(),
+                queryKey: QueryKeys.onboarding_invitations.all(),
             });
         },
         onError: (err: Error) => {

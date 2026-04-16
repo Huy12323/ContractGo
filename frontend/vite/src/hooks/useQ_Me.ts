@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
+import { useStore_Auth_User } from "@/stores/Store_Auth";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
 const fetchMe = async () => {
@@ -19,8 +20,11 @@ const fetchMe = async () => {
 export type Me_QueryData = Awaited<ReturnType<typeof fetchMe>>;
 
 export const useQ_Me = () => {
+    const user = useStore_Auth_User();
+    const userId = user?.id ?? "";
     const query = useQuery({
-        queryKey: QueryKeys.profiles.me(),
+        enabled: !!userId,
+        queryKey: QueryKeys.profiles.record(userId),
         queryFn: fetchMe,
     });
 

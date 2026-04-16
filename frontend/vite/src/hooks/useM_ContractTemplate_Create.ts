@@ -26,7 +26,7 @@ export const useM_ContractTemplate_Create = () => {
         },
         onSuccess: () => {
             message.success("Template created");
-            queryClient.invalidateQueries({ queryKey: QueryKeys.contractTemplates.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() });
         },
         onError: (err) => {
             console.error(err);

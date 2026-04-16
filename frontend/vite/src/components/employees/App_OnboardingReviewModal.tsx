@@ -3,7 +3,6 @@ import { Modal, Input, DatePicker, Button, Typography, Tag, Spin, theme, Empty }
 import { CheckCircleOutlined, MailOutlined, BankOutlined, TeamOutlined, EditOutlined } from '@ant-design/icons'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import { TableKit } from '@tiptap/extension-table'
 import type { JSONContent } from '@tiptap/core'
@@ -87,7 +86,6 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
             content: (qContract.contract?.form_snapshot as JSONContent) ?? { type: 'doc', content: [] },
             extensions: [
                 StarterKit,
-                Underline,
                 TextAlign.configure({ types: ['heading', 'paragraph'] }),
                 TableKit,
                 FieldInput,
