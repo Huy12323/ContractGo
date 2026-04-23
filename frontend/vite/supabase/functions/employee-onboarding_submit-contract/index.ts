@@ -82,20 +82,13 @@ Deno.serve(async (req) => {
     const { data: invitation, error: invError } = await supabaseAdmin
       .from("onboarding_invitations")
       .select(
-        "id, organization_id, employee_email, contract_template_id, prefilled_fields, status"
+        "id, organization_id, employee_email, contract_template_id, contract_template_version_id, template_snapshot, prefilled_fields, status"
       )
       .eq("invitation_token", invitation_token)
       .single();
 
     if (invError || !invitation) {
       return jsonResponse({ error: "Invitation not found" }, 404);
-    }
-
-    if (invitation.status !== "sent") {
-      return jsonResponse(
-        { error: `Invitation is already ${invitation.status}` },
-        409
-      );
     }
 
     if (
@@ -108,51 +101,127 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch template layout (snapshot source)
-    const { data: template, error: templateError } = await supabaseAdmin
-      .from("contract_templates")
-      .select("id, layout")
-      .eq("id", invitation.contract_template_id)
-      .single();
+    // Determine flow: first submit vs re-submit.
+    // - First submit: invitation.status === 'sent', no contract exists
+    // - Re-submit: invitation.status === 'accepted', contract exists at status 'sent' (HR sent back with comments)
+    const { data: existingContract, error: existingContractError } = await supabaseAdmin
+      .from("contracts")
+      .select("id, status, signature_path")
+      .eq("invitation_id", invitation.id)
+      .maybeSingle();
 
-    if (templateError || !template) {
-      return jsonResponse({ error: "Contract template not found" }, 404);
+    if (existingContractError) {
+      return jsonResponse({ error: existingContractError.message }, 500);
+    }
+
+    // Turn signal lives on invitation.status:
+    //   sent + no contract   → first fill
+    //   sent + contract=sent → resubmit (HR sent it back)
+    // Anything else means the employee isn't expected to act.
+    const isFirstSubmit = invitation.status === "sent" && !existingContract;
+    const isResubmit =
+      invitation.status === "sent" &&
+      !!existingContract &&
+      existingContract.status === "sent";
+
+    if (!isFirstSubmit && !isResubmit) {
+      return jsonResponse(
+        {
+          error: `Cannot submit: invitation is ${invitation.status}${
+            existingContract ? `, contract is ${existingContract.status}` : ", no contract"
+          }`,
+        },
+        409
+      );
+    }
+
+    // Validate mandatory fields against the MERGED view (HR prefill ∪ employee edits).
+    // Source is the invitation's SNAPSHOT (AHR-1490) — what the invitee actually saw
+    // and agreed to, not the (possibly since-edited) live template. field_values from
+    // client contains only employee-touched keys; HR's prefill may satisfy a mandatory
+    // key without the employee touching it. Stale mandatory keys (no longer in the
+    // snapshotted layout) are silently ignored.
+    const snapshot = (invitation.template_snapshot ?? {}) as {
+      layout?: unknown;
+      mandatory_field_keys?: string[];
+    };
+    const mandatoryKeys = (snapshot.mandatory_field_keys ?? []) as string[];
+    if (mandatoryKeys.length > 0) {
+      const layoutKeys = new Set<string>();
+      const walkLayout = (node: unknown) => {
+        if (node && typeof node === "object") {
+          const n = node as { type?: string; attrs?: { fieldKey?: string }; content?: unknown[] };
+          if (n.type === "fieldInput" && n.attrs?.fieldKey) layoutKeys.add(n.attrs.fieldKey);
+          if (Array.isArray(n.content)) n.content.forEach(walkLayout);
+        }
+      };
+      walkLayout(snapshot.layout);
+
+      const isMeaningful = (v: unknown) => v !== undefined && v !== null && v !== "";
+      const mergedForValidation = {
+        ...((invitation.prefilled_fields ?? {}) as Record<string, unknown>),
+        ...((field_values ?? {}) as Record<string, unknown>),
+      };
+      const missing = mandatoryKeys
+        .filter((k) => layoutKeys.has(k))
+        .filter((k) => !isMeaningful(mergedForValidation[k]));
+
+      if (missing.length > 0) {
+        return jsonResponse(
+          { error: "Missing required fields", missing_keys: missing },
+          400
+        );
+      }
     }
 
     const signerIp =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("cf-connecting-ip") ??
       null;
+    const signedAt = new Date().toISOString();
 
-    // Insert contract row first (employee_id NULL — set on HR approval)
-    const { data: contract, error: contractError } = await supabaseAdmin
-      .from("contracts")
-      .insert({
-        organization_id: invitation.organization_id,
-        employee_id: null,
-        invitation_id: invitation.id,
-        contract_template_id: invitation.contract_template_id,
-        form_snapshot: template.layout ?? {},
-        field_values: field_values ?? {},
-        prefilled_fields: invitation.prefilled_fields ?? {},
-        status: "filled",
-        signed_at: new Date().toISOString(),
-        signed_by: user.id,
-        signer_ip: signerIp,
-      })
-      .select("id")
-      .single();
+    // Resolve (or create) the contract row. In resubmit, we UPDATE the existing row.
+    let contractId: string;
+    if (isResubmit) {
+      contractId = existingContract!.id;
+    } else {
+      // AHR-1491: template_snapshot + contract_template_version_id copied from
+      // the invitation. snapshot.layout is the authoritative rendering source
+      // for the signed contract (bare JSONB layout, not the richer invitation
+      // snapshot shape). contract_template_version_id is the provenance pointer.
+      const snapshotLayout = (snapshot.layout ?? {}) as Record<string, unknown>;
 
-    if (contractError || !contract) {
-      console.error("Insert contract error:", contractError);
-      return jsonResponse(
-        { error: contractError?.message ?? "Failed to create contract" },
-        500
-      );
+      const { data: inserted, error: contractError } = await supabaseAdmin
+        .from("contracts")
+        .insert({
+          organization_id: invitation.organization_id,
+          employee_id: null,
+          invitation_id: invitation.id,
+          contract_template_id: invitation.contract_template_id,
+          contract_template_version_id: invitation.contract_template_version_id,
+          template_snapshot: snapshotLayout,
+          field_values: field_values ?? {},
+          prefilled_fields: invitation.prefilled_fields ?? {},
+          status: "filled",
+          signed_at: signedAt,
+          signed_by: user.id,
+          signer_ip: signerIp,
+        })
+        .select("id")
+        .single();
+
+      if (contractError || !inserted) {
+        console.error("Insert contract error:", contractError);
+        return jsonResponse(
+          { error: contractError?.message ?? "Failed to create contract" },
+          500
+        );
+      }
+      contractId = inserted.id;
     }
 
-    // Upload signature PNG to storage
-    const signaturePath = `${invitation.organization_id}/contracts/${contract.id}/signature.png`;
+    // Upload signature PNG to storage (path is keyed by contract.id — stable across resubmits)
+    const signaturePath = `${invitation.organization_id}/contracts/${contractId}/signature.png`;
     const signatureBytes = decodeBase64Png(signature_base64);
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -164,31 +233,46 @@ Deno.serve(async (req) => {
 
     if (uploadError) {
       console.error("Signature upload error:", uploadError);
-      // Rollback contract insert
-      await supabaseAdmin.from("contracts").delete().eq("id", contract.id);
+      // Rollback: first-submit deletes the newly-created contract. Resubmit leaves existing row alone.
+      if (!isResubmit) {
+        await supabaseAdmin.from("contracts").delete().eq("id", contractId);
+      }
       return jsonResponse(
         { error: "Failed to upload signature" },
         500
       );
     }
 
-    // Update contract with signature path
+    // Finalize contract: set signature_path + (resubmit) flip back to filled with new values
+    const contractUpdatePayload: Record<string, unknown> = isResubmit
+      ? {
+          signature_path: signaturePath,
+          field_values: field_values ?? {},
+          status: "filled",
+          signed_at: signedAt,
+          signed_by: user.id,
+          signer_ip: signerIp,
+        }
+      : { signature_path: signaturePath };
+
     const { error: updateError } = await supabaseAdmin
       .from("contracts")
-      .update({ signature_path: signaturePath })
-      .eq("id", contract.id);
+      .update(contractUpdatePayload)
+      .eq("id", contractId);
 
     if (updateError) {
-      console.error("Update contract signature path error:", updateError);
+      console.error("Update contract error:", updateError);
       await supabaseAdmin.storage.from("org-files").remove([signaturePath]);
-      await supabaseAdmin.from("contracts").delete().eq("id", contract.id);
+      if (!isResubmit) {
+        await supabaseAdmin.from("contracts").delete().eq("id", contractId);
+      }
       return jsonResponse(
         { error: "Failed to finalize contract" },
         500
       );
     }
 
-    // Flip invitation to accepted
+    // Both first-submit and resubmit flip invitation to 'accepted' — ball is now in HR's court.
     const { error: invUpdateError } = await supabaseAdmin
       .from("onboarding_invitations")
       .update({ status: "accepted" })
@@ -196,10 +280,10 @@ Deno.serve(async (req) => {
 
     if (invUpdateError) {
       console.error("Invitation update error:", invUpdateError);
-      // Contract is created successfully — don't rollback, surface the error
+      // Contract persisted successfully — don't rollback, surface the error.
       return jsonResponse(
         {
-          contract_id: contract.id,
+          contract_id: contractId,
           status: "contract_created_invitation_stale",
           error: invUpdateError.message,
         },
@@ -208,7 +292,7 @@ Deno.serve(async (req) => {
     }
 
     return jsonResponse(
-      { contract_id: contract.id, status: "filled" },
+      { contract_id: contractId, status: "filled" },
       200
     );
   } catch (err) {

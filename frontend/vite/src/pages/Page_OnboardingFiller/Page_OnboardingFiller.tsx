@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Button, Card, Spin, Typography, theme, App, Space, Tag } from 'antd'
-import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, SwapOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, MessageOutlined, SwapOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/core'
-import { App_ContractFiller } from '@/components/employees/App_ContractFiller'
+import { App_ContractFiller, extractFields } from '@/components/employees/App_ContractFiller'
 import { App_SignaturePad } from '@/components/employees/App_SignaturePad'
 import { useQ_PageOnboardingFiller_InvitationByToken } from '@/hooks/useQ_PageOnboardingFiller_InvitationByToken'
 import { useQ_PageOnboardingFiller_InvitationPreview } from '@/hooks/useQ_PageOnboardingFiller_InvitationPreview'
@@ -12,21 +12,7 @@ import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeC
 import { useM_Onboarding_SubmitContract } from '@/hooks/useM_Onboarding_SubmitContract'
 import { useQ_Me } from '@/hooks/useQ_Me'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
-
-const extractFieldKeys = (content: JSONContent): string[] => {
-    const keys: string[] = []
-    const walk = (node: JSONContent) => {
-        if (node.type === 'fieldInput' && node.attrs?.fieldKey) {
-            keys.push(node.attrs.fieldKey as string)
-        }
-        if (node.content) node.content.forEach(walk)
-    }
-    walk(content)
-    return keys
-}
-
-const hasMeaningfulValue = (v: unknown) =>
-    v !== undefined && v !== null && v !== ''
+import type { OnboardingInvitation_HrComments } from '@/types/invitation.types'
 
 const CenteredMessage = ({ children }: { children: React.ReactNode }) => {
     const { token } = theme.useToken()
@@ -76,9 +62,16 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     const preview = qPreview.preview
     const organizationId = invitation?.organization_id ?? ''
     const template = invitation?.contract_templates
+    // Render from the invitation's pinned snapshot (AHR-1490), not the live template.
+    // Snapshot is captured at send time and never mutates, so template edits after
+    // send cannot change what the invitee sees or what validation requires.
+    const snapshot = invitation?.template_snapshot as
+        | { layout?: JSONContent; mandatory_field_keys?: string[] }
+        | null
+        | undefined
     const layout = useMemo(
-        () => (template?.layout ?? { type: 'doc', content: [] }) as JSONContent,
-        [template?.layout],
+        () => (snapshot?.layout ?? { type: 'doc', content: [] }) as JSONContent,
+        [snapshot?.layout],
     )
 
     const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
@@ -89,33 +82,47 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         [invitation?.prefilled_fields],
     )
 
-    // Only lock keys whose prefilled value is actually non-empty.
-    // HR wizard (AHR-495) may submit empty strings for skipped fields; those should remain editable.
-    const readOnlyKeys = useMemo(
-        () => new Set(
-            Object.entries(prefilled)
-                .filter(([, v]) => hasMeaningfulValue(v))
-                .map(([k]) => k),
-        ),
-        [prefilled],
+    const mandatoryKeys = useMemo(
+        () => (snapshot?.mandatory_field_keys ?? []) as string[],
+        [snapshot?.mandatory_field_keys],
     )
+
+    // Existing contract (re-submit case) — invitation.contracts is a FK-reverse array
+    const existingContract = useMemo(
+        () => (invitation?.contracts?.[0] ?? null),
+        [invitation?.contracts],
+    )
+
+    const hrComments = useMemo(
+        () => (invitation?.hr_comments ?? []) as OnboardingInvitation_HrComments,
+        [invitation?.hr_comments],
+    )
+
+    const hasMeaningfulValue = (v: unknown) => v !== undefined && v !== null && v !== ''
 
     const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
     const [signature, setSignature] = useState<string | null>(null)
     const [signingOut, setSigningOut] = useState(false)
+    const [hydratedContractId, setHydratedContractId] = useState<string | null>(null)
     const mSubmit = useM_Onboarding_SubmitContract()
 
-    // Merge prefilled values into field state (prefilled acts as default; employee input overrides unless locked)
-    const mergedValues = useMemo(() => {
-        const merged: Record<string, unknown> = { ...fieldValues }
-        for (const [k, v] of Object.entries(prefilled)) {
-            if (hasMeaningfulValue(v)) merged[k] = v
-        }
-        return merged
-    }, [prefilled, fieldValues])
+    // If this is a sent-back contract (re-submit), hydrate fieldValues from the contract's stored values.
+    // Run once per contract id so we don't clobber in-progress edits on re-renders.
+    useEffect(() => {
+        if (!existingContract) return
+        if (existingContract.status !== 'sent') return
+        if (hydratedContractId === existingContract.id) return
+        setFieldValues((existingContract.field_values as Record<string, unknown>) ?? {})
+        setHydratedContractId(existingContract.id)
+    }, [existingContract, hydratedContractId])
+
+    // Prefilled values act as defaults; employee edits (including empty-string clears) override.
+    const mergedValues = useMemo(
+        () => ({ ...prefilled, ...fieldValues }),
+        [prefilled, fieldValues],
+    )
 
     const handleFieldChange = (key: string, value: unknown) => {
-        if (readOnlyKeys.has(key)) return
         setFieldValues((prev) => ({ ...prev, [key]: value }))
     }
 
@@ -141,17 +148,27 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
             return
         }
 
-        const requiredKeys = extractFieldKeys(layout).filter((k) => !readOnlyKeys.has(k))
-        const missing = requiredKeys.filter((k) => !hasMeaningfulValue(mergedValues[k]))
+        // Mandatory-field gate — only require keys that are both in mandatory_field_keys
+        // AND currently present in the layout. Stale keys (field removed from template)
+        // are silently ignored, matching edge-fn behavior.
+        const layoutFields = extractFields(layout)
+        const layoutKeys = new Set(layoutFields.map((f) => f.fieldKey))
+        const missing = mandatoryKeys
+            .filter((k) => layoutKeys.has(k))
+            .filter((k) => !hasMeaningfulValue(mergedValues[k]))
         if (missing.length > 0) {
-            message.error(`Please fill ${missing.length} remaining field${missing.length > 1 ? 's' : ''} before submitting`)
+            const labels = missing.map((k) => layoutFields.find((f) => f.fieldKey === k)?.fieldLabel ?? k)
+            message.error(`Please fill ${missing.length} required field${missing.length > 1 ? 's' : ''}: ${labels.join(', ')}`)
             return
         }
 
         try {
             await mSubmit.mutation.mutateAsync({
                 invitation_token: invitation.invitation_token,
-                field_values: mergedValues,
+                // field_values stores ONLY what the employee touched (adds + overrides).
+                // Final values are derived at read time: {...prefilled_fields, ...field_values}.
+                // The edge fn merges identically for mandatory validation.
+                field_values: fieldValues,
                 signature_base64: signature,
             })
             navigate({ to: '/' })
@@ -324,6 +341,14 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     }
 
     const departments = invitation.rel__department__invitation ?? []
+    const isSubmittedAwaitingReview = existingContract?.status === 'filled'
+    const isApproved = existingContract?.status === 'active'
+    const isResubmitMode = existingContract?.status === 'sent'
+    const formSubmittable = !existingContract || isResubmitMode
+
+    const formatCommentTime = (iso: string): string => {
+        try { return new Date(iso).toLocaleString() } catch { return iso }
+    }
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: token.paddingLG, gap: token.marginMD, overflow: 'hidden' }}>
@@ -348,6 +373,61 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                 </Space>
             </Card>
 
+            {/* Status banner */}
+            {isSubmittedAwaitingReview && (
+                <Card size="small" style={{ background: token.colorInfoBg, borderColor: token.colorInfoBorder }}>
+                    <Typography.Text>
+                        <strong>Submitted — awaiting HR review.</strong> You'll be notified once HR reviews your contract.
+                    </Typography.Text>
+                </Card>
+            )}
+            {isApproved && (
+                <Card size="small" style={{ background: token.colorSuccessBg, borderColor: token.colorSuccessBorder }}>
+                    <Typography.Text>
+                        <strong>Approved.</strong> Your onboarding is complete.
+                    </Typography.Text>
+                </Card>
+            )}
+            {isResubmitMode && (
+                <Card size="small" style={{ background: token.colorWarningBg, borderColor: token.colorWarningBorder }}>
+                    <Typography.Text>
+                        <strong>HR has requested changes.</strong> Please review the comments below, update your contract, re-sign, and resubmit.
+                    </Typography.Text>
+                </Card>
+            )}
+
+            {/* Secondary HR comments panel — only shown when there's no signature card to house them (submitted / approved states) */}
+            {!formSubmittable && hrComments.length > 0 && (
+                <Card size="small" title={<><MessageOutlined style={{ marginRight: token.marginXXS }} />HR Comments ({hrComments.length})</>}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
+                        {hrComments.map((c) => (
+                            <div
+                                key={c.id}
+                                style={{
+                                    background: token.colorFillQuaternary,
+                                    border: `1px solid ${token.colorBorderSecondary}`,
+                                    borderRadius: token.borderRadiusSM,
+                                    padding: token.paddingSM,
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                                    <Typography.Text strong style={{ fontSize: token.fontSizeSM }}>HR</Typography.Text>
+                                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                        {formatCommentTime(c.created_at)}
+                                    </Typography.Text>
+                                </div>
+                                <Typography.Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: token.fontSizeSM }}>
+                                    {c.body}
+                                </Typography.Paragraph>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
+
+            {!formSubmittable ? (
+                <div style={{ flex: 1 }} />
+            ) : (
             <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: token.marginMD, overflow: 'hidden' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <App_ContractFiller
@@ -356,11 +436,15 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                         onChange={handleFieldChange}
                         columns={qColumns.columns}
                         choices={qChoices.choices}
-                        readOnlyKeys={readOnlyKeys}
+                        mandatoryKeys={mandatoryKeys}
                     />
                 </div>
 
-                <Card size="small" style={{ width: 520, flexShrink: 0 }} styles={{ body: { padding: token.paddingSM } }}>
+                <Card
+                    size="small"
+                    style={{ width: 520, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                    styles={{ body: { padding: token.paddingSM, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' } }}
+                >
                     <App_SignaturePad value={signature} onChange={setSignature} />
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: token.marginMD }}>
                         <Button
@@ -369,11 +453,51 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                             loading={mSubmit.mutation.isPending}
                             onClick={handleSubmit}
                         >
-                            Submit contract
+                            {isResubmitMode ? 'Resubmit contract' : 'Submit contract'}
                         </Button>
                     </div>
+
+                    {hrComments.length > 0 && (
+                        <>
+                            {/* Separator between signature + submit and the HR comment thread */}
+                            <div style={{
+                                marginTop: token.marginMD,
+                                marginBottom: token.marginSM,
+                                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                            }} />
+                            <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM, marginBottom: token.marginXS }}>
+                                <MessageOutlined style={{ marginRight: token.marginXXS }} />
+                                HR Comments ({hrComments.length})
+                            </Typography.Text>
+                            {/* Scrollable comments region — fills remaining card height */}
+                            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: token.marginXS, marginTop: token.marginXS }}>
+                                {hrComments.map((c) => (
+                                    <div
+                                        key={c.id}
+                                        style={{
+                                            background: token.colorFillQuaternary,
+                                            border: `1px solid ${token.colorBorderSecondary}`,
+                                            borderRadius: token.borderRadiusSM,
+                                            padding: token.paddingXS,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                                            <Typography.Text strong style={{ fontSize: token.fontSizeSM }}>HR</Typography.Text>
+                                            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                                {formatCommentTime(c.created_at)}
+                                            </Typography.Text>
+                                        </div>
+                                        <Typography.Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: token.fontSizeSM }}>
+                                            {c.body}
+                                        </Typography.Paragraph>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </Card>
             </div>
+            )}
         </div>
     )
 }

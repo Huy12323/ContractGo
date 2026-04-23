@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Input, DatePicker, Button, Typography, Tag, Spin, theme, Empty } from 'antd'
-import { CheckCircleOutlined, MailOutlined, BankOutlined, TeamOutlined, EditOutlined } from '@ant-design/icons'
-import { useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import TextAlign from '@tiptap/extension-text-align'
-import { TableKit } from '@tiptap/extension-table'
+import { Modal, Input, Button, Typography, Tag, Spin, theme, Empty } from 'antd'
+import { CheckCircleOutlined, MailOutlined, BankOutlined, TeamOutlined, EditOutlined, MessageOutlined, SendOutlined, CloseOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/core'
 import { supabase } from '@/configs/supabase/config'
 import { useQ_Tables_Contract } from '@/hooks/useQ_Tables_Contract'
 import { useQ_Tables_OrgOnboardingInvitations } from '@/hooks/useQ_Tables_OrgOnboardingInvitations'
+import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
-import { useM_OnboardingInvitation_Approve } from '@/hooks/useM_OnboardingInvitation_Approve'
-import { FieldInput, fieldInputPreviewKey } from './ext_TipTap_FieldInput'
-import { App_ContractPreview } from './App_ContractPreview'
+import { useM_Contract_ApproveContent } from '@/hooks/useM_Contract_ApproveContent'
+import { useM_Contract_RequestChanges } from '@/hooks/useM_Contract_RequestChanges'
+import { App_ContractFiller } from './App_ContractFiller'
+import type { OnboardingInvitation_HrComments } from '@/types/invitation.types'
 
 type Props = {
     open: boolean
@@ -21,19 +19,24 @@ type Props = {
     organizationId: string
 }
 
+const formatCommentTime = (iso: string): string => {
+    try { return new Date(iso).toLocaleString() } catch { return iso }
+}
+
 export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizationId }: Props) => {
     const { token } = theme.useToken()
 
     const qContract = useQ_Tables_Contract({ contractId })
     const qInvitations = useQ_Tables_OrgOnboardingInvitations({ organizationId })
+    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
     const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
-    const mApprove = useM_OnboardingInvitation_Approve()
+    const mApproveContent = useM_Contract_ApproveContent()
+    const mRequestChanges = useM_Contract_RequestChanges()
 
-    const [firstName, setFirstName] = useState('')
-    const [lastName, setLastName] = useState('')
-    const [birthday, setBirthday] = useState<string>('')
     const [signedUrl, setSignedUrl] = useState<string | null>(null)
     const [signedUrlError, setSignedUrlError] = useState<string | null>(null)
+    const [composerOpen, setComposerOpen] = useState(false)
+    const [commentBody, setCommentBody] = useState('')
 
     // Locate the matching invitation row from the cached org list (avoids extra query)
     const invitation = useMemo(() => {
@@ -43,6 +46,11 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
         )
     }, [qContract.contract, qInvitations.invitations])
 
+    const hrComments = useMemo<OnboardingInvitation_HrComments>(
+        () => (invitation?.hr_comments as OnboardingInvitation_HrComments | undefined) ?? [],
+        [invitation?.hr_comments],
+    )
+
     const departments = useMemo(() => {
         if (!invitation) return []
         return (invitation.rel__department__invitation ?? [])
@@ -50,61 +58,20 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
             .filter((n): n is string => !!n)
     }, [invitation])
 
-    // Build choicesMap for the TipTap field-input render path
-    const choicesMap = useMemo(() => {
-        const map: Record<string, Array<{ label: string; value: string }>> = {}
-        for (const c of qChoices.choices) {
-            const key = c.employee_column_id
-            if (!map[key]) map[key] = []
-            map[key]!.push({ label: c.label, value: c.value })
-        }
-        return map
-    }, [qChoices.choices])
-
-    const mergedValues = useMemo(() => {
-        if (!qContract.contract) return {}
-        const prefilled = (qContract.contract.prefilled_fields as Record<string, unknown>) ?? {}
-        const filled = (qContract.contract.field_values as Record<string, unknown>) ?? {}
-        return { ...prefilled, ...filled }
-    }, [qContract.contract])
-
-    // Auto-pull universal employee fields from the contract — HR only fills missing ones
-    const readNonEmptyString = (val: unknown): string =>
-        typeof val === 'string' && val.trim() !== '' ? val.trim() : ''
-    const contractFirstName = readNonEmptyString(mergedValues.first_name)
-    const contractLastName = readNonEmptyString(mergedValues.last_name)
-    const contractBirthday = readNonEmptyString(mergedValues.birthday)
-
-    const resolvedFirstName = contractFirstName || firstName.trim()
-    const resolvedLastName = contractLastName || lastName.trim()
-    const resolvedBirthday = contractBirthday || birthday
-
-    // Read-only TipTap editor for the contract preview
-    const editor = useEditor(
-        {
-            editable: false,
-            content: (qContract.contract?.form_snapshot as JSONContent) ?? { type: 'doc', content: [] },
-            extensions: [
-                StarterKit,
-                TextAlign.configure({ types: ['heading', 'paragraph'] }),
-                TableKit,
-                FieldInput,
-            ],
-        },
-        [qContract.contract?.id],
+    const prefilledValues = useMemo(
+        () => (qContract.contract?.prefilled_fields as Record<string, unknown>) ?? {},
+        [qContract.contract?.prefilled_fields],
     )
 
-    // Inject merged values + choices into editor storage so FieldInput nodes render with values inline
-    useEffect(() => {
-        if (!editor) return
-        const storage = (editor.storage as Record<string, any>).fieldInput
-        storage.choicesMap = choicesMap
-        storage.values = mergedValues
-        storage.onChange = () => undefined
-        const { tr } = editor.state
-        tr.setMeta(fieldInputPreviewKey, Date.now())
-        editor.view.dispatch(tr)
-    }, [editor, choicesMap, mergedValues])
+    const filledValues = useMemo(
+        () => (qContract.contract?.field_values as Record<string, unknown>) ?? {},
+        [qContract.contract?.field_values],
+    )
+
+    const mergedValues = useMemo(
+        () => ({ ...prefilledValues, ...filledValues }),
+        [prefilledValues, filledValues],
+    )
 
     // Resolve signed URL for the signature image
     useEffect(() => {
@@ -132,30 +99,39 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
         }
     }, [open, qContract.contract?.signature_path])
 
-    // Reset form whenever the modal opens (or contract changes)
+    // Reset composer whenever the modal opens (or contract changes)
     useEffect(() => {
         if (open) {
-            setFirstName('')
-            setLastName('')
-            setBirthday('')
+            setComposerOpen(false)
+            setCommentBody('')
         }
     }, [open, contractId])
 
-    const handleApprove = () => {
-        if (!contractId) return
-        if (!resolvedFirstName || !resolvedLastName) return
-        mApprove.mutation.mutate(
-            {
-                contract_id: contractId,
-                first_name: resolvedFirstName,
-                last_name: resolvedLastName,
-                birthday: resolvedBirthday || undefined,
-            },
+    const handleApproveContent = () => {
+        if (!invitation) return
+        mApproveContent.mutation.mutate(
+            { invitation_id: invitation.id },
             { onSuccess: onClose },
         )
     }
 
+    const handleSendChanges = () => {
+        if (!invitation) return
+        const trimmed = commentBody.trim()
+        if (!trimmed) return
+        mRequestChanges.mutation.mutate(
+            { invitation_id: invitation.id, comment_body: trimmed },
+            { onSuccess: onClose },
+        )
+    }
+
+    const handleCancelComposer = () => {
+        setComposerOpen(false)
+        setCommentBody('')
+    }
+
     const isLoading = qContract.query.isLoading || qInvitations.query.isLoading
+    const isActionPending = mApproveContent.mutation.isPending || mRequestChanges.mutation.isPending
 
     return (
         <Modal
@@ -213,12 +189,20 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
 
                     {/* Body: contract preview + sidebar */}
                     <div style={{ flex: 1, display: 'flex', gap: token.marginMD, minHeight: 0 }}>
-                        {/* Left: contract preview */}
+                        {/* Left: per-field diff cards + contract preview via App_ContractFiller (review mode) */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <App_ContractPreview editor={editor} />
+                            <App_ContractFiller
+                                mode="review"
+                                layout={(qContract.contract.template_snapshot as JSONContent) ?? { type: 'doc', content: [] }}
+                                fieldValues={mergedValues}
+                                prefilledValues={prefilledValues}
+                                onChange={() => {}}
+                                columns={qColumns.columns}
+                                choices={qChoices.choices}
+                            />
                         </div>
 
-                        {/* Right: signature + approval form */}
+                        {/* Right: comments thread + signature + actions */}
                         <div
                             style={{
                                 width: 340,
@@ -229,6 +213,44 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                                 overflow: 'auto',
                             }}
                         >
+                            {/* HR comment thread */}
+                            <div>
+                                <Typography.Text strong style={{ display: 'block', marginBottom: token.marginXS }}>
+                                    <MessageOutlined style={{ marginRight: token.marginXXS }} />
+                                    HR Comments ({hrComments.length})
+                                </Typography.Text>
+                                {hrComments.length === 0 ? (
+                                    <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                                        No comments yet
+                                    </Typography.Text>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
+                                        {hrComments.map((c) => (
+                                            <div
+                                                key={c.id}
+                                                style={{
+                                                    background: token.colorFillQuaternary,
+                                                    border: `1px solid ${token.colorBorderSecondary}`,
+                                                    borderRadius: token.borderRadiusSM,
+                                                    padding: token.paddingSM,
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                                                    <Typography.Text strong style={{ fontSize: token.fontSizeSM }}>HR</Typography.Text>
+                                                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                                        {formatCommentTime(c.created_at)}
+                                                    </Typography.Text>
+                                                </div>
+                                                <Typography.Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: token.fontSizeSM }}>
+                                                    {c.body}
+                                                </Typography.Paragraph>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Signature */}
                             <div>
                                 <Typography.Text strong style={{ display: 'block', marginBottom: token.marginXS }}>
                                     Signature
@@ -262,83 +284,59 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                                 </div>
                             </div>
 
+                            {/* Actions */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
-                                <Typography.Text strong>Employee Details</Typography.Text>
-
-                                {/* First Name */}
-                                {contractFirstName ? (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            First Name <Tag color="blue" style={{ marginLeft: 4 }}>From contract</Tag>
-                                        </Typography.Text>
-                                        <Typography.Text>{contractFirstName}</Typography.Text>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            First Name *
-                                        </Typography.Text>
-                                        <Input
-                                            placeholder="First name"
-                                            value={firstName}
-                                            onChange={(e) => setFirstName(e.target.value)}
+                                <Typography.Text strong>Actions</Typography.Text>
+                                {composerOpen ? (
+                                    <>
+                                        <Input.TextArea
+                                            placeholder="Tell the employee what to change…"
+                                            autoSize={{ minRows: 3, maxRows: 6 }}
+                                            value={commentBody}
+                                            onChange={(e) => setCommentBody(e.target.value)}
+                                            disabled={isActionPending}
                                         />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: token.marginXS }}>
+                                            <Button
+                                                icon={<CloseOutlined />}
+                                                onClick={handleCancelComposer}
+                                                disabled={isActionPending}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                icon={<SendOutlined />}
+                                                loading={mRequestChanges.mutation.isPending}
+                                                disabled={!commentBody.trim()}
+                                                onClick={handleSendChanges}
+                                            >
+                                                Send Back
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
+                                        <Button
+                                            type="primary"
+                                            icon={<CheckCircleOutlined />}
+                                            loading={mApproveContent.mutation.isPending}
+                                            disabled={isActionPending}
+                                            onClick={handleApproveContent}
+                                            block
+                                        >
+                                            Approve Content
+                                        </Button>
+                                        <Button
+                                            icon={<MessageOutlined />}
+                                            disabled={isActionPending}
+                                            onClick={() => setComposerOpen(true)}
+                                            block
+                                        >
+                                            Request Changes
+                                        </Button>
                                     </div>
                                 )}
-
-                                {/* Last Name */}
-                                {contractLastName ? (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            Last Name <Tag color="blue" style={{ marginLeft: 4 }}>From contract</Tag>
-                                        </Typography.Text>
-                                        <Typography.Text>{contractLastName}</Typography.Text>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            Last Name *
-                                        </Typography.Text>
-                                        <Input
-                                            placeholder="Last name"
-                                            value={lastName}
-                                            onChange={(e) => setLastName(e.target.value)}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Birthday */}
-                                {contractBirthday ? (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            Birthday <Tag color="blue" style={{ marginLeft: 4 }}>From contract</Tag>
-                                        </Typography.Text>
-                                        <Typography.Text>{contractBirthday}</Typography.Text>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: token.fontSizeSM }}>
-                                            Birthday (optional)
-                                        </Typography.Text>
-                                        <DatePicker
-                                            style={{ width: '100%' }}
-                                            onChange={(_d, ds) => setBirthday(typeof ds === 'string' ? ds : '')}
-                                        />
-                                    </div>
-                                )}
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: token.marginXS, marginTop: token.marginSM }}>
-                                    <Button onClick={onClose}>Cancel</Button>
-                                    <Button
-                                        type="primary"
-                                        icon={<CheckCircleOutlined />}
-                                        loading={mApprove.mutation.isPending}
-                                        disabled={!resolvedFirstName || !resolvedLastName}
-                                        onClick={handleApprove}
-                                    >
-                                        Approve
-                                    </Button>
-                                </div>
                             </div>
                         </div>
                     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Modal, Input, Button, Typography, Segmented, Select, Dropdown, App, theme } from 'antd'
+import { Modal, Input, Button, Typography, Segmented, Select, Dropdown, App, theme, Tooltip } from 'antd'
 import {
     AlignCenterOutlined,
     AlignLeftOutlined,
@@ -16,8 +16,9 @@ import {
     UnorderedListOutlined,
     EyeOutlined,
     FormOutlined,
+    HistoryOutlined,
 } from '@ant-design/icons'
-import { AlignJustify } from 'lucide-react'
+import { AlignJustify, Asterisk } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
@@ -30,9 +31,10 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_ContractTemplate_Create } from '@/hooks/useM_ContractTemplate_Create'
 import { useM_ContractTemplate_Update } from '@/hooks/useM_ContractTemplate_Update'
-import { FieldInput, fieldInputPreviewKey } from './ext_TipTap_FieldInput'
+import { FieldInput, FieldInputContext, fieldInputPreviewKey, type FieldInputContextValue } from './ext_TipTap_FieldInput'
 import { App_ContractPreview } from './App_ContractPreview'
 import { App_EmployeeFieldComposerModal } from './App_EmployeeFieldComposerModal'
+import { App_ContractTemplateVersionsModal, type App_ContractTemplateVersionsModal_OnRestored } from './App_ContractTemplateVersionsModal'
 import { isTipTapLayout, utils_FormBuilder_migrateLayout } from './utils_FormBuilder_migrateLayout'
 import type { Json } from '@/types/database.types'
 
@@ -107,12 +109,14 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const [preview, setPreview] = useState(false)
     const [search, setSearch] = useState('')
     const [fieldManagerOpen, setFieldManagerOpen] = useState(false)
-    const [, setTick] = useState(0)
+    const [tick, setTick] = useState(0)
     const [headings, setHeadings] = useState<HeadingEntry[]>([])
-    const initialStateRef = useRef<{ name: string; layout: string }>({ name: '', layout: '' })
+    const [mandatorySet, setMandatorySet] = useState<Set<string>>(new Set())
+    const initialStateRef = useRef<{ name: string; layout: string; mandatory: string }>({ name: '', layout: '', mandatory: '[]' })
     const [isDirty, setIsDirty] = useState(false)
     const [saveAsOpen, setSaveAsOpen] = useState(false)
     const [saveAsName, setSaveAsName] = useState('')
+    const [historyOpen, setHistoryOpen] = useState(false)
     const [rowIndicator, setRowIndicator] = useState<LineIndicator | null>(null)
     const [colIndicator, setColIndicator] = useState<LineIndicator | null>(null)
     const editorAreaRef = useRef<HTMLDivElement>(null)
@@ -147,11 +151,10 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const [usedKeys, setUsedKeys] = useState<Set<string>>(new Set())
 
     const availableFields = useMemo(() => {
-        const unused = allFields.filter((f) => !usedKeys.has(f.key))
-        if (!search.trim()) return unused
+        if (!search.trim()) return allFields
         const q = search.toLowerCase()
-        return unused.filter((f) => f.label.toLowerCase().includes(q) || f.type.toLowerCase().includes(q))
-    }, [allFields, usedKeys, search])
+        return allFields.filter((f) => f.label.toLowerCase().includes(q) || f.type.toLowerCase().includes(q))
+    }, [allFields, search])
 
     const syncUsedKeys = useCallback((editorInstance: { getJSON: () => { type: string; content?: unknown[]; attrs?: Record<string, string> } }) => {
         const keys = new Set<string>()
@@ -183,8 +186,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                 if (node.type.name === 'heading') h.push({ level: node.attrs.level as number, text: node.textContent, pos })
             })
             setHeadings(h)
-            const currentLayout = JSON.stringify(e.getJSON())
-            setIsDirty(currentLayout !== initialStateRef.current.layout)
+            // Dirty reconciled by the mandatorySet+formName useEffect below — which runs
+            // on every layout transaction via the tick state. Here we just track structure.
         },
         immediatelyRender: false,
     })
@@ -200,6 +203,23 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     useEffect(() => {
         if (editor) (editor.storage as Record<string, any>).fieldInput.choicesMap = choicesMap
     }, [editor, choicesMap])
+
+    const toggleMandatory = useCallback((key: string) => {
+        setMandatorySet((prev) => {
+            const next = new Set(prev)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
+            return next
+        })
+    }, [])
+
+    // Mandatory state + toggle callback are provided to FieldInput node-views via FieldInputContext
+    // (wrapped around EditorContent below). Context changes reliably re-render React NodeViews —
+    // storage mutation + decoration bumps don't, which caused the earlier sync bugs.
+    const fieldInputContextValue = useMemo<FieldInputContextValue>(
+        () => ({ mandatorySet, isBuilder: true, onToggleMandatory: toggleMandatory }),
+        [mandatorySet, toggleMandatory],
+    )
 
     // When a column is deleted upstream, remove any FieldInput nodes from the editor that
     // reference it. Targeted cleanup — preserves all other unsaved edits.
@@ -239,7 +259,36 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             tr.delete(removals[i]![0], removals[i]![1])
         }
         editor.view.dispatch(tr)
+
+        // Prune removed keys from mandatorySet too
+        setMandatorySet((prev) => {
+            const next = new Set(prev)
+            for (const k of removedKeys) next.delete(k)
+            return next
+        })
     }, [editor, qColumns.columns])
+
+    // Unified dirty check — runs on every transaction (via tick), mandatory/name changes
+    useEffect(() => {
+        if (!editor) return
+        const mandatoryChanged = JSON.stringify([...mandatorySet].sort()) !== initialStateRef.current.mandatory
+        const layoutChanged = JSON.stringify(editor.getJSON()) !== initialStateRef.current.layout
+        const nameChanged = formName !== initialStateRef.current.name
+        setIsDirty(mandatoryChanged || layoutChanged || nameChanged)
+    }, [editor, mandatorySet, formName, tick])
+
+    // Prune mandatorySet when fields are removed from the layout
+    useEffect(() => {
+        setMandatorySet((prev) => {
+            let changed = false
+            const next = new Set<string>()
+            for (const k of prev) {
+                if (usedKeys.has(k)) next.add(k)
+                else changed = true
+            }
+            return changed ? next : prev
+        })
+    }, [usedKeys])
 
     // Delete key removes selected rows/cols; Backspace only clears content (default)
     useEffect(() => {
@@ -281,10 +330,12 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         if (hydratedKeyRef.current === sessionKey) return
 
         let resolvedName = ''
+        let resolvedMandatory: string[] = []
         if (formId) {
             const existing = qTemplates.templates.find((f) => f.id === formId)
             if (!existing) return // wait for templates query to load this form
             resolvedName = existing.name
+            resolvedMandatory = (existing.mandatory_field_keys ?? []) as string[]
             setFormName(existing.name)
             const layout = existing.layout
             if (isTipTapLayout(layout)) {
@@ -298,22 +349,38 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             setFormName('')
             editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
         }
+        setMandatorySet(new Set(resolvedMandatory))
         setPreview(false)
         setSearch('')
         setIsDirty(false)
         syncUsedKeys(editor)
         hydratedKeyRef.current = sessionKey
-        // Snapshot initial state after content is set
-        setTimeout(() => {
-            initialStateRef.current = { name: resolvedName, layout: JSON.stringify(editor.getJSON()) }
-        }, 0)
+        // Snapshot initial state synchronously — editor.commands.setContent() above is sync,
+        // so editor.getJSON() already reflects the new content. Deferring via setTimeout would
+        // let the dirty-check effect run against the PREVIOUS template's snapshot, falsely
+        // flagging the freshly-loaded template as dirty.
+        initialStateRef.current = {
+            name: resolvedName,
+            layout: JSON.stringify(editor.getJSON()),
+            mandatory: JSON.stringify([...resolvedMandatory].sort()),
+        }
     }, [open, formId, qTemplates.templates, editor, syncUsedKeys])
 
-    const handleNameChange = (name: string) => {
-        setFormName(name)
-        const layoutChanged = editor ? JSON.stringify(editor.getJSON()) !== initialStateRef.current.layout : false
-        setIsDirty(name !== initialStateRef.current.name || layoutChanged)
+    const handleRestored: App_ContractTemplateVersionsModal_OnRestored = (body) => {
+        if (!editor) return
+        editor.commands.setContent(body.layout)
+        const restoredMandatory = body.mandatory_field_keys ?? []
+        setMandatorySet(new Set(restoredMandatory))
+        setIsDirty(false)
+        syncUsedKeys(editor)
+        initialStateRef.current = {
+            name: formName,
+            layout: JSON.stringify(editor.getJSON()),
+            mandatory: JSON.stringify([...restoredMandatory].sort()),
+        }
     }
+
+    const handleNameChange = (name: string) => setFormName(name)
 
     const insertField = (field: { key: string; label: string; type: string }) => {
         editor?.chain().focus().insertContent({
@@ -325,10 +392,11 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const handleSave = async () => {
         if (!formName.trim() || !editor) return
         const layout: Json = editor.getJSON() as Json
+        const mandatory_field_keys = Array.from(mandatorySet)
         if (formId) {
-            await mUpdate.mutation.mutateAsync({ name: formName.trim(), layout })
+            await mUpdate.mutation.mutateAsync({ name: formName.trim(), layout, mandatory_field_keys })
         } else {
-            await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: formName.trim(), layout })
+            await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: formName.trim(), layout, mandatory_field_keys })
         }
         onClose()
     }
@@ -341,7 +409,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const handleSaveAs = async () => {
         if (!saveAsName.trim() || !editor) return
         const layout: Json = editor.getJSON() as Json
-        await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: saveAsName.trim(), layout })
+        const mandatory_field_keys = Array.from(mandatorySet)
+        await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: saveAsName.trim(), layout, mandatory_field_keys })
         setSaveAsOpen(false)
         onClose()
     }
@@ -499,6 +568,16 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                     placeholder="e.g. Standard Employment Contract"
                     style={{ flex: 1, maxWidth: 400 }}
                 />
+                <Tooltip title={formId ? 'Version history' : 'Save the template first to see history'}>
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={<HistoryOutlined />}
+                        disabled={!formId}
+                        onClick={() => setHistoryOpen(true)}
+                        style={{ marginLeft: 'auto' }}
+                    />
+                </Tooltip>
                 <Segmented
                     size="small"
                     value={preview ? 'preview' : 'edit'}
@@ -507,7 +586,6 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                         { value: 'edit', icon: <FormOutlined /> },
                         { value: 'preview', icon: <EyeOutlined /> },
                     ]}
-                    style={{ marginLeft: 'auto' }}
                 />
             </div>
 
@@ -516,8 +594,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                 {/* Field palette sidebar */}
                 {!preview && (
                     <div style={{
-                        width: 220,
-                        minWidth: 220,
+                        width: 300,
+                        minWidth: 300,
                         display: 'flex',
                         flexDirection: 'column',
                         borderRight: `1px solid ${token.colorBorderSecondary}`,
@@ -538,55 +616,104 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                     allowClear
                                 />
                             </div>
+                            {/* Column header */}
+                            <div style={{
+                                flexShrink: 0,
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto 24px',
+                                alignItems: 'center',
+                                gap: token.marginXS,
+                                padding: `0 ${token.paddingSM}px`,
+                                marginBottom: token.marginXXS,
+                            }}>
+                                <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Label</Typography.Text>
+                                <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Type</Typography.Text>
+                                <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Req</Typography.Text>
+                            </div>
                             <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: token.marginXXS }}>
                                 {availableFields.length === 0 && (
                                     <Typography.Text type="secondary" style={{ fontSize: 12, padding: token.paddingSM }}>
-                                        {search ? 'No matching fields' : 'All fields are in use'}
+                                        {search ? 'No matching fields' : 'No fields defined'}
                                     </Typography.Text>
                                 )}
-                                {availableFields.map((f) => (
-                                    <div
-                                        key={f.key}
-                                        onClick={() => insertField(f)}
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            padding: `${token.paddingXXS}px ${token.paddingSM}px`,
-                                            border: `1px solid ${token.colorBorderSecondary}`,
-                                            borderRadius: token.borderRadius,
-                                            background: token.colorBgContainer,
-                                            cursor: 'pointer',
-                                            userSelect: 'none',
-                                        }}
-                                    >
-                                        <Typography.Text strong ellipsis style={{ fontSize: 13 }}>{f.label}</Typography.Text>
-                                        <Typography.Text type="secondary" style={{ fontSize: 11, flexShrink: 0, marginLeft: token.marginXS }}>{f.type}</Typography.Text>
-                                    </div>
-                                ))}
+                                {availableFields.map((f) => {
+                                    const isUsed = usedKeys.has(f.key)
+                                    const isMandatory = mandatorySet.has(f.key)
+                                    const bg = !isUsed
+                                        ? token.colorBgContainer
+                                        : isMandatory
+                                            ? token.colorErrorBg
+                                            : token.colorPrimaryBg
+                                    const borderColor = !isUsed
+                                        ? token.colorBorderSecondary
+                                        : isMandatory
+                                            ? token.colorErrorBorder
+                                            : token.colorPrimaryBorder
+                                    return (
+                                        <div
+                                            key={f.key}
+                                            onClick={isUsed ? undefined : () => insertField(f)}
+                                            style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: '1fr auto 24px',
+                                                alignItems: 'center',
+                                                gap: token.marginXS,
+                                                padding: `${token.paddingXXS}px ${token.paddingSM}px`,
+                                                border: `1px solid ${borderColor}`,
+                                                borderRadius: token.borderRadius,
+                                                background: bg,
+                                                cursor: isUsed ? 'default' : 'pointer',
+                                                userSelect: 'none',
+                                            }}
+                                        >
+                                            <Typography.Text strong ellipsis style={{ fontSize: 13, minWidth: 0 }}>{f.label}</Typography.Text>
+                                            <Typography.Text type="secondary" style={{ fontSize: 11 }}>{f.type}</Typography.Text>
+                                            {isUsed ? (
+                                                <span
+                                                    role="button"
+                                                    title={isMandatory ? 'Required — click to make optional' : 'Click to mark as required'}
+                                                    onClick={(e) => { e.stopPropagation(); toggleMandatory(f.key) }}
+                                                    style={{
+                                                        justifySelf: 'center',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: 18,
+                                                        height: 18,
+                                                        cursor: 'pointer',
+                                                        borderRadius: token.borderRadius,
+                                                        background: isMandatory ? token.colorError : 'transparent',
+                                                        border: `1px solid ${isMandatory ? token.colorError : token.colorBorder}`,
+                                                        color: token.colorTextLightSolid,
+                                                    }}
+                                                >
+                                                    {isMandatory && <Asterisk size={12} strokeWidth={3} />}
+                                                </span>
+                                            ) : (
+                                                <span />
+                                            )}
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
+                    </div>
+                )}
 
-                        {/* Divider */}
-                        <div style={{ flexShrink: 0, margin: `${token.marginSM}px 0`, borderTop: `2px solid ${token.colorBorderSecondary}`, position: 'relative' }}>
-                            <Typography.Text
-                                type="secondary"
-                                style={{
-                                    fontSize: 11,
-                                    position: 'absolute',
-                                    top: -9,
-                                    left: 0,
-                                    background: token.colorBgElevated,
-                                    paddingRight: token.paddingXS,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.5,
-                                }}
-                            >
-                                Outline
-                            </Typography.Text>
-                        </div>
-
-                        {/* Document Outline */}
+                {/* Outline column */}
+                {!preview && (
+                    <div style={{
+                        width: 260,
+                        minWidth: 260,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRight: `1px solid ${token.colorBorderSecondary}`,
+                        paddingRight: token.paddingMD,
+                        overflow: 'hidden',
+                    }}>
+                        <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: token.marginXS, flexShrink: 0 }}>
+                            Outline
+                        </Typography.Text>
                         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                             {headings.length === 0 && (
                                 <Typography.Text type="secondary" style={{ fontSize: 12, padding: token.paddingSM }}>
@@ -686,9 +813,11 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
 
                     {/* Editor area */}
                     {preview ? (
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <App_ContractPreview editor={editor} />
-                        </div>
+                        <FieldInputContext.Provider value={fieldInputContextValue}>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                <App_ContractPreview editor={editor} />
+                            </div>
+                        </FieldInputContext.Provider>
                     ) : (
                     <div
                     ref={editorAreaRef}
@@ -704,7 +833,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                     }}
                 >
                     <div>
-                        <EditorContent editor={editor} />
+                        <FieldInputContext.Provider value={fieldInputContextValue}>
+                            <EditorContent editor={editor} />
+                        </FieldInputContext.Provider>
                     </div>
 
                     {/* Table hover "+" indicators — row on left, col on top */}
@@ -761,6 +892,14 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                 open={fieldManagerOpen}
                 onClose={() => setFieldManagerOpen(false)}
                 organizationId={organizationId}
+            />
+
+            <App_ContractTemplateVersionsModal
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                templateId={formId ?? ''}
+                organizationId={organizationId}
+                onRestored={handleRestored}
             />
 
             <Modal

@@ -56,29 +56,20 @@ Deno.serve(async (req) => {
     const {
       organization_id,
       employee_email,
-      entity_id,
       contract_template_id,
-      department_ids,
       prefilled_fields,
     } = (await req.json()) as {
       organization_id: string;
       employee_email: string;
-      entity_id: string;
       contract_template_id: string;
-      department_ids: string[];
       prefilled_fields: Record<string, unknown>;
     };
 
-    if (
-      !organization_id ||
-      !employee_email ||
-      !entity_id ||
-      !contract_template_id
-    ) {
+    if (!organization_id || !employee_email || !contract_template_id) {
       return jsonResponse(
         {
           error:
-            "organization_id, employee_email, entity_id, and contract_template_id are required",
+            "organization_id, employee_email, and contract_template_id are required",
         },
         400
       );
@@ -187,14 +178,37 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: message }, 409);
     }
 
-    // Insert onboarding invitation
+    // Pin the invitation to the template's current latest version (AHR-1490).
+    // Snapshot its layout + mandatory_field_keys so the invitation renders and
+    // validates correctly even if the template is later edited or hard-deleted.
+    const { data: version, error: versionError } = await supabaseAdmin
+      .from("contract_template_versions")
+      .select("id, layout, mandatory_field_keys")
+      .eq("template_id", contract_template_id)
+      .order("version_number", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (versionError || !version) {
+      console.error("Resolve latest version error:", versionError);
+      return jsonResponse(
+        { error: "Contract template has no version row — cannot send invitation" },
+        500
+      );
+    }
+
+    // Insert onboarding invitation — entity + departments decided at placement (AHR-1178)
     const { data: invitation, error: insertError } = await supabaseAdmin
       .from("onboarding_invitations")
       .insert({
         organization_id,
         employee_email: employee_email.toLowerCase().trim(),
-        entity_id,
         contract_template_id,
+        contract_template_version_id: version.id,
+        template_snapshot: {
+          layout: version.layout,
+          mandatory_field_keys: version.mandatory_field_keys,
+        },
         prefilled_fields: prefilled_fields || {},
         sent_by: user.id,
       })
@@ -204,31 +218,6 @@ Deno.serve(async (req) => {
     if (insertError) {
       console.error("Insert invitation error:", insertError);
       return jsonResponse({ error: insertError.message }, 500);
-    }
-
-    // Insert department junction rows
-    if (department_ids && department_ids.length > 0) {
-      const junctionRows = department_ids.map((department_id: string) => ({
-        invitation_id: invitation.id,
-        department_id,
-      }));
-
-      const { error: junctionError } = await supabaseAdmin
-        .from("rel__department__invitation")
-        .insert(junctionRows);
-
-      if (junctionError) {
-        console.error("Insert junction error:", junctionError);
-        // Clean up the invitation if junction insert fails
-        await supabaseAdmin
-          .from("onboarding_invitations")
-          .delete()
-          .eq("id", invitation.id);
-        return jsonResponse(
-          { error: "Failed to assign departments" },
-          500
-        );
-      }
     }
 
     // Send email via shared--send-email
