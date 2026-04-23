@@ -5,6 +5,7 @@ import { useQ_Tables_OrgOnboardingInvitations, type Tables_OrgOnboardingInvitati
 import { useM_OnboardingInvitation_Delete } from '@/hooks/useM_OnboardingInvitation_Delete'
 import { App_OnboardingWizardModal } from './App_OnboardingWizardModal'
 import { App_OnboardingReviewModal } from './App_OnboardingReviewModal'
+import { App_ContractTemplatesManagerModal } from './App_ContractTemplatesManagerModal'
 
 type Props = {
     open: boolean
@@ -56,6 +57,7 @@ export const App_OnboardingModal = ({ open, onClose, organizationId }: Props) =>
     const { modal } = App.useApp()
 
     const [wizardOpen, setWizardOpen] = useState(false)
+    const [templatesManagerOpen, setTemplatesManagerOpen] = useState(false)
     const [reviewContractId, setReviewContractId] = useState<string | null>(null)
 
     const qInvitations = useQ_Tables_OrgOnboardingInvitations({ organizationId })
@@ -353,13 +355,21 @@ export const App_OnboardingModal = ({ open, onClose, organizationId }: Props) =>
                             <FileTextOutlined style={{ marginRight: token.marginXS }} />
                             Onboarding
                         </span>
-                        <Button
-                            type="primary"
-                            icon={<UserAddOutlined />}
-                            onClick={() => setWizardOpen(true)}
-                        >
-                            Onboard Employee
-                        </Button>
+                        <div style={{ display: 'flex', gap: token.marginXS }}>
+                            <Button
+                                icon={<FileTextOutlined />}
+                                onClick={() => setTemplatesManagerOpen(true)}
+                            >
+                                Manage Templates
+                            </Button>
+                            <Button
+                                type="primary"
+                                icon={<UserAddOutlined />}
+                                onClick={() => setWizardOpen(true)}
+                            >
+                                Onboard Employee
+                            </Button>
+                        </div>
                     </div>
                 }
                 width="80vw"
@@ -376,6 +386,12 @@ export const App_OnboardingModal = ({ open, onClose, organizationId }: Props) =>
             <App_OnboardingWizardModal
                 open={wizardOpen}
                 onClose={() => setWizardOpen(false)}
+                organizationId={organizationId}
+            />
+
+            <App_ContractTemplatesManagerModal
+                open={templatesManagerOpen}
+                onClose={() => setTemplatesManagerOpen(false)}
                 organizationId={organizationId}
             />
 

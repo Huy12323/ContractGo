@@ -4,7 +4,8 @@ import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import { TableKit } from '@tiptap/extension-table'
-import { FieldInput, fieldInputPreviewKey } from './ext_TipTap_FieldInput'
+import dayjs from 'dayjs'
+import { FieldInput, FieldInputContext, fieldInputPreviewKey, type FieldInputContextValue } from './ext_TipTap_FieldInput'
 import { App_ContractPreview } from './App_ContractPreview'
 import type { JSONContent } from '@tiptap/core'
 import type { Tables_EmployeeColumns_QueryData } from '@/hooks/useQ_Tables_EmployeeColumns'
@@ -23,11 +24,15 @@ type Props = {
     onChange: (fieldKey: string, value: unknown) => void
     columns: Tables_EmployeeColumns_QueryData
     choices: Tables_EmployeeColumnChoices_QueryData
-    readOnlyKeys?: ReadonlySet<string>
+    mode?: 'fill' | 'review'
+    prefilledValues?: Record<string, unknown>
+    mandatoryKeys?: string[]
 }
 
+const isMeaningful = (v: unknown): boolean => v !== undefined && v !== null && v !== ''
+
 /** Extracts all fieldInput nodes from TipTap JSONContent */
-const extractFields = (content: JSONContent): Array<{ fieldKey: string; fieldLabel: string; fieldType: string }> => {
+export const extractFields = (content: JSONContent): Array<{ fieldKey: string; fieldLabel: string; fieldType: string }> => {
     const fields: Array<{ fieldKey: string; fieldLabel: string; fieldType: string }> = []
     const walk = (node: JSONContent) => {
         if (node.type === 'fieldInput' && node.attrs) {
@@ -66,7 +71,7 @@ const FieldControl = ({
         case 'number':
             return <InputNumber {...common} placeholder={fieldLabel} style={{ width: '100%' }} value={value as number | undefined} onChange={(v) => onChange(fieldKey, v)} />
         case 'date':
-            return <DatePicker {...common} placeholder={fieldLabel} style={{ width: '100%' }} onChange={(_d, ds) => onChange(fieldKey, ds)} />
+            return <DatePicker {...common} placeholder={fieldLabel} style={{ width: '100%' }} value={typeof value === 'string' && value ? dayjs(value) : null} onChange={(_d, ds) => onChange(fieldKey, ds)} />
         case 'boolean':
             return <Switch size="small" disabled={disabled} checked={!!value} onChange={(v) => onChange(fieldKey, v)} />
         case 'multi_select':
@@ -76,8 +81,19 @@ const FieldControl = ({
     }
 }
 
-export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, choices, readOnlyKeys }: Props) => {
+export const App_ContractFiller = ({
+    layout,
+    fieldValues,
+    onChange,
+    columns,
+    choices,
+    mode = 'fill',
+    prefilledValues,
+    mandatoryKeys,
+}: Props) => {
     const { token } = theme.useToken()
+    const isReview = mode === 'review'
+    const mandatorySet = useMemo(() => new Set(mandatoryKeys ?? []), [mandatoryKeys])
 
     const choicesMap = useMemo(() => {
         const map: Record<string, Array<{ label: string; value: string }>> = {}
@@ -102,7 +118,7 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
         ],
     })
 
-    // Inject choices map, values, and onChange into editor storage
+    // Inject choices map, values, onChange into editor storage (mandatory state flows via FieldInputContext below)
     useEffect(() => {
         if (!editor) return
         const storage = (editor.storage as Record<string, any>).fieldInput
@@ -114,6 +130,11 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
         tr.setMeta(fieldInputPreviewKey, Date.now())
         editor.view.dispatch(tr)
     }, [editor, choicesMap, fieldValues, onChangeRef])
+
+    const fieldInputContextValue = useMemo<FieldInputContextValue>(
+        () => ({ mandatorySet, isBuilder: false }),
+        [mandatorySet],
+    )
 
     // Extract fields from layout
     const fields = useMemo(() => extractFields(layout), [layout])
@@ -135,6 +156,7 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
     }, [columns, choicesMap])
 
     return (
+        <FieldInputContext.Provider value={fieldInputContextValue}>
         <div style={{ display: 'flex', gap: token.marginMD, height: '100%' }}>
             {/* Left: field list */}
             {fields.length > 0 && (
@@ -146,19 +168,24 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
                     overflow: 'hidden',
                 }}>
                     <Typography.Text strong style={{ marginBottom: token.marginSM, display: 'block', flexShrink: 0 }}>
-                        Pre-fill ({fields.length})
+                        {isReview ? `Fields (${fields.length})` : `Pre-fill (${fields.length})`}
                     </Typography.Text>
                     <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
                         {fields.map((f) => {
-                            const isFilled = fieldValues[f.fieldKey] !== undefined && fieldValues[f.fieldKey] !== '' && fieldValues[f.fieldKey] !== null
-                            const isLocked = !!readOnlyKeys?.has(f.fieldKey)
-                            const background = isLocked
-                                ? token.colorFillTertiary
+                            const resolvedType = fieldTypeMap[f.fieldKey] || f.fieldType
+                            const currentValue = fieldValues[f.fieldKey]
+                            const prefill = prefilledValues?.[f.fieldKey]
+                            const hasDiff = isReview
+                                && isMeaningful(prefill)
+                                && JSON.stringify(prefill) !== JSON.stringify(currentValue)
+                            const isFilled = isMeaningful(currentValue)
+                            const background = hasDiff
+                                ? token.colorWarningBg
                                 : isFilled
                                     ? token.colorSuccessBg
                                     : token.colorBgTextHover
-                            const border = isLocked
-                                ? `1px solid ${token.colorBorder}`
+                            const border = hasDiff
+                                ? `1px solid ${token.colorWarningBorder}`
                                 : isFilled
                                     ? `1px solid ${token.colorSuccessBorder}`
                                     : '1px solid transparent'
@@ -175,25 +202,50 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
                                     borderRadius: token.borderRadiusSM,
                                 }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                                        {f.fieldLabel}
-                                    </Typography.Text>
-                                    {isLocked && (
-                                        <Typography.Text type="secondary" style={{ fontSize: 10 }}>
-                                            Pre-filled
-                                        </Typography.Text>
+                                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                    {f.fieldLabel}
+                                    {mandatorySet.has(f.fieldKey) && (
+                                        <span style={{ color: token.colorError, marginLeft: 2 }}>*</span>
                                     )}
-                                </div>
-                                <FieldControl
-                                    fieldKey={f.fieldKey}
-                                    fieldLabel={f.fieldLabel}
-                                    fieldType={fieldTypeMap[f.fieldKey] || f.fieldType}
-                                    value={fieldValues[f.fieldKey]}
-                                    onChange={onChange}
-                                    choiceOptions={fieldChoicesMap[f.fieldKey] || []}
-                                    disabled={isLocked}
-                                />
+                                </Typography.Text>
+                                {hasDiff ? (
+                                    <>
+                                        <Typography.Text type="secondary" style={{ fontSize: 10, marginTop: token.marginXXS }}>
+                                            HR prefill
+                                        </Typography.Text>
+                                        <FieldControl
+                                            fieldKey={f.fieldKey}
+                                            fieldLabel={f.fieldLabel}
+                                            fieldType={resolvedType}
+                                            value={prefill}
+                                            onChange={onChange}
+                                            choiceOptions={fieldChoicesMap[f.fieldKey] || []}
+                                            disabled
+                                        />
+                                        <Typography.Text type="secondary" style={{ fontSize: 10, marginTop: token.marginXXS }}>
+                                            Employee filled
+                                        </Typography.Text>
+                                        <FieldControl
+                                            fieldKey={f.fieldKey}
+                                            fieldLabel={f.fieldLabel}
+                                            fieldType={resolvedType}
+                                            value={currentValue}
+                                            onChange={onChange}
+                                            choiceOptions={fieldChoicesMap[f.fieldKey] || []}
+                                            disabled
+                                        />
+                                    </>
+                                ) : (
+                                    <FieldControl
+                                        fieldKey={f.fieldKey}
+                                        fieldLabel={f.fieldLabel}
+                                        fieldType={resolvedType}
+                                        value={currentValue}
+                                        onChange={onChange}
+                                        choiceOptions={fieldChoicesMap[f.fieldKey] || []}
+                                        disabled={isReview}
+                                    />
+                                )}
                             </div>
                         )})}
                     </div>
@@ -205,5 +257,6 @@ export const App_ContractFiller = ({ layout, fieldValues, onChange, columns, cho
                 <App_ContractPreview editor={editor} />
             </div>
         </div>
+        </FieldInputContext.Provider>
     )
 }

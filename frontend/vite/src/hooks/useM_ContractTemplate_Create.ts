@@ -8,6 +8,7 @@ export type UseM_ContractTemplate_Create_Params = {
     organization_id: string;
     name: string;
     layout: Json;
+    mandatory_field_keys?: string[];
 };
 
 export const useM_ContractTemplate_Create = () => {

@@ -6,7 +6,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 const fetchContractTemplates = async (organizationId: string) => {
     const sb_FromContractTemplates_Select = await supabase
         .from("contract_templates")
-        .select("id, name, layout, created_at, updated_at")
+        .select("id, name, layout, mandatory_field_keys, created_at, updated_at")
         .eq("organization_id", organizationId)
         .eq("is_archived", false)
         .order("created_at", { ascending: false });

@@ -1,18 +1,33 @@
+import { createContext, useContext } from 'react'
 import { Node, mergeAttributes } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react'
 import { Typography, theme } from 'antd'
+import { Asterisk } from 'lucide-react'
 
 export const fieldInputPreviewKey = new PluginKey('fieldInputPreview')
+
+export type FieldInputContextValue = {
+    mandatorySet: Set<string>
+    isBuilder: boolean
+    onToggleMandatory?: (key: string) => void
+}
+
+export const FieldInputContext = createContext<FieldInputContextValue>({
+    mandatorySet: new Set<string>(),
+    isBuilder: false,
+})
 
 const FieldInputComponent = ({ node, editor }: ReactNodeViewProps) => {
     const { token } = theme.useToken()
     const isPreview = !editor.isEditable
+    const { fieldKey, fieldLabel, fieldType } = node.attrs as { fieldKey: string; fieldLabel: string; fieldType: string }
+    const storage = (editor.storage as Record<string, any>).fieldInput || {}
+    const { mandatorySet, isBuilder, onToggleMandatory } = useContext(FieldInputContext)
+    const isMandatory = mandatorySet.has(fieldKey)
 
     if (isPreview) {
-        const { fieldKey, fieldLabel, fieldType } = node.attrs as { fieldKey: string; fieldLabel: string; fieldType: string }
-        const storage = (editor.storage as Record<string, any>).fieldInput || {}
         const choicesMap = (storage.choicesMap || {}) as Record<string, Array<{ label: string; value: string }>>
         const choices = choicesMap[fieldKey] || []
         const values = (storage.values || {}) as Record<string, unknown>
@@ -47,9 +62,23 @@ const FieldInputComponent = ({ node, editor }: ReactNodeViewProps) => {
                 }}
             >
                 {displayText ?? fieldLabel}
+                {isMandatory && (
+                    <span style={{
+                        color: token.colorError,
+                        marginLeft: 3,
+                        fontWeight: 'bold',
+                        fontSize: token.fontSize,
+                    }}>*</span>
+                )}
             </NodeViewWrapper>
         )
     }
+
+    const labelColor = isMandatory ? token.colorErrorText : token.colorPrimaryText
+    const typeColor = isMandatory ? token.colorErrorTextHover : token.colorPrimaryBorderHover
+    const borderColor = isMandatory ? token.colorErrorBorder : token.colorPrimaryBorder
+    const accentColor = isMandatory ? token.colorError : token.colorPrimary
+    const bgColor = isMandatory ? token.colorErrorBg : token.colorPrimaryBg
 
     return (
         <NodeViewWrapper
@@ -59,18 +88,40 @@ const FieldInputComponent = ({ node, editor }: ReactNodeViewProps) => {
                 alignItems: 'center',
                 gap: 4,
                 padding: `1px ${token.paddingXS}px`,
-                border: `1px solid ${token.colorPrimaryBorder}`,
-                borderLeft: `3px solid ${token.colorPrimary}`,
+                border: `1px solid ${borderColor}`,
+                borderLeft: `3px solid ${accentColor}`,
                 borderRadius: token.borderRadiusSM,
-                background: token.colorPrimaryBg,
+                background: bgColor,
                 verticalAlign: 'baseline',
                 lineHeight: '1.6',
                 cursor: 'default',
                 userSelect: 'none',
             }}
         >
-            <Typography.Text style={{ fontSize: token.fontSizeSM, color: token.colorPrimaryText }}>{node.attrs.fieldLabel}</Typography.Text>
-            <Typography.Text style={{ fontSize: 10, color: token.colorPrimaryBorderHover }}>{node.attrs.fieldType}</Typography.Text>
+            <Typography.Text style={{ fontSize: token.fontSizeSM, color: labelColor }}>{node.attrs.fieldLabel}</Typography.Text>
+            <Typography.Text style={{ fontSize: 10, color: typeColor }}>{node.attrs.fieldType}</Typography.Text>
+            {isBuilder && onToggleMandatory && (
+                <span
+                    role="button"
+                    title={isMandatory ? 'Required — click to make optional' : 'Click to mark as required'}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleMandatory(fieldKey) }}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 16,
+                        height: 16,
+                        cursor: 'pointer',
+                        borderRadius: token.borderRadius,
+                        background: isMandatory ? token.colorError : 'transparent',
+                        border: `1px solid ${isMandatory ? token.colorError : token.colorBorder}`,
+                        color: token.colorTextLightSolid,
+                        marginLeft: 2,
+                    }}
+                >
+                    {isMandatory && <Asterisk size={11} strokeWidth={3} />}
+                </span>
+            )}
         </NodeViewWrapper>
     )
 }
@@ -118,24 +169,27 @@ export const FieldInput = Node.create({
             new Plugin({
                 key: fieldInputPreviewKey,
                 state: {
-                    init: () => 0 as number | false,
+                    init: () => ({ version: 0, preview: false as boolean }),
                     apply: (tr, prev) => {
                         const meta = tr.getMeta(fieldInputPreviewKey)
-                        if (meta === false) return false
-                        if (meta !== undefined) return typeof meta === 'number' ? meta : (typeof prev === 'number' ? prev + 1 : 1)
+                        if (meta === undefined) return prev
+                        const nextVersion = prev.version + 1
+                        if (meta === false) return { version: nextVersion, preview: false }
+                        if (meta === true) return { version: nextVersion, preview: true }
+                        if (typeof meta === 'number') return { version: meta, preview: true }
                         return prev
                     },
                 },
                 props: {
                     decorations: (state) => {
-                        const pluginState = fieldInputPreviewKey.getState(state) as number | false
-                        const isPreview = pluginState !== false
+                        const pluginState = fieldInputPreviewKey.getState(state) as { version: number; preview: boolean }
                         const decos: Decoration[] = []
                         state.doc.descendants((node, pos) => {
                             if (node.type.name === 'fieldInput') {
-                                decos.push(Decoration.node(pos, pos + node.nodeSize, {
-                                    class: isPreview ? `field-preview v${pluginState}` : 'field-edit',
-                                }))
+                                const cls = pluginState.preview
+                                    ? `field-preview v${pluginState.version}`
+                                    : `field-edit v${pluginState.version}`
+                                decos.push(Decoration.node(pos, pos + node.nodeSize, { class: cls }))
                             }
                         })
                         return DecorationSet.create(state.doc, decos)

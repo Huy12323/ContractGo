@@ -27,7 +27,7 @@ export const Page_Home = () => {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: `${token.paddingLG}px ${token.paddingMD}px` }}>
       {/* Header row: [title] ... [search] ... [create] */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>

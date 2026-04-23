@@ -6,9 +6,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 export type UseM_OnboardingInvitation_Send_Params = {
     organization_id: string;
     employee_email: string;
-    entity_id: string;
     contract_template_id: string;
-    department_ids: string[];
     prefilled_fields: Record<string, unknown>;
 };
 

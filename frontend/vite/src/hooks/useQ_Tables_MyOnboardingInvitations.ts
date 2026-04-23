@@ -10,9 +10,9 @@ const fetchMyOnboardingInvitations = async () => {
     const sb_FromOnboardingInvitations_Select = await supabase
         .from("onboarding_invitations")
         .select(
-            "id, invitation_token, employee_email, status, created_at, organization_id, organizations(id, name), entity_id, entities(id, name), contract_template_id, contract_templates(id, name)",
+            "id, invitation_token, employee_email, status, hr_comments, created_at, organization_id, organizations(id, name), entity_id, entities(id, name), contract_template_id, contract_templates(id, name), contracts(id, status)",
         )
-        .eq("status", "sent")
+        .in("status", ["sent", "accepted"])
         .ilike("employee_email", sb_Auth_GetUser.data.user.email)
         .order("created_at", { ascending: false });
 
