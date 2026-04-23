@@ -4,8 +4,7 @@
             "allowed": {
                 "origins": [
                     "http://localhost:5173",
-                    "https://TODO-staging-domain.example.com",
-                    "https://TODO-production-domain.example.com"
+                    "http://127.0.0.1:5173"
                 ],
                 "methods": ["PUT", "GET", "HEAD"],
                 "headers": ["*"]

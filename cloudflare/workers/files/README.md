@@ -46,21 +46,26 @@ pnpm deploy:production
 
 ## Setup checklist (per environment)
 
-1. **Secrets** — set before first deploy:
+1. **Secrets** — set before first deploy. `WORKER_JWT_SECRET` is shared with the `files_r2_sign-read-url` Supabase Edge Function (it mints; the Worker verifies). Set on both sides in lockstep:
    ```bash
+   # Worker side
    wrangler secret put WORKER_JWT_SECRET --env staging
    wrangler secret put WORKER_JWT_SECRET --env production
    ```
-   The value must match the secret used by the Supabase Edge Function that signs read tokens (see AHR-805).
+   ```
+   Supabase Dashboard → Project Settings → Edge Functions → Secrets →
+   add WORKER_JWT_SECRET with the same value (staging and production projects).
+   ```
+   Rotate by updating both sides in the same window — mismatched values cause blanket 401s from the Worker.
 
 2. **R2 bucket CORS** — presigned PUT uploads hit R2 directly (bypassing the Worker), so R2 needs bucket-level CORS.
    - Copy `r2-cors.example.json` → `r2-cors.dev.json` / `r2-cors.stag.json` / `r2-cors.prod.json`
    - Fill in real origins
-   - Apply:
+   - Apply (run from `cloudflare/workers/files/`):
      ```bash
-     wrangler r2 bucket cors put aiurhr--dev  --file cloudflare/workers/files/r2-cors.dev.json
-     wrangler r2 bucket cors put aiurhr--stag --file cloudflare/workers/files/r2-cors.stag.json
-     wrangler r2 bucket cors put aiurhr--prod --file cloudflare/workers/files/r2-cors.prod.json
+     wrangler r2 bucket cors set aiurhr--dev  --file r2-cors.dev.json
+     wrangler r2 bucket cors set aiurhr--stag --file r2-cors.stag.json
+     wrangler r2 bucket cors set aiurhr--prod --file r2-cors.prod.json
      ```
    - Copies with real origins are gitignored (only `.example.json` is committed)
 
