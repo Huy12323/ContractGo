@@ -1,23 +1,26 @@
 # Cycle 2026/15 — Report Data
 
-> Generated: 2026-04-08
+> Generated: 2026-04-21
 > Cycle: 2026-04-05T00:00:01Z → 2026-04-11T23:59:00Z
-> Done: 239 items | Tier 1: 8 | Tier 2: 27 | Points: 80 | Original: 78 | Reassessed: 3 items
+> Done: 411 items | Tier 1: 13 | Tier 2: 39 | Points: 134 | Original: 128 | Reassessed: 5 items
 
 ## Points Summary
 
 **By version:**
 
-- v0.0.1: 80 pts
+- v0.0.1: 134 pts
 
 **By module:**
 
-- Employee Management: 20 pts
+- Employee Management: 36 pts
+- Employee Onboarding: 32 pts
 - Database: 19 pts
 - Pages: 15 pts
 - Infrastructure: 11 pts
 - App Shell: 9 pts
-- Auth: 6 pts
+- Auth: 7 pts
+- File Storage: 3 pts
+- Organization: 2 pts
 
 ## Summary
 
@@ -31,8 +34,13 @@
 | AHR-314 | Database | v0.0.1 | 6 | 19 | [link](https://outline.jimbui.dev/doc/802df46d-8863-44ec-ae4f-d49cf5ff89cb) |
 | AHR-393 | Employee Management | v0.0.1 | 4 | 13 | [link](https://outline.jimbui.dev/doc/53541ea5-a12b-4aae-bef4-ba9644af2802) |
 | AHR-415 | Employee Management | v0.0.1 | 3 | 7 | [link](https://outline.jimbui.dev/doc/53541ea5-a12b-4aae-bef4-ba9644af2802) |
+| AHR-464 | Employee Management | v0.0.1 | 3 | 16 | [link](https://outline.jimbui.dev/doc/53541ea5-a12b-4aae-bef4-ba9644af2802) |
+| AHR-465 | Employee Onboarding | v0.0.1 | 6 | 32 | [link](https://outline.jimbui.dev/doc/d1813dac-0177-4ea5-88a1-88ed88969bff) |
+| AHR-466 | File Storage | v0.0.1 | 1 | 3 | [link](https://outline.jimbui.dev/doc/bab31499-0cd5-4d49-a6c1-7d7af119f63d) |
+| AHR-548 | Auth | v0.0.1 | 1 | 1 | [link](https://outline.jimbui.dev/doc/334a5203-d1c4-4472-9e83-5d9df6edcb2e) |
+| AHR-555 | Organization | v0.0.1 | 1 | 2 | [link](https://outline.jimbui.dev/doc/91312a3a-9fbf-43d7-9f32-eadab41aab8a) |
 
-## v0.0.1 (80 pts)
+## v0.0.1 (134 pts)
 
 ### AHR-212: Auth (6 pts)
 
@@ -124,4 +132,56 @@
 - AHR-419: Employee field management > employee_column_choices table + edge function update (3 pts, originally 2 pts)
 - AHR-421: Employee field management > Field Manager Modal + CRUD (3 pts)
 - AHR-422: Employee field management > employee_columns DELETE policy (1 pts)
+
+### AHR-464: Employee Management (16 pts)
+
+- Version doc: https://outline.jimbui.dev/doc/53541ea5-a12b-4aae-bef4-ba9644af2802
+- Plane: https://plane.jimbui.dev/aiur/projects/53594a97-bd1d-4d52-bcb9-ebacadc41464/work-items/522f0a22-b83c-48b2-9cfa-c1c65952da6a/
+
+**Features (Tier 2):**
+
+- AHR-467: Contract composer template builder > Contract composer editor (8 pts)
+- AHR-468: Contract composer template builder > Contract template preview (3 pts)
+- AHR-469: Contract composer template builder > employee_contracts table (5 pts)
+
+### AHR-465: Employee Onboarding (32 pts)
+
+- Version doc: https://outline.jimbui.dev/doc/d1813dac-0177-4ea5-88a1-88ed88969bff
+- Plane: https://plane.jimbui.dev/aiur/projects/53594a97-bd1d-4d52-bcb9-ebacadc41464/work-items/04e61ff6-03b0-432a-be08-6388654e64e2/
+
+**Features (Tier 2):**
+
+- AHR-494: Employee contract signing flow > Schema: renames + invitations (5 pts)
+- AHR-495: Employee contract signing flow > HR sends onboarding invitation (8 pts)
+- AHR-496: Employee contract signing flow > Employee accepts + fills contract (8 pts)
+- AHR-497: Employee contract signing flow > HR reviews + approves contracts (8 pts, originally 5 pts)
+- AHR-539: Employee contract signing flow > HR invitation flow bug fixes + prevention (2 pts, originally 1 pts)
+- AHR-557: Employee contract signing flow > Send-invitation guard: allow admin/owner self-onboarding (1 pts)
+
+### AHR-466: File Storage (3 pts)
+
+- Version doc: https://outline.jimbui.dev/doc/bab31499-0cd5-4d49-a6c1-7d7af119f63d
+- Plane: https://plane.jimbui.dev/aiur/projects/53594a97-bd1d-4d52-bcb9-ebacadc41464/work-items/adb5aabd-e412-4775-ab8c-d7d3529459ae/
+
+**Features (Tier 2):**
+
+- AHR-499: Supabase Storage setup > Storage bucket + RLS (3 pts)
+
+### AHR-548: Auth (1 pts)
+
+- Version doc: https://outline.jimbui.dev/doc/334a5203-d1c4-4472-9e83-5d9df6edcb2e
+- Plane: https://plane.jimbui.dev/aiur/projects/53594a97-bd1d-4d52-bcb9-ebacadc41464/work-items/d4259116-d474-471c-aa4b-9e094fdb1d94/
+
+**Features (Tier 2):**
+
+- AHR-549: Email verification flow > Surface real edge function errors in verification UI (1 pts)
+
+### AHR-555: Organization (2 pts)
+
+- Version doc: https://outline.jimbui.dev/doc/91312a3a-9fbf-43d7-9f32-eadab41aab8a
+- Plane: https://plane.jimbui.dev/aiur/projects/53594a97-bd1d-4d52-bcb9-ebacadc41464/work-items/bd0284f3-8816-474b-8af7-8dd8fde34cea/
+
+**Features (Tier 2):**
+
+- AHR-556: Drop employees seed on org creation > Schema: RPC patch + cleanup migration (2 pts)
 

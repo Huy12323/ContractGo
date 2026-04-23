@@ -145,14 +145,81 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_template_versions: {
+        Row: {
+          content_hash: string
+          created_at: string
+          created_by: string | null
+          id: string
+          layout: Json
+          mandatory_field_keys: Json
+          organization_id: string
+          pdf_file_path: string | null
+          template_id: string
+          type: Database["public"]["Enums"]["contract_template_type_enum"]
+          version_number: number
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          layout?: Json
+          mandatory_field_keys?: Json
+          organization_id: string
+          pdf_file_path?: string | null
+          template_id: string
+          type: Database["public"]["Enums"]["contract_template_type_enum"]
+          version_number: number
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          layout?: Json
+          mandatory_field_keys?: Json
+          organization_id?: string
+          pdf_file_path?: string | null
+          template_id?: string
+          type?: Database["public"]["Enums"]["contract_template_type_enum"]
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_template_versions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_templates: {
         Row: {
           created_at: string | null
           id: string
           is_archived: boolean
           layout: Json
+          mandatory_field_keys: Json
           name: string
           organization_id: string
+          pdf_file_path: string | null
+          type: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at: string | null
         }
         Insert: {
@@ -160,8 +227,11 @@ export type Database = {
           id?: string
           is_archived?: boolean
           layout?: Json
+          mandatory_field_keys?: Json
           name: string
           organization_id: string
+          pdf_file_path?: string | null
+          type?: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at?: string | null
         }
         Update: {
@@ -169,8 +239,11 @@ export type Database = {
           id?: string
           is_archived?: boolean
           layout?: Json
+          mandatory_field_keys?: Json
           name?: string
           organization_id?: string
+          pdf_file_path?: string | null
+          type?: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at?: string | null
         }
         Relationships: [
@@ -188,11 +261,11 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           contract_template_id: string | null
+          contract_template_version_id: string | null
           created_at: string | null
           document_hash: string | null
           employee_id: string | null
           field_values: Json
-          form_snapshot: Json
           id: string
           invitation_id: string | null
           organization_id: string
@@ -203,17 +276,18 @@ export type Database = {
           signed_by: string | null
           signer_ip: string | null
           status: Database["public"]["Enums"]["contracts_status_enum"]
+          template_snapshot: Json
           updated_at: string | null
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
           contract_template_id?: string | null
+          contract_template_version_id?: string | null
           created_at?: string | null
           document_hash?: string | null
           employee_id?: string | null
           field_values?: Json
-          form_snapshot?: Json
           id?: string
           invitation_id?: string | null
           organization_id: string
@@ -224,17 +298,18 @@ export type Database = {
           signed_by?: string | null
           signer_ip?: string | null
           status?: Database["public"]["Enums"]["contracts_status_enum"]
+          template_snapshot?: Json
           updated_at?: string | null
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
           contract_template_id?: string | null
+          contract_template_version_id?: string | null
           created_at?: string | null
           document_hash?: string | null
           employee_id?: string | null
           field_values?: Json
-          form_snapshot?: Json
           id?: string
           invitation_id?: string | null
           organization_id?: string
@@ -245,6 +320,7 @@ export type Database = {
           signed_by?: string | null
           signer_ip?: string | null
           status?: Database["public"]["Enums"]["contracts_status_enum"]
+          template_snapshot?: Json
           updated_at?: string | null
         }
         Relationships: [
@@ -253,6 +329,13 @@ export type Database = {
             columns: ["approved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_contract_template_version_id_fkey"
+            columns: ["contract_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "contract_template_versions"
             referencedColumns: ["id"]
           },
           {
@@ -495,8 +578,15 @@ export type Database = {
       }
       employees: {
         Row: {
+          __full_name: string | null
           birthday: string
-          col_jC4iUV6VwMAvUiUr: string | null
+          col_1l4l5L8NCW1uZCd9: string | null
+          col_34rTppCGsFaxRD1i: string | null
+          col_BbrubylYdfQPBzbv: string | null
+          col_cR7KdqqEGKsUgCsj: string | null
+          col_DUmkBaLXAekq86zj: string | null
+          col_ROstCxqFP6M5d8cI: string | null
+          col_X6MDhHHD5onD1ePT: string | null
           created_at: string
           email: string
           first_name: string
@@ -507,8 +597,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          __full_name?: string | null
           birthday?: string
-          col_jC4iUV6VwMAvUiUr?: string | null
+          col_1l4l5L8NCW1uZCd9?: string | null
+          col_34rTppCGsFaxRD1i?: string | null
+          col_BbrubylYdfQPBzbv?: string | null
+          col_cR7KdqqEGKsUgCsj?: string | null
+          col_DUmkBaLXAekq86zj?: string | null
+          col_ROstCxqFP6M5d8cI?: string | null
+          col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -519,8 +616,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          __full_name?: string | null
           birthday?: string
-          col_jC4iUV6VwMAvUiUr?: string | null
+          col_1l4l5L8NCW1uZCd9?: string | null
+          col_34rTppCGsFaxRD1i?: string | null
+          col_BbrubylYdfQPBzbv?: string | null
+          col_cR7KdqqEGKsUgCsj?: string | null
+          col_DUmkBaLXAekq86zj?: string | null
+          col_ROstCxqFP6M5d8cI?: string | null
+          col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -638,42 +742,51 @@ export type Database = {
       }
       onboarding_invitations: {
         Row: {
-          contract_template_id: string
+          contract_template_id: string | null
+          contract_template_version_id: string | null
           created_at: string | null
           employee_email: string
-          entity_id: string
+          entity_id: string | null
+          hr_comments: Json
           id: string
           invitation_token: string
           organization_id: string
           prefilled_fields: Json
           sent_by: string | null
           status: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
+          template_snapshot: Json
           updated_at: string | null
         }
         Insert: {
-          contract_template_id: string
+          contract_template_id?: string | null
+          contract_template_version_id?: string | null
           created_at?: string | null
           employee_email: string
-          entity_id: string
+          entity_id?: string | null
+          hr_comments?: Json
           id?: string
           invitation_token?: string
           organization_id: string
           prefilled_fields?: Json
           sent_by?: string | null
           status?: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
+          template_snapshot?: Json
           updated_at?: string | null
         }
         Update: {
-          contract_template_id?: string
+          contract_template_id?: string | null
+          contract_template_version_id?: string | null
           created_at?: string | null
           employee_email?: string
-          entity_id?: string
+          entity_id?: string | null
+          hr_comments?: Json
           id?: string
           invitation_token?: string
           organization_id?: string
           prefilled_fields?: Json
           sent_by?: string | null
           status?: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
+          template_snapshot?: Json
           updated_at?: string | null
         }
         Relationships: [
@@ -682,6 +795,13 @@ export type Database = {
             columns: ["contract_template_id"]
             isOneToOne: false
             referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_invitations_contract_template_version_id_fkey"
+            columns: ["contract_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "contract_template_versions"
             referencedColumns: ["id"]
           },
           {
@@ -703,6 +823,38 @@ export type Database = {
             columns: ["sent_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -883,9 +1035,12 @@ export type Database = {
         Args: { col_name: string; col_type: string }
         Returns: undefined
       }
-      clean_employee_view_filter_node: {
-        Args: { deleted_field: string; node: Json }
-        Returns: Json
+      authorize: {
+        Args: {
+          org_id: string
+          requested_permission: Database["public"]["Enums"]["app_permission"]
+        }
+        Returns: boolean
       }
       clean_old_realtime_events: { Args: never; Returns: undefined }
       cleanup_expired_auth_tokens: { Args: never; Returns: undefined }
@@ -919,8 +1074,20 @@ export type Database = {
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
       reorder_employee_views: { Args: { p_ids: string[] }; Returns: undefined }
+      seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
     }
     Enums: {
+      app_permission:
+        | "manage_organization"
+        | "manage_members"
+        | "manage_roles"
+        | "view_all_employees"
+        | "manage_employees"
+        | "view_department_employees"
+        | "manage_departments"
+        | "view_own_profile"
+        | "edit_own_profile"
+      contract_template_type_enum: "tiptap" | "pdf"
       contracts_status_enum: "draft" | "sent" | "filled" | "active" | "voided"
       employee_column_type:
         | "text"
@@ -929,6 +1096,7 @@ export type Database = {
         | "boolean"
         | "multi_select"
         | "single_select"
+        | "file"
       iana_timezone:
         | "Africa/Abidjan"
         | "Africa/Accra"
@@ -1490,6 +1658,7 @@ export type Database = {
         | "expired"
         | "revoked"
         | "approved"
+        | "pending_placement"
       realtime_table_events_event_type_enum: "INSERT" | "UPDATE" | "DELETE"
     }
     CompositeTypes: {
@@ -1621,6 +1790,18 @@ export const Constants = {
   },
   public: {
     Enums: {
+      app_permission: [
+        "manage_organization",
+        "manage_members",
+        "manage_roles",
+        "view_all_employees",
+        "manage_employees",
+        "view_department_employees",
+        "manage_departments",
+        "view_own_profile",
+        "edit_own_profile",
+      ],
+      contract_template_type_enum: ["tiptap", "pdf"],
       contracts_status_enum: ["draft", "sent", "filled", "active", "voided"],
       employee_column_type: [
         "text",
@@ -1629,6 +1810,7 @@ export const Constants = {
         "boolean",
         "multi_select",
         "single_select",
+        "file",
       ],
       iana_timezone: [
         "Africa/Abidjan",
@@ -2192,6 +2374,7 @@ export const Constants = {
         "expired",
         "revoked",
         "approved",
+        "pending_placement",
       ],
       realtime_table_events_event_type_enum: ["INSERT", "UPDATE", "DELETE"],
     },

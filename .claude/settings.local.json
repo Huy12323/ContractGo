@@ -5,7 +5,8 @@
       "Bash(mkdir -p shared--send-email/templates)",
       "Bash(cp _shared_send-email/index.ts shared--send-email/index.ts)",
       "Bash(cp _shared_send-email/deno.json shared--send-email/deno.json)",
-      "Bash(cp _shared_send-email/templates/*.html shared--send-email/templates/)"
+      "Bash(cp _shared_send-email/templates/*.html shared--send-email/templates/)",
+      "Bash(pnpm exec *)"
     ]
   }
 }
