@@ -11,6 +11,7 @@ const EmployeeColumns_Type: Record<
     boolean: { value: "boolean", label: "Boolean" },
     single_select: { value: "single_select", label: "Single Select" },
     multi_select: { value: "multi_select", label: "Multi Select" },
+    file: { value: "file", label: "File" },
 };
 
 export const const_EmployeeColumnsTypeOptions = Utils_Options_EnumsToOptions(EmployeeColumns_Type);

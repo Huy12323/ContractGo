@@ -23,7 +23,15 @@ import type {
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_OrgEmployeeViews } from '@/hooks/useQ_Tables_OrgEmployeeViews'
-import { App_EmployeeDataTable, EmployeeDataTable_UniversalFields, type EmployeeDataTable_TableField } from '@/components/employees/App_EmployeeDataTable'
+import { App_EmployeeDataGrid } from '@/components/employees/App_EmployeeDataGrid'
+import { App_EmployeeDetailModal } from '@/components/employees/App_EmployeeDetailModal'
+import { AppEmployee_FilePreviewModal } from '@/components/employees/AppEmployee_FilePreviewModal'
+import { FieldTypeIcon } from '@/components/employees/App_EmployeeFieldTypeIcon'
+import {
+  EmployeeDataTable_UniversalFields,
+  isSystemFieldKey,
+  type EmployeeDataTable_TableField,
+} from '@/types/employeeTable.types'
 import { App_EmployeeFieldComposerModal } from '@/components/employees/App_EmployeeFieldComposerModal'
 import { useM_EmployeeView_Create } from '@/hooks/useM_EmployeeView_Create'
 import { useM_EmployeeView_Update } from '@/hooks/useM_EmployeeView_Update'
@@ -86,6 +94,12 @@ const OPERATORS_BY_TYPE: Record<EmployeeTable_FieldType, { value: EmployeeTable_
     { value: 'is_empty', label: 'is empty' },
     { value: 'is_not_empty', label: 'is not empty' },
   ],
+  // File columns are not filterable — value is an opaque files.id string.
+  // Present only empty/non-empty since that's the only meaningful filter.
+  file: [
+    { value: 'is_empty', label: 'is empty' },
+    { value: 'is_not_empty', label: 'is not empty' },
+  ],
 }
 
 const NO_VALUE_OPERATORS = new Set<EmployeeTable_FilterOperator>(['is_empty', 'is_not_empty', 'is_true', 'is_false'])
@@ -119,10 +133,19 @@ const ConditionRow = ({ condition, fields, choicesByField, onChange, onRemove }:
       <Select
         size="small"
         showSearch
+        popupClassName="field-select-popup"
         optionFilterProp="label"
         style={{ flex: 1, minWidth: 120 }}
         value={condition.field}
-        options={fields.map((f) => ({ value: f.key, label: f.label }))}
+        options={fields.map((f) => ({ value: f.key, label: f.label, type: f.type }))}
+        optionRender={(option) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: token.marginXXS, fontSize: token.fontSizeSM }}>
+            <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
+              <FieldTypeIcon type={(option.data as { type: EmployeeTable_FieldType }).type} />
+            </span>
+            {option.label}
+          </span>
+        )}
         onChange={(v) => {
           const nextField = fields.find((f) => f.key === v)
           if (!nextField) return
@@ -138,6 +161,7 @@ const ConditionRow = ({ condition, fields, choicesByField, onChange, onRemove }:
       />
       <Select
         size="small"
+        popupClassName="field-select-popup"
         style={{ width: 150 }}
         value={condition.operator}
         options={operators.map((o) => ({ value: o.value, label: o.label }))}
@@ -171,6 +195,7 @@ const ConditionRow = ({ condition, fields, choicesByField, onChange, onRemove }:
           {field.type === 'single_select' && (
             <Select
               size="small"
+              popupClassName="field-select-popup"
               style={{ width: '100%' }}
               value={(condition.value as string | null) ?? undefined}
               options={choicesByField[field.key] ?? []}
@@ -182,6 +207,7 @@ const ConditionRow = ({ condition, fields, choicesByField, onChange, onRemove }:
             <Select
               size="small"
               mode="multiple"
+              popupClassName="field-select-popup"
               style={{ width: '100%' }}
               value={(condition.value as string[] | null) ?? []}
               options={choicesByField[field.key] ?? []}
@@ -264,6 +290,15 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
   const [composerOpen, setComposerOpen] = useState(false)
   const [composerColumnId, setComposerColumnId] = useState<string | null>(null)
 
+  // Employee detail modal — opened by clicking the grid's row-number marker.
+  // Null = closed; set to the clicked row's id to open. Modal looks up the
+  // current row reactively from the employees query so it stays in sync
+  // after saves.
+  const [modalEmployeeId, setModalEmployeeId] = useState<string | null>(null)
+
+  // File preview modal — opened from grid file-cell clicks AND detail modal file links
+  const [previewCtx, setPreviewCtx] = useState<{ file_id: string; employee_id: string; column_id: string } | null>(null)
+
   // Mutation shortcut — every toolbar edit is a surgical per-column patch
   const patchActiveView = useCallback(
     (patch: { filter?: EmployeeTable_FilterCondition[]; sort?: EmployeeTable_SortEntry[]; group_by?: EmployeeTable_GroupEntry[]; hidden_keys?: string[]; field_order?: string[]; field_widths?: Record<string, number> }) => {
@@ -313,11 +348,17 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
     return map
   }, [qEmployeeColumnChoices.choices])
 
+  // System (`__`-prefixed) columns are pinned by the grid and never hidden or reordered
+  // by the user — exclude them from the Hide-fields / drag-reorder panel.
+  const reorderableFields = useMemo(
+    () => listViewFields.filter((f) => !isSystemFieldKey(f.key)),
+    [listViewFields],
+  )
   const hideFieldsFiltered = useMemo(() => {
     const q = hideFieldsSearch.trim().toLowerCase()
-    if (!q) return listViewFields
-    return listViewFields.filter((f) => f.label.toLowerCase().includes(q))
-  }, [listViewFields, hideFieldsSearch])
+    if (!q) return reorderableFields
+    return reorderableFields.filter((f) => f.label.toLowerCase().includes(q))
+  }, [reorderableFields, hideFieldsSearch])
 
   const sortUsedKeys = useMemo(() => new Set(sortState.map((e) => e.field)), [sortState])
   const addSortEntry = useCallback(() => {
@@ -521,7 +562,11 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
   }, [modal, mDeleteView.mutation, search.viewId, navigate])
 
   // --- Toolbar button shared styling ---
+  const toolButtonBaseStyle: React.CSSProperties = {
+    fontWeight: 400,
+  }
   const toolButtonActiveStyle: React.CSSProperties = {
+    ...toolButtonBaseStyle,
     background: token.colorPrimaryBg,
     color: token.colorPrimary,
     borderColor: token.colorPrimaryBg,
@@ -529,10 +574,15 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Compact field-picker dropdowns — shrink option rows (Provider_ANTD sets Select.controlHeight: 40 which cascades to optionHeight) */}
+      <style>{`
+        .field-select-popup .ant-select-item { min-height: 0; padding: ${token.paddingXS}px ${token.paddingSM}px; line-height: 1.4; }
+        .field-select-popup .ant-select-item-option-content { font-size: ${token.fontSizeSM}px; }
+      `}</style>
       {/* Inner toolbar — spans full width above sidebar + table */}
       <div style={{
-        height: 48,
-        minHeight: 48,
+        height: 40,
+        minHeight: 40,
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
@@ -543,12 +593,12 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
       }}>
         {/* Left cluster — sidebar toggle + current view name */}
         <Tooltip title={sidebarCollapsed ? 'Show views' : 'Hide views'}>
-          <Button type="text" icon={<MenuOutlined />} onClick={() => setSidebarCollapsed((c) => !c)} />
+          <Button type="text" size="small" icon={<MenuOutlined />} onClick={() => setSidebarCollapsed((c) => !c)} />
         </Tooltip>
         <Typography.Text
           strong
           ellipsis={{ tooltip: activeView?.name ?? 'No view selected' }}
-          style={{ maxWidth: 240, fontSize: 14 }}
+          style={{ maxWidth: 240, fontSize: token.fontSizeSM }}
         >
           {activeView?.name ?? 'No view selected'}
         </Typography.Text>
@@ -609,7 +659,12 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                             patchActiveView({ hidden_keys: next })
                           }}
                         >
-                          {f.label}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: token.marginXXS, fontSize: token.fontSizeSM }}>
+                            <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
+                              <FieldTypeIcon type={f.type} />
+                            </span>
+                            {f.label}
+                          </span>
                         </Checkbox>
                       </div>
                     )
@@ -617,14 +672,16 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.marginSM, paddingTop: token.paddingXS, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
                   <Button size="small" type="link" onClick={() => patchActiveView({ hidden_keys: [] })}>Show all</Button>
-                  <Button size="small" type="link" onClick={() => patchActiveView({ hidden_keys: listViewFields.map((f) => f.key) })}>Hide all</Button>
+                  <Button size="small" type="link" onClick={() => patchActiveView({ hidden_keys: reorderableFields.map((f) => f.key) })}>Hide all</Button>
                 </div>
               </div>
             }
           >
             <Button
+              type="text"
+              size="small"
               icon={<EyeInvisibleOutlined />}
-              style={hiddenKeys.length > 0 ? toolButtonActiveStyle : undefined}
+              style={hiddenKeys.length > 0 ? toolButtonActiveStyle : toolButtonBaseStyle}
               disabled={!activeView}
             >
               {hiddenKeys.length > 0 ? `${hiddenKeys.length} hidden` : 'Hide fields'}
@@ -673,8 +730,10 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
             }
           >
             <Button
+              type="text"
+              size="small"
               icon={<FilterOutlined />}
-              style={filterState.length > 0 ? toolButtonActiveStyle : undefined}
+              style={filterState.length > 0 ? toolButtonActiveStyle : toolButtonBaseStyle}
               disabled={!activeView}
             >
               {filterState.length > 0 ? `Filtered by ${filterState.length}` : 'Filters'}
@@ -696,7 +755,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                     {groupByState.map((entry, i) => {
                       const options = listViewFields
                         .filter((f) => f.key === entry.field || !groupUsedKeys.has(f.key))
-                        .map((f) => ({ value: f.key, label: f.label }))
+                        .map((f) => ({ value: f.key, label: f.label, type: f.type }))
                       const isDropTarget = groupDragOver?.field === entry.field
                       const dropBefore = isDropTarget && groupDragOver?.position === 'before'
                       const dropAfter = isDropTarget && groupDragOver?.position === 'after'
@@ -716,14 +775,24 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                           <Select
                             size="small"
                             showSearch
+                            popupClassName="field-select-popup"
                             optionFilterProp="label"
                             style={{ flex: 1 }}
                             value={entry.field}
                             options={options}
+                            optionRender={(option) => (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: token.marginXXS, fontSize: token.fontSizeSM }}>
+                                <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
+                                  <FieldTypeIcon type={(option.data as { type: EmployeeTable_FieldType }).type} />
+                                </span>
+                                {option.label}
+                              </span>
+                            )}
                             onChange={(v) => updateGroupEntry(i, { field: v })}
                           />
                           <Select
                             size="small"
+                            popupClassName="field-select-popup"
                             style={{ width: 80 }}
                             value={entry.direction}
                             options={[{ value: 'asc', label: 'asc' }, { value: 'desc', label: 'desc' }]}
@@ -755,8 +824,10 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
             }
           >
             <Button
+              type="text"
+              size="small"
               icon={<GroupOutlined />}
-              style={groupByState.length > 0 ? toolButtonActiveStyle : undefined}
+              style={groupByState.length > 0 ? toolButtonActiveStyle : toolButtonBaseStyle}
               disabled={!activeView}
             >
               {groupByState.length > 0 ? `Grouped by ${groupByState.length}` : 'Groups'}
@@ -778,7 +849,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                     {sortState.map((entry, i) => {
                       const options = listViewFields
                         .filter((f) => f.key === entry.field || !sortUsedKeys.has(f.key))
-                        .map((f) => ({ value: f.key, label: f.label }))
+                        .map((f) => ({ value: f.key, label: f.label, type: f.type }))
                       const isDropTarget = sortDragOver?.field === entry.field
                       const dropBefore = isDropTarget && sortDragOver?.position === 'before'
                       const dropAfter = isDropTarget && sortDragOver?.position === 'after'
@@ -798,14 +869,24 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
                           <Select
                             size="small"
                             showSearch
+                            popupClassName="field-select-popup"
                             optionFilterProp="label"
                             style={{ flex: 1 }}
                             value={entry.field}
                             options={options}
+                            optionRender={(option) => (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: token.marginXXS, fontSize: token.fontSizeSM }}>
+                                <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
+                                  <FieldTypeIcon type={(option.data as { type: EmployeeTable_FieldType }).type} />
+                                </span>
+                                {option.label}
+                              </span>
+                            )}
                             onChange={(v) => updateSortEntry(i, { field: v })}
                           />
                           <Select
                             size="small"
+                            popupClassName="field-select-popup"
                             style={{ width: 80 }}
                             value={entry.direction}
                             options={[{ value: 'asc', label: 'asc' }, { value: 'desc', label: 'desc' }]}
@@ -832,8 +913,10 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
             }
           >
             <Button
+              type="text"
+              size="small"
               icon={<SortAscendingOutlined />}
-              style={sortState.length > 0 ? toolButtonActiveStyle : undefined}
+              style={sortState.length > 0 ? toolButtonActiveStyle : toolButtonBaseStyle}
               disabled={!activeView}
             >
               {sortState.length > 0 ? `Sorted by ${sortState.length}` : 'Sort'}
@@ -854,9 +937,9 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
             onReorderViews={handleReorderViews}
           />
         )}
-        <div style={{ flex: 1, overflow: 'auto', background: token.colorBgContainer }}>
+        <div style={{ flex: 1, overflow: 'hidden', background: token.colorBgContainer }}>
           {activeView ? (
-            <App_EmployeeDataTable
+            <App_EmployeeDataGrid
               organizationId={organizationId}
               hiddenKeys={hiddenKeys}
               fieldOrder={fieldOrder}
@@ -869,6 +952,8 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
               onAddField={() => { setComposerColumnId(null); setComposerOpen(true) }}
               onEditField={(colId) => { setComposerColumnId(colId); setComposerOpen(true) }}
               onHideField={(colKey) => patchActiveView({ hidden_keys: [...hiddenKeys, colKey] })}
+              onExpandEmployee={(employee) => setModalEmployeeId(employee.id)}
+              onFilePreview={setPreviewCtx}
             />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -897,6 +982,27 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
         onClose={() => { setComposerOpen(false); setComposerColumnId(null) }}
         organizationId={organizationId}
         columnId={composerColumnId}
+      />
+
+      {/* Employee detail — opened from the grid's row-number marker */}
+      <App_EmployeeDetailModal
+        open={modalEmployeeId !== null}
+        employeeId={modalEmployeeId}
+        organizationId={organizationId}
+        onClose={() => setModalEmployeeId(null)}
+        fields={listViewFields}
+        choicesByField={choicesByField}
+        onFilePreview={setPreviewCtx}
+      />
+
+      {/* File preview modal — shared across grid cells and detail modal file links */}
+      <AppEmployee_FilePreviewModal
+        open={previewCtx !== null}
+        organizationId={organizationId}
+        file_id={previewCtx?.file_id ?? null}
+        employee_id={previewCtx?.employee_id ?? null}
+        column_id={previewCtx?.column_id ?? null}
+        onClose={() => setPreviewCtx(null)}
       />
     </div>
   )

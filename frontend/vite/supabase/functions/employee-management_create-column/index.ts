@@ -29,9 +29,10 @@ const PG_TYPE_MAP: Record<string, string> = {
     boolean: "boolean",
     single_select: "text",
     multi_select: "text[]",
+    file: "text",
 };
 
-const VALID_TYPES = ["text", "number", "date", "boolean", "single_select", "multi_select"];
+const VALID_TYPES = ["text", "number", "date", "boolean", "single_select", "multi_select", "file"];
 
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
@@ -154,7 +155,12 @@ Deno.serve(async (req) => {
                 .eq("id", column.id);
 
             console.error("ALTER TABLE error:", alterError);
-            return jsonResponse({ error: "Failed to add column to employees table" }, 500);
+            const isLockTimeout = /lock_timeout|canceling statement due to lock timeout/i.test(alterError.message ?? "");
+            return jsonResponse({
+                error: isLockTimeout
+                    ? "Database is busy, please retry in a few seconds"
+                    : "Failed to add column to employees table",
+            }, 500);
         }
 
         return jsonResponse({ data: column }, 201);

@@ -17,7 +17,13 @@ const themeConfig = {
         // tables, cards, dividers, and banded rows have a consistent look.
         colorBorder: "#B1B4B6",
         colorFillAlter: "#F6F8FC",
-        borderRadius: 16,
+        // Override ANTD's auto-derived step-1/step-2 tints of colorPrimary —
+        // the seed is dark/low-sat, so the defaults come out muddy-beige.
+        // These flow to every consumer of token.colorPrimaryBg (Menu selected
+        // row, active toolbar buttons, sidebar views, etc.).
+        colorPrimaryBg: "#d0ebef",
+        colorPrimaryBgHover: "#b9dfe5",
+        borderRadius: 8,
         fontSize: 14,
         fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
     },
@@ -25,15 +31,8 @@ const themeConfig = {
         Button: {
             fontWeight: 600,
         },
-        Input: {
-            paddingBlock: 8,
-            paddingInline: 12,
-            borderRadius: 32,
-        },
-        Select: {
-            controlHeight: 40,
-            borderRadius: 32,
-        },
+        // Input and Select inherit ANTD defaults (subtle rounding, standard height).
+        // The pill-style search input lives in App_SearchInput, scoped locally.
         // Global borderRadius: 16 causes inner/outer radius clipping in
         // nested-container components. Override with coordinated values.
         Segmented: {

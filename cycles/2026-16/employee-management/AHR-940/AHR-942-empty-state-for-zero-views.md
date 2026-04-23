@@ -60,23 +60,26 @@ Execution Order: Step 2 of 3 — prerequisites all effectively Done ✓ (AHR-941
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Delete Default row block: (pending)
-- Delete Divider block: (pending)
+Phase A: AHR-1025
+- Delete Default row block: AHR-1026
+- Delete Divider block: AHR-1027
+- Verify no UI triggers clear viewId: AHR-1028
+- Confirm no activeViewId undefined refs: AHR-1029
 
-Phase B: (pending)
-- Empty-state branch: (pending)
-- Loading state: (pending)
+Phase B: AHR-1030
+- Empty-state branch: AHR-1031
+- Sidebar shell styling: AHR-1032
+- Loading spinner: AHR-1033
 
-Phase C: (pending)
-- Auto-select useEffect: (pending)
-- Ref guard: (pending)
-- Table area placeholder: (pending)
-- Loading state in table area: (pending)
+Phase C: AHR-1034
+- Auto-select useEffect: AHR-1035
+- Ref guard: AHR-1036
+- Table area placeholder: AHR-1037
+- Verify placeholder scope: AHR-1038
 
-Phase D: (pending)
-- type-check: (pending)
-- Fresh org smoke: (pending)
-- URL without viewId smoke: (pending)
-- Delete last view smoke: (pending)
-- Delete non-last view smoke: (pending)
+Phase D: AHR-1039
+- Type-check: AHR-1040
+- Fresh-org smoke: AHR-1041
+- No-viewId auto-select smoke: AHR-1042
+- Delete-last-view smoke: AHR-1043
+- Delete-non-last-view smoke: AHR-1044

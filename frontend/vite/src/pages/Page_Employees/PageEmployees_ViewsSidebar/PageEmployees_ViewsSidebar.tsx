@@ -97,7 +97,7 @@ export const PageEmployees_ViewsSidebar = ({
         display: 'flex',
         alignItems: 'center',
         gap: token.marginXS,
-        padding: `${token.paddingXS}px ${token.paddingSM}px`,
+        padding: `${token.paddingXXS}px ${token.paddingXS}px`,
         borderRadius: token.borderRadiusSM,
         cursor: 'pointer',
         transition: 'background 0.15s',
@@ -164,7 +164,7 @@ export const PageEmployees_ViewsSidebar = ({
                     style={{ flex: 1 }}
                 />
                 <Tooltip title="Create new view">
-                    <Button type="text" icon={<PlusOutlined />} onClick={onCreateView} />
+                    <Button type="text" size="small" icon={<PlusOutlined />} onClick={onCreateView} />
                 </Tooltip>
             </div>
 
@@ -215,7 +215,7 @@ export const PageEmployees_ViewsSidebar = ({
                             <TableOutlined style={{ fontSize: 14, flexShrink: 0 }} />
                             <Typography.Text
                                 ellipsis
-                                style={{ flex: 1, fontSize: 13, color: isActive ? token.colorPrimary : undefined }}
+                                style={{ flex: 1, fontSize: token.fontSizeSM, color: isActive ? token.colorPrimary : undefined }}
                                 title={view.name}
                             >
                                 {view.name}

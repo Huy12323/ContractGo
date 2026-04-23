@@ -35,6 +35,15 @@ export const useM_EmployeeView_Update = () => {
             if (sb_FromEmployeeViews_Update.error) throw sb_FromEmployeeViews_Update.error;
             return sb_FromEmployeeViews_Update.data;
         },
+        onMutate: async ({ viewId, ...patch }) => {
+            await queryClient.cancelQueries({ queryKey: QueryKeys.employee_views.all() });
+            const snapshots = queryClient.getQueriesData<unknown>({ queryKey: QueryKeys.employee_views.all() });
+            queryClient.setQueriesData<unknown>({ queryKey: QueryKeys.employee_views.all() }, (old: unknown) => {
+                if (!Array.isArray(old)) return old;
+                return old.map((v: Record<string, unknown>) => (v?.id === viewId ? { ...v, ...patch } : v));
+            });
+            return { snapshots };
+        },
         onSuccess: (_data, body) => {
             // Silent for auto-save config patches. Only toast on rename (name-only patch).
             const isRenameOnly = body.name !== undefined
@@ -47,11 +56,16 @@ export const useM_EmployeeView_Update = () => {
             if (isRenameOnly) {
                 message.success("View renamed");
             }
-            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_views.all() });
         },
-        onError: (err) => {
+        onError: (err, _body, ctx) => {
+            if (ctx?.snapshots) {
+                for (const [key, data] of ctx.snapshots) queryClient.setQueryData(key, data);
+            }
             console.error(err);
             message.error("Failed to update view");
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employee_views.all() });
         },
     });
 

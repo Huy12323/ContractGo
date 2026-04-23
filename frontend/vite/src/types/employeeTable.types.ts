@@ -1,4 +1,4 @@
-export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "single_select" | "multi_select";
+export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "single_select" | "multi_select" | "file";
 
 export type EmployeeTable_FilterOperator =
     | "equals"
@@ -42,3 +42,24 @@ export type EmployeeView_Config = {
     field_order: string[];
     field_widths: Record<string, number>;
 };
+
+// Table/Grid field metadata — previously defined in App_EmployeeDataTable.tsx.
+// Lifted here so the Grid + engine don't have to import from a specific renderer.
+export type EmployeeDataTable_TableField = {
+    key: string;
+    label: string;
+    type: EmployeeTable_FieldType;
+};
+
+// Universal (non-dynamic) employee fields — always present on every employee.
+// `__`-prefixed keys are system-managed (derived, read-only); see `isSystemFieldKey`.
+// `__full_name` is pinned as the grid's sticky first column — never reordered or hidden.
+export const EmployeeDataTable_UniversalFields: ReadonlyArray<EmployeeDataTable_TableField> = [
+    { key: "__full_name", label: "Full Name", type: "text" },
+    { key: "first_name", label: "First Name", type: "text" },
+    { key: "last_name", label: "Last Name", type: "text" },
+    { key: "email", label: "Email", type: "text" },
+    { key: "birthday", label: "Birthday", type: "date" },
+];
+
+export const isSystemFieldKey = (key: string) => key.startsWith("__");

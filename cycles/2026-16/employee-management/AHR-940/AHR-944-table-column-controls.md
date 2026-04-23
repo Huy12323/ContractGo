@@ -120,45 +120,45 @@ Execution Order: Step 2 of 3 — prerequisites all effectively Done ✓ (AHR-941
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Install react-resizable: (pending)
-- CSS import: (pending)
+Phase A: AHR-989
+- Install react-resizable: AHR-990
+- CSS import: AHR-991
 
-Phase B: (pending)
-- ResizableHeaderCell: (pending)
-- fieldWidths prop + column width lookup: (pending)
-- onResizeStop wiring: (pending)
-- CSS for resize handle: (pending)
+Phase B: AHR-992
+- ResizableHeaderCell: AHR-993
+- fieldWidths prop + column width lookup: AHR-994
+- onResizeStop wiring: AHR-995
+- CSS for resize handle: AHR-996
 
-Phase C: (pending)
-- Drag handlers on header content: (pending)
-- Drop indicator visuals: (pending)
-- onColumnOrderChange dispatch: (pending)
+Phase C: AHR-997
+- Drag handlers on header content: AHR-998
+- Drop indicator visuals: AHR-999
+- onColumnOrderChange dispatch: AHR-1000
 
-Phase D: (pending)
-- Virtual `+` column: (pending)
-- onAddField wiring: (pending)
-- + column bypass for resize/drag: (pending)
+Phase D: AHR-1001
+- Virtual `+` column: AHR-1002
+- onAddField wiring: AHR-1003
+- + column bypass for resize/drag: AHR-1004
 
-Phase E: (pending)
-- Header restructure with chevron: (pending)
-- Hover opacity CSS: (pending)
-- Dropdown menu items + disabled states: (pending)
-- Delete confirm + hook wiring: (pending)
+Phase E: AHR-1005
+- Header restructure with chevron: AHR-1006
+- Hover opacity CSS: AHR-1007
+- Dropdown menu items + disabled states: AHR-1008
+- Delete confirm + hook wiring: AHR-1009
 
-Phase F: (pending)
-- Composer state in ListView: (pending)
-- Composer modal mount: (pending)
-- All callback props wired: (pending)
-- fieldWidths memo: (pending)
+Phase F: AHR-1010
+- Composer state in ListView: AHR-1011
+- Composer modal mount: AHR-1012
+- All callback props wired: AHR-1013
+- fieldWidths memo: AHR-1014
 
-Phase G: (pending)
-- type-check: (pending)
-- build: (pending)
-- Resize smoke: (pending)
-- Reorder smoke: (pending)
-- Add field smoke: (pending)
-- Chevron menu smoke (all actions): (pending)
-- Universal disabled smoke: (pending)
-- `+` column position smoke: (pending)
-- Resize bounds smoke: (pending)
+Phase G: AHR-1015
+- type-check: AHR-1016
+- build: AHR-1017
+- Resize smoke: AHR-1018
+- Reorder smoke: AHR-1019
+- Add field smoke: AHR-1020
+- Chevron menu smoke (all actions): AHR-1021
+- Universal disabled smoke: AHR-1022
+- `+` column position smoke: AHR-1023
+- Resize bounds smoke: AHR-1024

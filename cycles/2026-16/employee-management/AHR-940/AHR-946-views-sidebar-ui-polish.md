@@ -49,16 +49,16 @@ Execution Order: Step 3 of 3 — all prerequisites Done ✓ (AHR-942's sidebar c
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Container style change: (pending)
-- Input borderless + flex 1: (pending)
-- Button swap to text+icon+tooltip: (pending)
-- Tooltip import verification: (pending)
+Phase A: AHR-1046
+- Container style change: AHR-1047
+- Input borderless + flex 1: AHR-1048
+- Button swap to text+icon+tooltip: AHR-1049
+- Tooltip import verification: AHR-1050
 
-Phase B: (pending)
-- type-check: (pending)
-- build: (pending)
-- Browser smoke (tooltip + click + modal): (pending)
-- Browser smoke (search filter): (pending)
-- Browser smoke (empty state unchanged): (pending)
-- Browser smoke (border hairline): (pending)
+Phase B: AHR-1051
+- type-check: AHR-1055
+- build: AHR-1057
+- Browser smoke (tooltip + click + modal): AHR-1059
+- Browser smoke (search filter): AHR-1061
+- Browser smoke (empty state unchanged): AHR-1063
+- Browser smoke (border hairline): AHR-1066

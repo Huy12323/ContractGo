@@ -82,34 +82,34 @@ Execution Order: Step 1 of 3 — all done ✓ (no prerequisites; parallel with A
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Migration creation: (pending)
-- Apply locally: (pending)
-- Regenerate types: (pending)
+Phase A: AHR-1052
+- Migration creation: AHR-1053
+- Apply locally: AHR-1054
+- Regenerate types: AHR-1056
 
-Phase B: (pending)
-- Type flatten: (pending)
-- Query projection update: (pending)
+Phase B: AHR-1058
+- Type flatten: AHR-1060
+- Query projection update: AHR-1062
 
-Phase C: (pending)
-- Mutation hook upgrade: (pending)
-- Toast suppression: (pending)
+Phase C: AHR-1064
+- Mutation hook upgrade: AHR-1065
+- Toast suppression: AHR-1067
 
-Phase D: (pending)
-- Provider delete: (pending)
-- ListView read-from-query refactor: (pending)
-- Save/Cancel handler removal: (pending)
+Phase D: AHR-1068
+- Provider delete: AHR-1069
+- ListView read-from-query refactor: AHR-1070
+- Save/Cancel handler removal: AHR-1071
 
-Phase E: (pending)
-- Toolbar layout to right: (pending)
-- Reorder buttons: (pending)
-- Active state styling: (pending)
-- Count phrase labels: (pending)
-- Search/Save/Save-As/Cancel removal: (pending)
+Phase E: AHR-1072
+- Toolbar layout to right: AHR-1073
+- Reorder buttons: AHR-1074
+- Active state styling: AHR-1075
+- Count phrase labels: AHR-1076
+- Search/Save/Save-As/Cancel removal: AHR-1077
 
-Phase F: (pending)
-- Sort wiring: (pending)
-- Filter wiring + debounce: (pending)
-- Group wiring: (pending)
-- Hide Fields wiring: (pending)
-- Operators map update: (pending)
+Phase F: AHR-1078
+- Sort wiring: AHR-1079
+- Filter wiring + debounce: AHR-1080
+- Group wiring: AHR-1081
+- Hide Fields wiring: AHR-1082
+- Operators map update: AHR-1083

@@ -61,33 +61,50 @@ Execution Order: Step 1 of 3 — all done ✓ (no prerequisites; parallel with A
 - [x] In `App_OnboardingWizardModal.tsx` step 2 (the new `+` button + the empty-state "Create your first template" button) — both use default-size primary `Button` with global ANTD theme tokens; no `size="small"`, no inline `borderRadius` overrides
 - [x] Confirm visual consistency with surrounding wizard step 2 elements (Select, Input, etc.)
 
+## Phase F: Standalone "Manage Templates" entry + shared manager extraction
+
+Addendum: the wizard-only path forced users through steps 1-2 just to CRUD a template. Added a direct "Manage Templates" button in `App_OnboardingModal` title bar and extracted the wizard's step 2 body into a shared component so both surfaces stay in sync.
+
+- [x] Create `frontend/vite/src/components/employees/App_ContractTemplatesManager.tsx` — shared body with search input + Create button, card grid with hover Edit/Archive actions, and an internally-mounted `App_FormBuilderModal`. Props: `organizationId`, optional `selectedTemplateId`, optional `onSelect` — when `onSelect` omitted, card click opens Edit
+- [x] Create `frontend/vite/src/components/employees/App_ContractTemplatesManagerModal.tsx` — thin standalone modal (70vw, title "Manage Templates", `FileTextOutlined`) wrapping the shared manager
+- [x] Refactor `App_OnboardingWizardModal.tsx` step 2 to delegate to `<App_ContractTemplatesManager selectedTemplateId onSelect={setSelectedTemplateId} />`; drop obsolete local state (`templateSearch`, `builderOpen`, `editingTemplateId`, `hoveredTemplateId`), `filteredTemplates` memo, `handleArchiveTemplate` / `openBuilderCreate` / `openBuilderEdit` callbacks, and the in-wizard `App_FormBuilderModal` mount — all live inside the shared manager
+- [x] Prune now-unused imports from wizard: `Card`, `Empty`, `SearchOutlined`, `PlusOutlined`, `EditOutlined`, `DeleteOutlined`, `App` from antd, `useM_ContractTemplate_Archive`, `App_FormBuilderModal`
+- [x] Edit `App_OnboardingModal.tsx` — add `templatesManagerOpen` state; group title-bar action buttons so "Manage Templates" (default, `FileTextOutlined`) sits to the left of "Onboard Employee" (primary); mount `<App_ContractTemplatesManagerModal>` as sibling
+
 ---
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Migration creation: (pending)
-- Apply locally: (pending)
-- Regenerate types: (pending)
+Phase A: AHR-1109
+- Migration creation: AHR-1110
+- Apply locally: AHR-1111
+- Regenerate types: AHR-1112
 
-Phase B: (pending)
-- Rename hook file + export: (pending)
-- Switch delete → update is_archived: (pending)
-- Toast change: (pending)
-- Query filter is_archived = false: (pending)
-- Update call sites: (pending)
+Phase B: AHR-1113
+- Rename hook file + export: AHR-1114
+- Switch delete → update is_archived: AHR-1115
+- Toast change: AHR-1116
+- Query filter is_archived = false: AHR-1117
+- Update call sites: AHR-1118
 
-Phase C: (pending)
-- Wizard step 2 search + create row: (pending)
-- Per-row hover actions Edit + Archive: (pending)
-- Empty state revamp: (pending)
-- Form builder modal mount inside wizard: (pending)
+Phase C: AHR-1119
+- Wizard step 2 search + create row: AHR-1120
+- Per-row hover actions Edit + Archive: AHR-1121
+- Empty state revamp: AHR-1122
+- Form builder modal mount inside wizard: AHR-1123
 
-Phase D: (pending)
-- Delete App_OnboardingFormsList: (pending)
-- Delete App_ViewFormsModal: (pending)
-- Remove Page_Employees View Forms button: (pending)
+Phase D: AHR-1124
+- Delete App_OnboardingFormsList: AHR-1125
+- Delete App_ViewFormsModal: AHR-1126
+- Remove Page_Employees View Forms button: AHR-1127
 
-Phase E: (pending)
-- Drop size="small": (pending)
-- Verify visual consistency: (pending)
+Phase E: AHR-1128
+- Drop size="small": AHR-1129
+- Verify visual consistency: AHR-1130
+
+Phase F: AHR-1131
+- Create App_ContractTemplatesManager: AHR-1132
+- Create App_ContractTemplatesManagerModal: AHR-1133
+- Refactor wizard step 2 to shared manager: AHR-1134
+- Prune wizard imports: AHR-1135
+- Add Manage Templates button to App_OnboardingModal: AHR-1136

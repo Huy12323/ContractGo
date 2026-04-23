@@ -8,10 +8,9 @@ import {
   DownOutlined,
   BankOutlined,
   BranchesOutlined,
-  BorderOutlined,
   SolutionOutlined,
   ApartmentOutlined,
-  UnorderedListOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
@@ -35,10 +34,10 @@ const EXPAND_BTN_SIZE = 28
 const ZOOM_MIN = 0.25
 const ZOOM_MAX = 2
 const ZOOM_STEP = 0.1
-const HEADER_HEIGHT = 48
+const HEADER_HEIGHT = 40
 const FIT_MARGIN = 60
 
-type ViewMode = 'chart' | 'list'
+type ViewMode = 'chart' | 'grid'
 
 export const Page_Employees = () => {
   const { token } = theme.useToken()
@@ -59,7 +58,6 @@ export const Page_Employees = () => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(['org-root']))
   const [zoom, setZoom] = useState(0.85)
   const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [gridVisible, setGridVisible] = useState(true)
   const isPanning = useRef(false)
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -402,10 +400,10 @@ export const Page_Employees = () => {
             onChange={(v) => setViewMode(v as ViewMode)}
             options={[
               { value: 'chart', icon: <ApartmentOutlined /> },
-              { value: 'list', icon: <UnorderedListOutlined /> },
+              { value: 'grid', icon: <AppstoreOutlined /> },
             ]}
           />
-          <Button icon={<SolutionOutlined />} type="primary" onClick={() => setOnboardingOpen(true)}>
+          <Button size="small" icon={<SolutionOutlined />} type="primary" onClick={() => setOnboardingOpen(true)}>
             Onboarding
           </Button>
         </div>
@@ -427,14 +425,6 @@ export const Page_Employees = () => {
             </Tooltip>
             <Tooltip title="Fit to view">
               <Button size="small" icon={<ExpandOutlined />} onClick={handleFit} />
-            </Tooltip>
-            <Tooltip title={gridVisible ? 'Hide dot grid' : 'Show dot grid'}>
-              <Button
-                size="small"
-                icon={<BorderOutlined />}
-                type={gridVisible ? 'primary' : 'default'}
-                onClick={() => setGridVisible((v) => !v)}
-              />
             </Tooltip>
           </div>
 
@@ -462,23 +452,21 @@ export const Page_Employees = () => {
               userSelect: 'none',
             }}
           >
-            {gridVisible && (
-              <div
-                ref={gridRef}
-                style={{
-                  position: 'absolute',
-                  left: -gridTileSize,
-                  top: -gridTileSize,
-                  width: `calc(100% + ${gridTileSize * 2}px)`,
-                  height: `calc(100% + ${gridTileSize * 2}px)`,
-                  background: `radial-gradient(circle, ${token.colorTextQuaternary} 1.2px, transparent 1.2px)`,
-                  backgroundSize: `${gridTileSize}px ${gridTileSize}px`,
-                  transform: `translate(${gridTx}px, ${gridTy}px)`,
-                  willChange: 'transform',
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
+            <div
+              ref={gridRef}
+              style={{
+                position: 'absolute',
+                left: -gridTileSize,
+                top: -gridTileSize,
+                width: `calc(100% + ${gridTileSize * 2}px)`,
+                height: `calc(100% + ${gridTileSize * 2}px)`,
+                background: `radial-gradient(circle, ${token.colorTextQuaternary} 1.2px, transparent 1.2px)`,
+                backgroundSize: `${gridTileSize}px ${gridTileSize}px`,
+                transform: `translate(${gridTx}px, ${gridTy}px)`,
+                willChange: 'transform',
+                pointerEvents: 'none',
+              }}
+            />
             <div
               ref={innerRef}
               style={{

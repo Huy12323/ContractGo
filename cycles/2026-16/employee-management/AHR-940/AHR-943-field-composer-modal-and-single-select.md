@@ -77,34 +77,34 @@ Execution Order: Step 1 of 3 — all done ✓ (no prerequisites; parallel with A
 
 ## Plane IDs (populated by /pp)
 
-Phase A: (pending)
-- Migration creation: (pending)
-- Apply locally: (pending)
-- Regenerate types: (pending)
+Phase A: AHR-1084
+- Migration creation: AHR-1085
+- Apply locally: AHR-1086
+- Regenerate types: AHR-1087
 
-Phase B: (pending)
-- FieldType union extend: (pending)
-- Operators map entry: (pending)
+Phase B: AHR-1088
+- FieldType union extend: AHR-1089
+- Operators map entry: AHR-1090
 
-Phase C: (pending)
-- Edge function rename body field: (pending)
-- Branch for both select types: (pending)
+Phase C: AHR-1091
+- Edge function rename body field: AHR-1092
+- Branch for both select types: AHR-1093
 
-Phase D: (pending)
-- Type options map entry: (pending)
+Phase D: AHR-1094
+- Type options map entry: AHR-1095
 
-Phase E: (pending)
-- Composer skeleton: (pending)
-- Form rows + conditional choices: (pending)
-- EDIT mode hydration: (pending)
-- Submit logic create + update: (pending)
+Phase E: AHR-1096
+- Composer skeleton: AHR-1097
+- Form rows + conditional choices: AHR-1098
+- EDIT mode hydration: AHR-1099
+- Submit logic create + update: AHR-1100
 
-Phase F: (pending)
-- dnd-kit sortable choices: (pending)
-- Add choice + delete row controls: (pending)
+Phase F: AHR-1101
+- dnd-kit sortable choices: AHR-1102
+- Add choice + delete row controls: AHR-1103
 
-Phase G: (pending)
-- Delete App_FieldManagerModal: (pending)
-- Delete App_CreateFieldModal: (pending)
-- Remove Page_Employees Manage Fields entry: (pending)
-- Replace form builder Manage button: (pending)
+Phase G: AHR-1104
+- Delete App_FieldManagerModal: AHR-1105
+- Delete App_CreateFieldModal: AHR-1106
+- Remove Page_Employees Manage Fields entry: AHR-1107
+- Replace form builder Manage button: AHR-1108

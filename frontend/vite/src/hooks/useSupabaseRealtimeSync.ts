@@ -9,6 +9,12 @@ type RealtimeTableEvent = Database["public"]["Tables"]["realtime_table_events"][
 
 const ENABLE_LOGGING = import.meta.env.DEV;
 
+// Tables whose record-pattern query keys are NOT keyed by the row UUID.
+// For these, invalidate any record-pattern query under the table regardless
+// of the event's record_id match. Example: onboarding_invitations is looked
+// up by invitation_token in the URL, so its record key is the token, not UUID.
+const TOKEN_KEYED_TABLES = new Set<string>(["onboarding_invitations"]);
+
 export const useSupabaseRealtimeSync = () => {
     const queryClient = useQueryClient();
     const user = useStore_Auth_User();
@@ -58,6 +64,12 @@ export const useSupabaseRealtimeSync = () => {
                     return true;
                 }
                 if (marker === "record") {
+                    // For token-keyed tables, the record key is not the row UUID,
+                    // so id comparison is meaningless — invalidate broadly.
+                    if (TOKEN_KEYED_TABLES.has(tableName)) {
+                        invalidatedCount++;
+                        return true;
+                    }
                     const keyRecordId = key[tableIdx + 2];
                     const shouldInvalidate = recordId === null || keyRecordId === recordId;
                     if (shouldInvalidate) invalidatedCount++;
