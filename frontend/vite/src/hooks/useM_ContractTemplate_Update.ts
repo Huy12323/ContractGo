@@ -5,7 +5,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 import type { Json } from "@/types/database.types";
 
 export type UseM_ContractTemplate_Update_Params = { templateId: string };
-export type UseM_ContractTemplate_Update_Body = Partial<{ name: string; layout: Json; mandatory_field_keys: string[] }>;
+export type UseM_ContractTemplate_Update_Body = Partial<{ name: string; layout: Json; mandatory_field_keys: string[]; hr_field_keys: string[]; attachment_field_keys: string[] }>;
 
 export const useM_ContractTemplate_Update = ({ templateId }: UseM_ContractTemplate_Update_Params) => {
     const queryClient = useQueryClient();

@@ -73,31 +73,51 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
         [prefilledValues, filledValues],
     )
 
+    const snapshotKeys = useMemo(() => {
+        const snap = (invitation?.template_snapshot ?? {}) as {
+            mandatory_field_keys?: string[]
+            hr_field_keys?: string[]
+            attachment_field_keys?: string[]
+        }
+        return {
+            mandatoryKeys: snap.mandatory_field_keys ?? [],
+            hrFieldKeys: snap.hr_field_keys ?? [],
+            // `undefined` when absent (legacy snapshots) → App_ContractFiller falls
+            // back to layout extraction.
+            attachmentFieldKeys: snap.attachment_field_keys
+                ? (snap.attachment_field_keys as string[])
+                : undefined,
+        }
+    }, [invitation?.template_snapshot])
+
     // Resolve signed URL for the signature image
     useEffect(() => {
         let cancelled = false
         setSignedUrl(null)
         setSignedUrlError(null)
         const path = qContract.contract?.signature_path
-        if (!open || !path) return
+        const cid = qContract.contract?.id
+        if (!open || !path || !cid) return
 
         ;(async () => {
-            const sb_StorageOrgFiles_CreateSignedUrl = await supabase.storage
-                .from('org-files')
-                .createSignedUrl(path, 300)
+            const sb_FunctionsFilesR2SignReadUrl_Invoke = await supabase.functions.invoke(
+                'files_r2_sign-read-url',
+                { body: { resource_type: 'contract_signature', contract_id: cid } },
+            )
             if (cancelled) return
-            if (sb_StorageOrgFiles_CreateSignedUrl.error) {
-                console.error(sb_StorageOrgFiles_CreateSignedUrl.error)
+            if (sb_FunctionsFilesR2SignReadUrl_Invoke.error) {
+                console.error(sb_FunctionsFilesR2SignReadUrl_Invoke.error)
                 setSignedUrlError('Failed to load signature')
                 return
             }
-            setSignedUrl(sb_StorageOrgFiles_CreateSignedUrl.data.signedUrl)
+            const { url } = sb_FunctionsFilesR2SignReadUrl_Invoke.data as { url: string }
+            setSignedUrl(url)
         })()
 
         return () => {
             cancelled = true
         }
-    }, [open, qContract.contract?.signature_path])
+    }, [open, qContract.contract?.signature_path, qContract.contract?.id])
 
     // Reset composer whenever the modal opens (or contract changes)
     useEffect(() => {
@@ -132,6 +152,10 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
 
     const isLoading = qContract.query.isLoading || qInvitations.query.isLoading
     const isActionPending = mApproveContent.mutation.isPending || mRequestChanges.mutation.isPending
+    // Approve / Request-Changes only make sense while the contract is pending HR review.
+    // Once it's 'active' (approved), show the same view but hide the action buttons so
+    // the modal doubles as a read-only "view past contract" surface.
+    const isPendingReview = qContract.contract?.status === 'filled'
 
     return (
         <Modal
@@ -199,6 +223,15 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                                 onChange={() => {}}
                                 columns={qColumns.columns}
                                 choices={qChoices.choices}
+                                mandatoryKeys={snapshotKeys.mandatoryKeys}
+                                hrFieldKeys={snapshotKeys.hrFieldKeys}
+                                attachmentFieldKeys={snapshotKeys.attachmentFieldKeys}
+                                organization_id={qContract.contract.organization_id}
+                                uploadContext={
+                                    qContract.contract.invitation_id
+                                        ? { kind: 'invitation_col', invitation_id: qContract.contract.invitation_id }
+                                        : undefined
+                                }
                             />
                         </div>
 
@@ -284,7 +317,8 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                                 </div>
                             </div>
 
-                            {/* Actions */}
+                            {/* Actions — only for contracts pending HR review */}
+                            {isPendingReview && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
                                 <Typography.Text strong>Actions</Typography.Text>
                                 {composerOpen ? (
@@ -338,6 +372,7 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
                     </div>
                 </>

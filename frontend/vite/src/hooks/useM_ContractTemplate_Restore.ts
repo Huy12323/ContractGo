@@ -11,6 +11,8 @@ export type UseM_ContractTemplate_Restore_Body = {
     type: Enums<"contract_template_type_enum">;
     pdf_file_path: string | null;
     mandatory_field_keys: string[];
+    hr_field_keys: string[];
+    attachment_field_keys: string[];
     versionNumber: number;
 };
 
@@ -30,6 +32,8 @@ export const useM_ContractTemplate_Restore = ({
                     type: body.type,
                     pdf_file_path: body.pdf_file_path,
                     mandatory_field_keys: body.mandatory_field_keys,
+                    hr_field_keys: body.hr_field_keys,
+                    attachment_field_keys: body.attachment_field_keys,
                 })
                 .eq("id", templateId)
                 .select()

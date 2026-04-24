@@ -17,7 +17,7 @@ const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
 
 const PRESIGNED_URL_EXPIRES_IN = 3600;
 const MAX_SIZE_BYTES = 500 * 1024 * 1024;
-const RESOURCE_TYPES = ["contract", "employee_col", "user_avatar"] as const;
+const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "user_avatar"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const corsHeaders = {
@@ -194,6 +194,49 @@ Deno.serve(async (req) => {
             }
 
             r2Key = `orgs/${orgId}/employees/${employee_id}/${column_id}/${timestamp}-${uniqueId}-${sanitized}`;
+        } else if (resource_type === "invitation_col") {
+            const { invitation_id, column_id } = body as {
+                invitation_id?: string;
+                column_id?: string;
+            };
+            if (!invitation_id || typeof invitation_id !== "string") {
+                return jsonResponse(
+                    { error: "invitation_id is required for resource_type=invitation_col" },
+                    400,
+                );
+            }
+            if (!column_id || typeof column_id !== "string") {
+                return jsonResponse(
+                    { error: "column_id is required for resource_type=invitation_col" },
+                    400,
+                );
+            }
+
+            const { data: invitation } = await supabaseAdmin
+                .from("onboarding_invitations")
+                .select("organization_id, employee_email")
+                .eq("id", invitation_id)
+                .maybeSingle();
+            if (!invitation) {
+                return jsonResponse({ error: "Invitation not found" }, 404);
+            }
+
+            const orgId = invitation.organization_id as string;
+            // Dual auth: invitation recipient (email match) OR admin/owner of the invitation's org.
+            // Recipient path unblocks employee self-upload during fill; admin path covers HR pre-fill
+            // (from the wizard, after the draft invitation row has been created).
+            const inviteeEmail = (invitation.employee_email as string).toLowerCase().trim();
+            const userEmail = user.email?.toLowerCase().trim();
+            const isRecipient = !!userEmail && userEmail === inviteeEmail;
+            const canAccess = isRecipient || (await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id));
+            if (!canAccess) {
+                return jsonResponse(
+                    { error: "Forbidden — must be invitation recipient or org admin/owner" },
+                    403,
+                );
+            }
+
+            r2Key = `orgs/${orgId}/invitations/${invitation_id}/${column_id}/${timestamp}-${uniqueId}-${sanitized}`;
         } else {
             // user_avatar
             const { user_id } = body as { user_id?: string };

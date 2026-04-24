@@ -5,10 +5,12 @@ import {
     AlignLeftOutlined,
     AlignRightOutlined,
     BoldOutlined,
+    CloseOutlined,
     DeleteOutlined,
     ItalicOutlined,
     MinusOutlined,
     OrderedListOutlined,
+    PaperClipOutlined,
     PlusOutlined,
     StrikethroughOutlined,
     TableOutlined,
@@ -18,9 +20,9 @@ import {
     FormOutlined,
     HistoryOutlined,
 } from '@ant-design/icons'
-import { AlignJustify, Asterisk } from 'lucide-react'
+import { AlignJustify } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
-import { Extension } from '@tiptap/core'
+import { Extension, type JSONContent } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
@@ -31,8 +33,11 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_ContractTemplate_Create } from '@/hooks/useM_ContractTemplate_Create'
 import { useM_ContractTemplate_Update } from '@/hooks/useM_ContractTemplate_Update'
-import { FieldInput, FieldInputContext, fieldInputPreviewKey, type FieldInputContextValue } from './ext_TipTap_FieldInput'
-import { App_ContractPreview } from './App_ContractPreview'
+import { FieldInput, FieldRendererContext, fieldInputPreviewKey, type FieldRendererContextValue } from './ext_TipTap_FieldInput'
+import { type App_FieldRenderer_State } from './App_FieldRenderer'
+import { App_FieldLegendChip } from './App_FieldLegendChip'
+import { App_FieldStateDropdown } from './App_FieldStateDropdown'
+import { App_ContractFiller } from './App_ContractFiller'
 import { App_EmployeeFieldComposerModal } from './App_EmployeeFieldComposerModal'
 import { App_ContractTemplateVersionsModal, type App_ContractTemplateVersionsModal_OnRestored } from './App_ContractTemplateVersionsModal'
 import { isTipTapLayout, utils_FormBuilder_migrateLayout } from './utils_FormBuilder_migrateLayout'
@@ -112,7 +117,13 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     const [tick, setTick] = useState(0)
     const [headings, setHeadings] = useState<HeadingEntry[]>([])
     const [mandatorySet, setMandatorySet] = useState<Set<string>>(new Set())
-    const initialStateRef = useRef<{ name: string; layout: string; mandatory: string }>({ name: '', layout: '', mandatory: '[]' })
+    const [hrSet, setHrSet] = useState<Set<string>>(new Set())
+    const [attachmentSet, setAttachmentSet] = useState<Set<string>>(new Set())
+    // Ephemeral state for the composer's preview mode — a two-column filler matching the other surfaces.
+    // Resets every time the user toggles into preview (fresh session per peek).
+    const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({})
+    const [previewSessionKey, setPreviewSessionKey] = useState(0)
+    const initialStateRef = useRef<{ name: string; layout: string; mandatory: string; hr: string; attachment: string }>({ name: '', layout: '', mandatory: '[]', hr: '[]', attachment: '[]' })
     const [isDirty, setIsDirty] = useState(false)
     const [saveAsOpen, setSaveAsOpen] = useState(false)
     const [saveAsName, setSaveAsName] = useState('')
@@ -200,25 +211,47 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         editor.view.dispatch(editor.state.tr.setMeta(fieldInputPreviewKey, preview))
     }, [editor, preview])
 
+    // Reset preview field values + bump the App_ContractFiller session key each time
+    // the user enters preview mode — gives a fresh filler session over the latest layout.
+    useEffect(() => {
+        if (preview) {
+            setPreviewValues({})
+            setPreviewSessionKey((k) => k + 1)
+        }
+    }, [preview])
+
     useEffect(() => {
         if (editor) (editor.storage as Record<string, any>).fieldInput.choicesMap = choicesMap
     }, [editor, choicesMap])
 
-    const toggleMandatory = useCallback((key: string) => {
+    // 3-state setter with app-side mutual exclusivity (HR ⊥ MANDATORY).
+    const setFieldState = useCallback((key: string, nextState: 'hr' | 'mandatory' | 'optional') => {
         setMandatorySet((prev) => {
             const next = new Set(prev)
-            if (next.has(key)) next.delete(key)
-            else next.add(key)
+            if (nextState === 'mandatory') next.add(key)
+            else next.delete(key)
+            return next
+        })
+        setHrSet((prev) => {
+            const next = new Set(prev)
+            if (nextState === 'hr') next.add(key)
+            else next.delete(key)
             return next
         })
     }, [])
 
-    // Mandatory state + toggle callback are provided to FieldInput node-views via FieldInputContext
+    // Field state + toggle callback are provided to FieldInput node-views via FieldRendererContext
     // (wrapped around EditorContent below). Context changes reliably re-render React NodeViews —
     // storage mutation + decoration bumps don't, which caused the earlier sync bugs.
-    const fieldInputContextValue = useMemo<FieldInputContextValue>(
-        () => ({ mandatorySet, isBuilder: true, onToggleMandatory: toggleMandatory }),
-        [mandatorySet, toggleMandatory],
+    const fieldRendererContextValue = useMemo<FieldRendererContextValue>(
+        () => ({
+            hrSet,
+            mandatorySet,
+            mode: 'fill',
+            isBuilder: true,
+            onToggleState: setFieldState,
+        }),
+        [hrSet, mandatorySet, setFieldState],
     )
 
     // When a column is deleted upstream, remove any FieldInput nodes from the editor that
@@ -260,35 +293,50 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         }
         editor.view.dispatch(tr)
 
-        // Prune removed keys from mandatorySet too
-        setMandatorySet((prev) => {
+        // Prune removed keys from both sets too
+        const pruneBy = (prev: Set<string>) => {
             const next = new Set(prev)
             for (const k of removedKeys) next.delete(k)
             return next
-        })
+        }
+        setMandatorySet(pruneBy)
+        setHrSet(pruneBy)
     }, [editor, qColumns.columns])
 
-    // Unified dirty check — runs on every transaction (via tick), mandatory/name changes
+    // Unified dirty check — runs on every transaction (via tick), field-state/name changes
     useEffect(() => {
         if (!editor) return
         const mandatoryChanged = JSON.stringify([...mandatorySet].sort()) !== initialStateRef.current.mandatory
+        const hrChanged = JSON.stringify([...hrSet].sort()) !== initialStateRef.current.hr
+        const attachmentChanged = JSON.stringify([...attachmentSet].sort()) !== initialStateRef.current.attachment
         const layoutChanged = JSON.stringify(editor.getJSON()) !== initialStateRef.current.layout
         const nameChanged = formName !== initialStateRef.current.name
-        setIsDirty(mandatoryChanged || layoutChanged || nameChanged)
-    }, [editor, mandatorySet, formName, tick])
+        setIsDirty(mandatoryChanged || hrChanged || attachmentChanged || layoutChanged || nameChanged)
+    }, [editor, mandatorySet, hrSet, attachmentSet, formName, tick])
 
-    // Prune mandatorySet when fields are removed from the layout
+    // Combined "used" set — a key counts as used when it's either in the layout body
+    // OR in the attachments panel. Powers the palette's grayed-out state + the prune
+    // logic below.
+    const effectiveUsedKeys = useMemo(
+        () => new Set([...usedKeys, ...attachmentSet]),
+        [usedKeys, attachmentSet],
+    )
+
+    // Prune mandatorySet + hrSet when a field is removed (either from the layout
+    // or the attachments panel). Re-adding it later shouldn't carry old state.
     useEffect(() => {
-        setMandatorySet((prev) => {
+        const pruneUnused = (prev: Set<string>) => {
             let changed = false
             const next = new Set<string>()
             for (const k of prev) {
-                if (usedKeys.has(k)) next.add(k)
+                if (effectiveUsedKeys.has(k)) next.add(k)
                 else changed = true
             }
             return changed ? next : prev
-        })
-    }, [usedKeys])
+        }
+        setMandatorySet(pruneUnused)
+        setHrSet(pruneUnused)
+    }, [effectiveUsedKeys])
 
     // Delete key removes selected rows/cols; Backspace only clears content (default)
     useEffect(() => {
@@ -331,11 +379,15 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
 
         let resolvedName = ''
         let resolvedMandatory: string[] = []
+        let resolvedHr: string[] = []
+        let resolvedAttachment: string[] = []
         if (formId) {
             const existing = qTemplates.templates.find((f) => f.id === formId)
             if (!existing) return // wait for templates query to load this form
             resolvedName = existing.name
             resolvedMandatory = (existing.mandatory_field_keys ?? []) as string[]
+            resolvedHr = (existing.hr_field_keys ?? []) as string[]
+            resolvedAttachment = (existing.attachment_field_keys ?? []) as string[]
             setFormName(existing.name)
             const layout = existing.layout
             if (isTipTapLayout(layout)) {
@@ -350,6 +402,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
         }
         setMandatorySet(new Set(resolvedMandatory))
+        setHrSet(new Set(resolvedHr))
+        setAttachmentSet(new Set(resolvedAttachment))
         setPreview(false)
         setSearch('')
         setIsDirty(false)
@@ -363,6 +417,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             name: resolvedName,
             layout: JSON.stringify(editor.getJSON()),
             mandatory: JSON.stringify([...resolvedMandatory].sort()),
+            hr: JSON.stringify([...resolvedHr].sort()),
+            attachment: JSON.stringify([...resolvedAttachment].sort()),
         }
     }, [open, formId, qTemplates.templates, editor, syncUsedKeys])
 
@@ -370,33 +426,57 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         if (!editor) return
         editor.commands.setContent(body.layout)
         const restoredMandatory = body.mandatory_field_keys ?? []
+        const restoredHr = body.hr_field_keys ?? []
+        const restoredAttachment = body.attachment_field_keys ?? []
         setMandatorySet(new Set(restoredMandatory))
+        setHrSet(new Set(restoredHr))
+        setAttachmentSet(new Set(restoredAttachment))
         setIsDirty(false)
         syncUsedKeys(editor)
         initialStateRef.current = {
             name: formName,
             layout: JSON.stringify(editor.getJSON()),
             mandatory: JSON.stringify([...restoredMandatory].sort()),
+            hr: JSON.stringify([...restoredHr].sort()),
+            attachment: JSON.stringify([...restoredAttachment].sort()),
         }
     }
 
     const handleNameChange = (name: string) => setFormName(name)
 
     const insertField = (field: { key: string; label: string; type: string }) => {
+        // File-type fields live in the attachment panel (above the editor) rather
+        // than inline in the TipTap body — attachments are supporting documents, not
+        // body content. Non-file fields keep the existing cursor-insert behavior.
+        if (field.type === 'file') {
+            setAttachmentSet((prev) => (prev.has(field.key) ? prev : new Set([...prev, field.key])))
+            return
+        }
         editor?.chain().focus().insertContent({
             type: 'fieldInput',
             attrs: { fieldKey: field.key, fieldLabel: field.label, fieldType: field.type },
         }).run()
     }
 
+    const removeAttachment = (key: string) => {
+        setAttachmentSet((prev) => {
+            if (!prev.has(key)) return prev
+            const next = new Set(prev)
+            next.delete(key)
+            return next
+        })
+    }
+
     const handleSave = async () => {
         if (!formName.trim() || !editor) return
         const layout: Json = editor.getJSON() as Json
         const mandatory_field_keys = Array.from(mandatorySet)
+        const hr_field_keys = Array.from(hrSet)
+        const attachment_field_keys = Array.from(attachmentSet)
         if (formId) {
-            await mUpdate.mutation.mutateAsync({ name: formName.trim(), layout, mandatory_field_keys })
+            await mUpdate.mutation.mutateAsync({ name: formName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
         } else {
-            await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: formName.trim(), layout, mandatory_field_keys })
+            await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: formName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
         }
         onClose()
     }
@@ -410,7 +490,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         if (!saveAsName.trim() || !editor) return
         const layout: Json = editor.getJSON() as Json
         const mandatory_field_keys = Array.from(mandatorySet)
-        await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: saveAsName.trim(), layout, mandatory_field_keys })
+        const hr_field_keys = Array.from(hrSet)
+        const attachment_field_keys = Array.from(attachmentSet)
+        await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: saveAsName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
         setSaveAsOpen(false)
         onClose()
     }
@@ -620,7 +702,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                             <div style={{
                                 flexShrink: 0,
                                 display: 'grid',
-                                gridTemplateColumns: '1fr auto 24px',
+                                gridTemplateColumns: '1fr auto 96px',
                                 alignItems: 'center',
                                 gap: token.marginXS,
                                 padding: `0 ${token.paddingSM}px`,
@@ -628,7 +710,10 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                             }}>
                                 <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Label</Typography.Text>
                                 <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Type</Typography.Text>
-                                <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Req</Typography.Text>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: token.marginXXS }}>
+                                    <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Fill rule</Typography.Text>
+                                    <App_FieldLegendChip />
+                                </div>
                             </div>
                             <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: token.marginXXS }}>
                                 {availableFields.length === 0 && (
@@ -637,25 +722,21 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                     </Typography.Text>
                                 )}
                                 {availableFields.map((f) => {
-                                    const isUsed = usedKeys.has(f.key)
-                                    const isMandatory = mandatorySet.has(f.key)
-                                    const bg = !isUsed
-                                        ? token.colorBgContainer
-                                        : isMandatory
-                                            ? token.colorErrorBg
-                                            : token.colorPrimaryBg
-                                    const borderColor = !isUsed
-                                        ? token.colorBorderSecondary
-                                        : isMandatory
-                                            ? token.colorErrorBorder
-                                            : token.colorPrimaryBorder
+                                    const isUsed = effectiveUsedKeys.has(f.key)
+                                    const fieldState: App_FieldRenderer_State = hrSet.has(f.key)
+                                        ? 'hr'
+                                        : mandatorySet.has(f.key)
+                                            ? 'mandatory'
+                                            : 'optional'
+                                    const bg = !isUsed ? token.colorBgContainer : token.colorFillTertiary
+                                    const borderColor = token.colorBorderSecondary
                                     return (
                                         <div
                                             key={f.key}
                                             onClick={isUsed ? undefined : () => insertField(f)}
                                             style={{
                                                 display: 'grid',
-                                                gridTemplateColumns: '1fr auto 24px',
+                                                gridTemplateColumns: '1fr auto 96px',
                                                 alignItems: 'center',
                                                 gap: token.marginXS,
                                                 padding: `${token.paddingXXS}px ${token.paddingSM}px`,
@@ -669,26 +750,12 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                             <Typography.Text strong ellipsis style={{ fontSize: 13, minWidth: 0 }}>{f.label}</Typography.Text>
                                             <Typography.Text type="secondary" style={{ fontSize: 11 }}>{f.type}</Typography.Text>
                                             {isUsed ? (
-                                                <span
-                                                    role="button"
-                                                    title={isMandatory ? 'Required — click to make optional' : 'Click to mark as required'}
-                                                    onClick={(e) => { e.stopPropagation(); toggleMandatory(f.key) }}
-                                                    style={{
-                                                        justifySelf: 'center',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        width: 18,
-                                                        height: 18,
-                                                        cursor: 'pointer',
-                                                        borderRadius: token.borderRadius,
-                                                        background: isMandatory ? token.colorError : 'transparent',
-                                                        border: `1px solid ${isMandatory ? token.colorError : token.colorBorder}`,
-                                                        color: token.colorTextLightSolid,
-                                                    }}
-                                                >
-                                                    {isMandatory && <Asterisk size={12} strokeWidth={3} />}
-                                                </span>
+                                                <div style={{ justifySelf: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                                    <App_FieldStateDropdown
+                                                        state={fieldState}
+                                                        onChange={(next) => setFieldState(f.key, next)}
+                                                    />
+                                                </div>
                                             ) : (
                                                 <span />
                                             )}
@@ -813,12 +880,83 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
 
                     {/* Editor area */}
                     {preview ? (
-                        <FieldInputContext.Provider value={fieldInputContextValue}>
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <App_ContractPreview editor={editor} />
-                            </div>
-                        </FieldInputContext.Provider>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                            {editor && (
+                                <App_ContractFiller
+                                    key={previewSessionKey}
+                                    mode="fill"
+                                    layout={editor.getJSON() as JSONContent}
+                                    fieldValues={previewValues}
+                                    onChange={(k, v) => setPreviewValues((prev) => ({ ...prev, [k]: v }))}
+                                    columns={qColumns.columns}
+                                    choices={qChoices.choices}
+                                    mandatoryKeys={Array.from(mandatorySet)}
+                                    hrFieldKeys={Array.from(hrSet)}
+                                    attachmentFieldKeys={Array.from(attachmentSet)}
+                                    fillerRole="hr"
+                                    organization_id={organizationId}
+                                    /* No uploadContext — composer preview is a peek,
+                                       strip renders readonly with "No file" placeholders. */
+                                />
+                            )}
+                        </div>
                     ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                        {/* Attachments panel — file-type fields live here, not inline in the body.
+                           Mirrors where the strip renders at preview / fill time. */}
+                        {attachmentSet.size > 0 && (
+                            <div style={{
+                                flexShrink: 0,
+                                border: `1px solid ${token.colorBorderSecondary}`,
+                                borderRadius: token.borderRadiusLG,
+                                padding: token.paddingSM,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: token.marginXS,
+                            }}>
+                                <Typography.Text strong style={{ fontSize: 12 }}>
+                                    Attachments ({attachmentSet.size})
+                                </Typography.Text>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
+                                    {Array.from(attachmentSet).map((key) => {
+                                        const field = resolveField(key)
+                                        const state: App_FieldRenderer_State = hrSet.has(key)
+                                            ? 'hr'
+                                            : mandatorySet.has(key)
+                                                ? 'mandatory'
+                                                : 'optional'
+                                        return (
+                                            <div
+                                                key={key}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: token.marginXS,
+                                                    padding: `${token.paddingXXS}px ${token.paddingSM}px`,
+                                                    border: `1px solid ${token.colorBorderSecondary}`,
+                                                    borderRadius: token.borderRadiusSM,
+                                                    background: token.colorBgContainer,
+                                                }}
+                                            >
+                                                <PaperClipOutlined style={{ color: token.colorTextSecondary, fontSize: 12 }} />
+                                                <Typography.Text style={{ fontSize: 12 }}>{field.label}</Typography.Text>
+                                                <App_FieldStateDropdown
+                                                    state={state}
+                                                    onChange={(next) => setFieldState(key, next)}
+                                                />
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<CloseOutlined />}
+                                                    onClick={() => removeAttachment(key)}
+                                                />
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                     <div
                     ref={editorAreaRef}
                     onMouseMove={handleEditorMouseMove}
@@ -833,9 +971,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                     }}
                 >
                     <div>
-                        <FieldInputContext.Provider value={fieldInputContextValue}>
+                        <FieldRendererContext.Provider value={fieldRendererContextValue}>
                             <EditorContent editor={editor} />
-                        </FieldInputContext.Provider>
+                        </FieldRendererContext.Provider>
                     </div>
 
                     {/* Table hover "+" indicators — row on left, col on top */}
@@ -884,6 +1022,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                         )
                     })}
                 </div>
+                    </div>
                 )}
                 </div>
             </div>

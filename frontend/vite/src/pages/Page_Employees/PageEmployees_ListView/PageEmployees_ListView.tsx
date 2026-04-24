@@ -25,7 +25,9 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_OrgEmployeeViews } from '@/hooks/useQ_Tables_OrgEmployeeViews'
 import { App_EmployeeDataGrid } from '@/components/employees/App_EmployeeDataGrid'
 import { App_EmployeeDetailModal } from '@/components/employees/App_EmployeeDetailModal'
-import { AppEmployee_FilePreviewModal } from '@/components/employees/AppEmployee_FilePreviewModal'
+import { App_FilePreviewModal } from '@/components/employees/App_FilePreviewModal'
+import { useQ_Files_ReadUrl } from '@/hooks/useQ_Files_ReadUrl'
+import { useQ_Tables_OrgFiles } from '@/hooks/useQ_Tables_OrgFiles'
 import { FieldTypeIcon } from '@/components/employees/App_EmployeeFieldTypeIcon'
 import {
   EmployeeDataTable_UniversalFields,
@@ -296,8 +298,19 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
   // after saves.
   const [modalEmployeeId, setModalEmployeeId] = useState<string | null>(null)
 
-  // File preview modal — opened from grid file-cell clicks AND detail modal file links
+  // File preview modal — opened from grid file-cell clicks AND detail modal file links.
+  // The modal itself is scope-agnostic — we resolve URL + metadata here via the
+  // employee_col path and hand the modal a pre-resolved view.
   const [previewCtx, setPreviewCtx] = useState<{ file_id: string; employee_id: string; column_id: string } | null>(null)
+
+  const qPreviewUrl = useQ_Files_ReadUrl({
+    resource_type: 'employee_col',
+    file_id: previewCtx?.file_id ?? null,
+    employee_id: previewCtx?.employee_id ?? null,
+    column_id: previewCtx?.column_id ?? null,
+  })
+  const qPreviewOrgFiles = useQ_Tables_OrgFiles({ organizationId })
+  const previewFile = previewCtx ? qPreviewOrgFiles.filesMap[previewCtx.file_id] : null
 
   // Mutation shortcut — every toolbar edit is a surgical per-column patch
   const patchActiveView = useCallback(
@@ -995,13 +1008,14 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
         onFilePreview={setPreviewCtx}
       />
 
-      {/* File preview modal — shared across grid cells and detail modal file links */}
-      <AppEmployee_FilePreviewModal
+      {/* File preview modal — shared across grid cells, detail modal file links, AND
+         the attachment strip (via App_FilePreviewModal directly inside Card_Attachment). */}
+      <App_FilePreviewModal
         open={previewCtx !== null}
-        organizationId={organizationId}
-        file_id={previewCtx?.file_id ?? null}
-        employee_id={previewCtx?.employee_id ?? null}
-        column_id={previewCtx?.column_id ?? null}
+        url={qPreviewUrl.url ?? null}
+        name={previewFile?.name ?? null}
+        contentType={previewFile?.content_type ?? null}
+        size={previewFile?.size ?? null}
         onClose={() => setPreviewCtx(null)}
       />
     </div>

@@ -86,18 +86,39 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
         if (!employee) return false
         try {
             // Normalize file-column patches before the DB update:
-            //   File instance            → upload to R2, insert files row, replace with file_id
-            //   { __delete, file_id }    → delete R2 object + files row, replace with null
+            //   File instance            → upload to R2, insert files row, replace with file_id;
+            //                              if the column already pointed to an old file, delete
+            //                              the old file (R2 + thumbnail + files row) best-effort
+            //                              so we don't orphan storage on every replace
+            //   { __delete, file_id }    → delete R2 object + thumbnail + files row, replace with null
             //   anything else            → pass through unchanged
+            const currentValues = employee as unknown as Record<string, unknown>
             const normalized: Record<string, unknown> = {}
             for (const [key, value] of Object.entries(patch)) {
                 if (value instanceof File) {
                     const result = await mFilesUpload.mutation.mutateAsync({
+                        resource_type: 'employee_col',
                         file: value,
                         employee_id: employee.id,
                         column_id: key,
                     })
                     normalized[key] = result.file_id
+                    // Replace flow — if the column previously held a file_id, delete that
+                    // old file now. We do this AFTER the new upload succeeds so a failed
+                    // new upload doesn't strand the employee with no file at all.
+                    const previousFileId = currentValues[key]
+                    if (typeof previousFileId === 'string' && previousFileId && previousFileId !== result.file_id) {
+                        try {
+                            await supabase.functions.invoke('files_r2_delete', {
+                                body: { file_id: previousFileId },
+                            })
+                        } catch (cleanupErr) {
+                            // Best-effort cleanup — orphaned R2 objects + files row are a
+                            // soft problem, not worth failing the save over. Logged for
+                            // future reconciliation.
+                            console.warn(`Failed to delete replaced file ${previousFileId}:`, cleanupErr)
+                        }
+                    }
                 } else if (isFileDeleteMarker(value)) {
                     const invoke = await supabase.functions.invoke('files_r2_delete', {
                         body: { file_id: value.file_id },

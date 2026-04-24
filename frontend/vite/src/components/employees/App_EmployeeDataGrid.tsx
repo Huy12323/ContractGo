@@ -6,6 +6,11 @@ import '@glideapps/glide-data-grid/dist/index.css'
 import { Empty, Dropdown, App, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import { EditOutlined, EyeInvisibleOutlined, DeleteOutlined } from '@ant-design/icons'
+import { useQueries } from '@tanstack/react-query'
+import { supabase } from '@/configs/supabase/config'
+import { QueryKeys } from '@/utils/query/queryKeys'
+import { Utils_Glide_CrossOriginImageLoader } from '@/utils/Utils_Glide_CrossOriginImageLoader'
+import { Utils_FileTypeIcon_DataUri } from '@/utils/Utils_FileTypeIcon'
 import { useQ_Tables_OrgEmployees, type Tables_OrgEmployees_QueryData } from '@/hooks/useQ_Tables_OrgEmployees'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
@@ -266,6 +271,77 @@ export const App_EmployeeDataGrid = ({
   const addFieldColIndex = visibleFields.length
   const lastColIndex = visibleFields.length // includes the synthetic "+" col at N
 
+  // Thumbnail URL resolution for file-type cells. We need a URL per (file_id,
+  // employee_id, column_id) triple because the sign-read-url edge fn gates access
+  // by (employee, column) for RLS. Files can appear in many cells in theory; in
+  // practice one file belongs to one (employee, column) pair, so fileId uniqueness
+  // is sufficient for the map key.
+  const thumbnailCells = useMemo(() => {
+    const cells: Array<{ file_id: string; employee_id: string; column_id: string }> = []
+    const seen = new Set<string>()
+    for (const record of visibleRows) {
+      if (isGroupHeader(record)) continue
+      const employeeId = (record as unknown as { id?: string }).id
+      if (!employeeId) continue
+      for (const field of visibleFields) {
+        if (field.type !== 'file') continue
+        const fileId = (record as unknown as Record<string, unknown>)[field.key]
+        if (typeof fileId !== 'string' || !fileId) continue
+        if (seen.has(fileId)) continue
+        const filesRow = qOrgFiles.filesMap[fileId]
+        // `thumbnail_r2_key` is null until the backend generates a thumbnail —
+        // skip those rows so we don't fire a 404 on every render.
+        if (!filesRow?.thumbnail_r2_key) continue
+        seen.add(fileId)
+        cells.push({ file_id: fileId, employee_id: employeeId, column_id: field.key })
+      }
+    }
+    return cells
+  }, [visibleRows, visibleFields, qOrgFiles.filesMap])
+
+  const SIX_DAYS_MS = 6 * 24 * 3600 * 1000
+  const thumbnailQueries = useQueries({
+    queries: thumbnailCells.map((c) => ({
+      queryKey: [
+        ...QueryKeys.files.record(c.file_id),
+        'read-url',
+        { employee_id: c.employee_id, column_id: c.column_id, use_thumbnail: true },
+      ],
+      queryFn: async () => {
+        const sb_FunctionsFilesR2SignReadUrl_Invoke = await supabase.functions.invoke(
+          'files_r2_sign-read-url',
+          {
+            body: {
+              resource_type: 'employee_col',
+              file_id: c.file_id,
+              employee_id: c.employee_id,
+              column_id: c.column_id,
+              use_thumbnail: true,
+            },
+          },
+        )
+        if (sb_FunctionsFilesR2SignReadUrl_Invoke.error) throw sb_FunctionsFilesR2SignReadUrl_Invoke.error
+        return sb_FunctionsFilesR2SignReadUrl_Invoke.data as { url: string; expiresAt: string }
+      },
+      staleTime: SIX_DAYS_MS,
+    })),
+  })
+
+  const thumbnailUrlsMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    thumbnailCells.forEach((c, i) => {
+      const url = thumbnailQueries[i]?.data?.url
+      if (url) map[c.file_id] = url
+    })
+    return map
+  }, [thumbnailCells, thumbnailQueries])
+
+  // Glide's default image loader creates `new Image()` without `crossOrigin`,
+  // which taints the canvas when drawing cross-origin thumbnails. Our custom
+  // loader sets `crossOrigin="anonymous"` so the R2 Worker's `*` CORS header
+  // lets the canvas draw the bitmap.
+  const imageWindowLoader = useMemo(() => new Utils_Glide_CrossOriginImageLoader(), [])
+
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
       const record = visibleRows[row]
@@ -331,13 +407,17 @@ export const App_EmployeeDataGrid = ({
         }
         case 'file': {
           const fileId = value as string
-          const displayName = qOrgFiles.filesMap[fileId]?.name ?? fileId
+          const filesRow = qOrgFiles.filesMap[fileId]
+          const thumbnailUrl = thumbnailUrlsMap[fileId]
+          // Drilldown cell = pill with thumbnail + filename side-by-side. Falls back
+          // to the ANTD TwoTone data URI (red PDF, blue Word, etc.) when no thumbnail
+          // exists. onCellClicked still opens the preview modal.
+          const img = thumbnailUrl ?? Utils_FileTypeIcon_DataUri(filesRow?.content_type ?? '')
+          const name = filesRow?.name ?? fileId
           return {
-            kind: GridCellKind.Text,
-            data: displayName,
-            displayData: displayName,
+            kind: GridCellKind.Drilldown,
+            data: [{ text: name, img }],
             allowOverlay: false,
-            themeOverride: { textDark: token.colorLink },
           }
         }
         case 'text':
@@ -350,7 +430,7 @@ export const App_EmployeeDataGrid = ({
           }
       }
     },
-    [visibleFields, visibleRows, choicesByField, qOrgFiles.filesMap, token.colorTextTertiary, token.colorFillAlter, token.colorLink, lastColIndex],
+    [visibleFields, visibleRows, choicesByField, qOrgFiles.filesMap, thumbnailUrlsMap, token.colorTextTertiary, token.colorFillAlter, token.colorLink, lastColIndex],
   )
 
   // Per-tick during drag. Glide's live resize preview depends on us updating the
@@ -659,6 +739,7 @@ export const App_EmployeeDataGrid = ({
         theme={gridTheme}
         drawHeader={drawHeader}
         drawCell={drawCell}
+        imageWindowLoader={imageWindowLoader}
         onColumnResize={handleColumnResize}
         onColumnResizeEnd={handleColumnResizeEnd}
         onColumnProposeMove={handleColumnProposeMove}

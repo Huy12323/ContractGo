@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
         const { data: file } = await supabaseAdmin
             .from("files")
-            .select("r2_key, organization_id")
+            .select("r2_key, thumbnail_r2_key, organization_id")
             .eq("id", file_id)
             .maybeSingle();
         if (!file) {
@@ -85,22 +85,54 @@ Deno.serve(async (req) => {
         }
 
         const orgId = file.organization_id as string;
-        const isAdminOrOwner = await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id);
-        if (!isAdminOrOwner) {
-            return jsonResponse({ error: "Forbidden — admin or owner role required" }, 403);
+
+        // Scope-aware auth: parse r2_key prefix to detect whether this file lives under
+        // an invitation (dual auth: recipient OR admin/owner) or under any other scope
+        // (admin/owner only — contracts, employee_col). Keeps the hook signature flat
+        // (just { file_id }) while letting the edge function pick the right rule.
+        const segments = (file.r2_key as string).split("/");
+        const scope = segments[0] === "orgs" ? segments[2] : null;
+
+        if (scope === "invitations") {
+            const invitationId = segments[3];
+            const { data: invitation } = await supabaseAdmin
+                .from("onboarding_invitations")
+                .select("employee_email")
+                .eq("id", invitationId)
+                .maybeSingle();
+            if (!invitation) {
+                return jsonResponse({ error: "Invitation not found for file's scope" }, 404);
+            }
+            const inviteeEmail = (invitation.employee_email as string).toLowerCase().trim();
+            const userEmail = user.email?.toLowerCase().trim();
+            const isRecipient = !!userEmail && userEmail === inviteeEmail;
+            const isAdminOrOwner = await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id);
+            if (!isRecipient && !isAdminOrOwner) {
+                return jsonResponse(
+                    { error: "Forbidden — must be invitation recipient or org admin/owner" },
+                    403,
+                );
+            }
+        } else {
+            const isAdminOrOwner = await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id);
+            if (!isAdminOrOwner) {
+                return jsonResponse({ error: "Forbidden — admin or owner role required" }, 403);
+            }
         }
 
-        // Delete R2 object first. Tolerate intermittent R2 failures by logging and continuing —
-        // the DB row is the audit record; an orphaned R2 object is cheap and detectable later.
-        try {
-            await s3Client.send(
-                new DeleteObjectCommand({
-                    Bucket: R2_BUCKET_NAME,
-                    Key: file.r2_key as string,
-                }),
-            );
-        } catch (err) {
-            console.error("R2 delete failed (continuing to DB delete):", err);
+        // Delete R2 objects (original + thumbnail). Tolerate intermittent R2 failures by
+        // logging and continuing — the DB row is the audit record; orphaned R2 objects
+        // are cheap and detectable later.
+        const keysToDelete: string[] = [file.r2_key as string];
+        if (file.thumbnail_r2_key) keysToDelete.push(file.thumbnail_r2_key as string);
+        for (const key of keysToDelete) {
+            try {
+                await s3Client.send(
+                    new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }),
+                );
+            } catch (err) {
+                console.error(`R2 delete failed for key ${key} (continuing):`, err);
+            }
         }
 
         const { error: deleteError } = await supabaseAdmin

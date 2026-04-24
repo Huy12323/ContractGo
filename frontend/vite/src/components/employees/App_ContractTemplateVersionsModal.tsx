@@ -19,6 +19,8 @@ export type App_ContractTemplateVersionsModal_OnRestored = (body: {
     type: Enums<'contract_template_type_enum'>
     pdf_file_path: string | null
     mandatory_field_keys: string[]
+    hr_field_keys: string[]
+    attachment_field_keys: string[]
 }) => void
 
 type Props = {
@@ -101,6 +103,16 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
         [selected?.mandatory_field_keys],
     )
 
+    const previewHrFieldKeys = useMemo(
+        () => (selected?.hr_field_keys ?? []) as string[],
+        [selected?.hr_field_keys],
+    )
+
+    const previewAttachmentFieldKeys = useMemo(
+        () => (selected?.attachment_field_keys ?? []) as string[],
+        [selected?.attachment_field_keys],
+    )
+
     const handleRestore = (v: (typeof versions)[number]) => {
         modal.confirm({
             title: `Restore v${v.version_number}?`,
@@ -110,11 +122,15 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
             cancelText: 'Cancel',
             onOk: async () => {
                 const restoredMandatory = (v.mandatory_field_keys ?? []) as string[]
+                const restoredHr = (v.hr_field_keys ?? []) as string[]
+                const restoredAttachment = (v.attachment_field_keys ?? []) as string[]
                 await mRestore.mutation.mutateAsync({
                     layout: v.layout as Json,
                     type: v.type,
                     pdf_file_path: v.pdf_file_path,
                     mandatory_field_keys: restoredMandatory,
+                    hr_field_keys: restoredHr,
+                    attachment_field_keys: restoredAttachment,
                     versionNumber: v.version_number,
                 })
                 // Sync editor + close modal
@@ -123,6 +139,8 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
                     type: v.type,
                     pdf_file_path: v.pdf_file_path,
                     mandatory_field_keys: restoredMandatory,
+                    hr_field_keys: restoredHr,
+                    attachment_field_keys: restoredAttachment,
                 })
                 onClose()
             },
@@ -225,6 +243,10 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
                         columns={qColumns.columns}
                         choices={qChoices.choices}
                         mandatoryKeys={previewMandatoryKeys}
+                        hrFieldKeys={previewHrFieldKeys}
+                        attachmentFieldKeys={previewAttachmentFieldKeys}
+                        organization_id={organizationId}
+                        /* No uploadContext — version peek is always readonly. */
                     />
                 ) : qVersions.query.isLoading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: token.paddingXL }}>

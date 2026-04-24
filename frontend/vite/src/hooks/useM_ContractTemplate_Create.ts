@@ -9,6 +9,8 @@ export type UseM_ContractTemplate_Create_Params = {
     name: string;
     layout: Json;
     mandatory_field_keys?: string[];
+    hr_field_keys?: string[];
+    attachment_field_keys?: string[];
 };
 
 export const useM_ContractTemplate_Create = () => {

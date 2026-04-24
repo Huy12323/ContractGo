@@ -147,9 +147,11 @@ export type Database = {
       }
       contract_template_versions: {
         Row: {
+          attachment_field_keys: Json
           content_hash: string
           created_at: string
           created_by: string | null
+          hr_field_keys: Json
           id: string
           layout: Json
           mandatory_field_keys: Json
@@ -160,9 +162,11 @@ export type Database = {
           version_number: number
         }
         Insert: {
+          attachment_field_keys?: Json
           content_hash: string
           created_at?: string
           created_by?: string | null
+          hr_field_keys?: Json
           id?: string
           layout?: Json
           mandatory_field_keys?: Json
@@ -173,9 +177,11 @@ export type Database = {
           version_number: number
         }
         Update: {
+          attachment_field_keys?: Json
           content_hash?: string
           created_at?: string
           created_by?: string | null
+          hr_field_keys?: Json
           id?: string
           layout?: Json
           mandatory_field_keys?: Json
@@ -211,7 +217,9 @@ export type Database = {
       }
       contract_templates: {
         Row: {
+          attachment_field_keys: Json
           created_at: string | null
+          hr_field_keys: Json
           id: string
           is_archived: boolean
           layout: Json
@@ -223,7 +231,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          attachment_field_keys?: Json
           created_at?: string | null
+          hr_field_keys?: Json
           id?: string
           is_archived?: boolean
           layout?: Json
@@ -235,7 +245,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          attachment_field_keys?: Json
           created_at?: string | null
+          hr_field_keys?: Json
           id?: string
           is_archived?: boolean
           layout?: Json
@@ -585,7 +597,10 @@ export type Database = {
           col_BbrubylYdfQPBzbv: string | null
           col_cR7KdqqEGKsUgCsj: string | null
           col_DUmkBaLXAekq86zj: string | null
+          col_O3kqkJThGyzgrfqv: string | null
+          col_R40xjPYyJ0uFlAS0: string | null
           col_ROstCxqFP6M5d8cI: string | null
+          col_VllUwn3BnBxlhdFG: string | null
           col_X6MDhHHD5onD1ePT: string | null
           created_at: string
           email: string
@@ -604,7 +619,10 @@ export type Database = {
           col_BbrubylYdfQPBzbv?: string | null
           col_cR7KdqqEGKsUgCsj?: string | null
           col_DUmkBaLXAekq86zj?: string | null
+          col_O3kqkJThGyzgrfqv?: string | null
+          col_R40xjPYyJ0uFlAS0?: string | null
           col_ROstCxqFP6M5d8cI?: string | null
+          col_VllUwn3BnBxlhdFG?: string | null
           col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
@@ -623,7 +641,10 @@ export type Database = {
           col_BbrubylYdfQPBzbv?: string | null
           col_cR7KdqqEGKsUgCsj?: string | null
           col_DUmkBaLXAekq86zj?: string | null
+          col_O3kqkJThGyzgrfqv?: string | null
+          col_R40xjPYyJ0uFlAS0?: string | null
           col_ROstCxqFP6M5d8cI?: string | null
+          col_VllUwn3BnBxlhdFG?: string | null
           col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
@@ -698,6 +719,7 @@ export type Database = {
           organization_id: string | null
           r2_key: string
           size: number
+          thumbnail_r2_key: string | null
           updated_at: string | null
           uploaded_by: string | null
         }
@@ -709,6 +731,7 @@ export type Database = {
           organization_id?: string | null
           r2_key: string
           size: number
+          thumbnail_r2_key?: string | null
           updated_at?: string | null
           uploaded_by?: string | null
         }
@@ -720,6 +743,7 @@ export type Database = {
           organization_id?: string | null
           r2_key?: string
           size?: number
+          thumbnail_r2_key?: string | null
           updated_at?: string | null
           uploaded_by?: string | null
         }

@@ -14,7 +14,7 @@ const R2_WORKER_URL = requireEnv("R2_WORKER_URL");
 const ENVIRONMENT = Deno.env.get("ENVIRONMENT") || "development";
 
 const TOKEN_TTL_SECONDS = 7 * 24 * 3600;
-const RESOURCE_TYPES = ["contract", "employee_col"] as const;
+const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "contract_signature"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const corsHeaders = {
@@ -58,9 +58,10 @@ Deno.serve(async (req) => {
         }
 
         const body = (await req.json()) as Record<string, unknown>;
-        const { resource_type, file_id } = body as {
+        const { resource_type, file_id, use_thumbnail } = body as {
             resource_type?: string;
             file_id?: string;
+            use_thumbnail?: boolean;
         };
 
         if (resource_type === "user_avatar") {
@@ -78,19 +79,105 @@ Deno.serve(async (req) => {
                 400,
             );
         }
+
+        const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+        // Contract signatures are stored as a raw r2_key on contracts.signature_path —
+        // no `files` row, so file_id isn't applicable. Handle the whole flow here and
+        // return early before the files-table lookup below.
+        if (resource_type === "contract_signature") {
+            const { contract_id } = body as { contract_id?: string };
+            if (!contract_id || typeof contract_id !== "string") {
+                return jsonResponse(
+                    { error: "contract_id is required for resource_type=contract_signature" },
+                    400,
+                );
+            }
+
+            const { data: contract } = await supabaseAdmin
+                .from("contracts")
+                .select("organization_id, signature_path, invitation_id")
+                .eq("id", contract_id)
+                .maybeSingle();
+            if (!contract) {
+                return jsonResponse({ error: "Contract not found" }, 404);
+            }
+            if (!contract.signature_path) {
+                return jsonResponse({ error: "Contract has no signature" }, 404);
+            }
+
+            const orgIdSig = contract.organization_id as string;
+
+            // Dual auth — recipient (via linked invitation's email) OR org admin/owner.
+            // Recipient path supports future surfaces that might show an employee their
+            // own signature; admin/owner covers HR review.
+            let isRecipient = false;
+            if (contract.invitation_id) {
+                const { data: inv } = await supabaseAdmin
+                    .from("onboarding_invitations")
+                    .select("employee_email")
+                    .eq("id", contract.invitation_id as string)
+                    .maybeSingle();
+                const userEmail = user.email?.toLowerCase().trim();
+                if (
+                    userEmail &&
+                    inv?.employee_email &&
+                    userEmail === (inv.employee_email as string).toLowerCase().trim()
+                ) {
+                    isRecipient = true;
+                }
+            }
+            const canAccess =
+                isRecipient || (await isOrgAdminOrOwner(supabaseAdmin, orgIdSig, user.id));
+            if (!canAccess) {
+                return jsonResponse(
+                    { error: "Forbidden — must be invitation recipient or org admin/owner" },
+                    403,
+                );
+            }
+
+            const nowSig = Math.floor(Date.now() / 1000);
+            const expSig = nowSig + TOKEN_TTL_SECONDS;
+            const jwtSig = await new SignJWT({
+                userId: user.id,
+                orgId: orgIdSig,
+                r2Key: contract.signature_path as string,
+                resourceId: contract_id,
+                resourceType: "contract_signature",
+                env: ENVIRONMENT,
+            })
+                .setProtectedHeader({ alg: "HS256" })
+                .setIssuedAt(nowSig)
+                .setExpirationTime(expSig)
+                .sign(secretBytes);
+            const urlSig = `${R2_WORKER_URL}/${contract.signature_path}?token=${jwtSig}`;
+            return jsonResponse(
+                { url: urlSig, expiresAt: new Date(expSig * 1000).toISOString() },
+                200,
+            );
+        }
+
         if (!file_id || typeof file_id !== "string") {
             return jsonResponse({ error: "file_id is required" }, 400);
         }
 
-        const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
         const { data: file } = await supabaseAdmin
             .from("files")
-            .select("r2_key, organization_id")
+            .select("r2_key, thumbnail_r2_key, organization_id")
             .eq("id", file_id)
             .maybeSingle();
         if (!file) {
             return jsonResponse({ error: "File not found" }, 404);
+        }
+
+        // AHR-17xx: optionally sign the thumbnail path instead of the original.
+        // If use_thumbnail is true but the file has no thumbnail, return 404 so
+        // the caller falls back to a filename-only cell (vs getting a broken URL).
+        const targetR2Key = use_thumbnail
+            ? (file.thumbnail_r2_key as string | null)
+            : (file.r2_key as string);
+        if (use_thumbnail && !targetR2Key) {
+            return jsonResponse({ error: "Thumbnail not available" }, 404);
         }
 
         let orgId: string;
@@ -122,7 +209,7 @@ Deno.serve(async (req) => {
             if (!isMember) {
                 return jsonResponse({ error: "Forbidden — not a member of this organization" }, 403);
             }
-        } else {
+        } else if (resource_type === "employee_col") {
             const { employee_id, column_id } = body as {
                 employee_id?: string;
                 column_id?: string;
@@ -177,6 +264,53 @@ Deno.serve(async (req) => {
             if (!isAdminOrOwner) {
                 return jsonResponse({ error: "Forbidden — admin or owner role required" }, 403);
             }
+        } else {
+            // invitation_col
+            const { invitation_id, column_id } = body as {
+                invitation_id?: string;
+                column_id?: string;
+            };
+            if (!invitation_id || typeof invitation_id !== "string") {
+                return jsonResponse(
+                    { error: "invitation_id is required for resource_type=invitation_col" },
+                    400,
+                );
+            }
+            if (!column_id || typeof column_id !== "string") {
+                return jsonResponse(
+                    { error: "column_id is required for resource_type=invitation_col" },
+                    400,
+                );
+            }
+
+            const { data: invitation } = await supabaseAdmin
+                .from("onboarding_invitations")
+                .select("organization_id, employee_email")
+                .eq("id", invitation_id)
+                .maybeSingle();
+            if (!invitation) {
+                return jsonResponse({ error: "Invitation not found" }, 404);
+            }
+
+            orgId = invitation.organization_id as string;
+            if (file.organization_id !== orgId) {
+                return jsonResponse(
+                    { error: "File does not belong to this invitation's organization" },
+                    403,
+                );
+            }
+
+            // Dual auth — mirrors upload-start: recipient email match OR admin/owner.
+            const inviteeEmail = (invitation.employee_email as string).toLowerCase().trim();
+            const userEmail = user.email?.toLowerCase().trim();
+            const isRecipient = !!userEmail && userEmail === inviteeEmail;
+            const canAccess = isRecipient || (await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id));
+            if (!canAccess) {
+                return jsonResponse(
+                    { error: "Forbidden — must be invitation recipient or org admin/owner" },
+                    403,
+                );
+            }
         }
 
         const now = Math.floor(Date.now() / 1000);
@@ -185,7 +319,7 @@ Deno.serve(async (req) => {
         const jwt = await new SignJWT({
             userId: user.id,
             orgId,
-            r2Key: file.r2_key as string,
+            r2Key: targetR2Key,
             resourceId: file_id,
             resourceType: resource_type,
             env: ENVIRONMENT,
@@ -195,7 +329,7 @@ Deno.serve(async (req) => {
             .setExpirationTime(exp)
             .sign(secretBytes);
 
-        const url = `${R2_WORKER_URL}/${file.r2_key}?token=${jwt}`;
+        const url = `${R2_WORKER_URL}/${targetR2Key}?token=${jwt}`;
         const expiresAt = new Date(exp * 1000).toISOString();
 
         return jsonResponse({ url, expiresAt }, 200);

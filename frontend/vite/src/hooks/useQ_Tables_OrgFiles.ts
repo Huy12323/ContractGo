@@ -6,7 +6,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 const fetchOrgFiles = async (organizationId: string) => {
     const sb_FromFiles_Select = await supabase
         .from("files")
-        .select("id, name, content_type, size, organization_id")
+        .select("id, name, content_type, size, organization_id, r2_key, thumbnail_r2_key")
         .eq("organization_id", organizationId);
     if (sb_FromFiles_Select.error) throw sb_FromFiles_Select.error;
     return sb_FromFiles_Select.data;

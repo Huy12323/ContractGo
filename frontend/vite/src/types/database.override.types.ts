@@ -17,9 +17,9 @@ type DatabaseOverrides = {
                 Update: { hr_comments?: OnboardingInvitation_HrComments };
             };
             contract_templates: {
-                Row: { mandatory_field_keys: string[] };
-                Insert: { mandatory_field_keys?: string[] };
-                Update: { mandatory_field_keys?: string[] };
+                Row: { mandatory_field_keys: string[]; hr_field_keys: string[] };
+                Insert: { mandatory_field_keys?: string[]; hr_field_keys?: string[] };
+                Update: { mandatory_field_keys?: string[]; hr_field_keys?: string[] };
             };
         };
     };

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Button, Card, Spin, Typography, theme, App, Space, Tag } from 'antd'
+import { Button, Card, Descriptions, Spin, Steps, Typography, theme, App, Space, Tag } from 'antd'
 import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, MessageOutlined, SwapOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/core'
 import { App_ContractFiller, extractFields } from '@/components/employees/App_ContractFiller'
@@ -66,7 +66,7 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     // Snapshot is captured at send time and never mutates, so template edits after
     // send cannot change what the invitee sees or what validation requires.
     const snapshot = invitation?.template_snapshot as
-        | { layout?: JSONContent; mandatory_field_keys?: string[] }
+        | { layout?: JSONContent; mandatory_field_keys?: string[]; hr_field_keys?: string[]; attachment_field_keys?: string[] }
         | null
         | undefined
     const layout = useMemo(
@@ -87,6 +87,27 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         [snapshot?.mandatory_field_keys],
     )
 
+    const hrFieldKeys = useMemo(
+        () => (snapshot?.hr_field_keys ?? []) as string[],
+        [snapshot?.hr_field_keys],
+    )
+
+    // Pre-AHR-1791 snapshots have file fields living in `layout`; post-AHR-1791
+    // snapshots split them into this list. `undefined` triggers the legacy layout
+    // fallback in App_ContractFiller.
+    const attachmentFieldKeys = useMemo(
+        () =>
+            snapshot?.attachment_field_keys
+                ? (snapshot.attachment_field_keys as string[])
+                : undefined,
+        [snapshot?.attachment_field_keys],
+    )
+
+    // Flipped on the first submit attempt — after that, unfilled mandatory fields show
+    // inline per-field errors (rather than a single toast). Errors clear live as the
+    // employee fills fields.
+    const [triedSubmit, setTriedSubmit] = useState(false)
+
     // Existing contract (re-submit case) — invitation.contracts is a FK-reverse array
     const existingContract = useMemo(
         () => (invitation?.contracts?.[0] ?? null),
@@ -104,6 +125,7 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     const [signature, setSignature] = useState<string | null>(null)
     const [signingOut, setSigningOut] = useState(false)
     const [hydratedContractId, setHydratedContractId] = useState<string | null>(null)
+    const [currentStep, setCurrentStep] = useState<0 | 1>(0)
     const mSubmit = useM_Onboarding_SubmitContract()
 
     // If this is a sent-back contract (re-submit), hydrate fieldValues from the contract's stored values.
@@ -121,6 +143,34 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         () => ({ ...prefilled, ...fieldValues }),
         [prefilled, fieldValues],
     )
+
+    // Existing keys = layout fields + attachment keys (post-AHR-1791, attachments live
+    // outside the layout). Mandatory validation must cover both so file fields stay gated.
+    const existingTemplateKeys = useMemo(() => {
+        const layoutFields = extractFields(layout)
+        return new Set<string>([
+            ...layoutFields.map((f) => f.fieldKey),
+            ...(attachmentFieldKeys ?? []),
+        ])
+    }, [layout, attachmentFieldKeys])
+
+    // Keys missing a value — used by both the inline error derivation and the step-1 gate.
+    const mandatoryMissing = useMemo(
+        () =>
+            mandatoryKeys
+                .filter((k) => existingTemplateKeys.has(k))
+                .filter((k) => !hasMeaningfulValue(mergedValues[k])),
+        [mandatoryKeys, existingTemplateKeys, mergedValues],
+    )
+
+    // Per-field errors — only populated after first Next/Submit attempt. Clears live as
+    // the employee fills fields (mergedValues drives the derivation).
+    const mandatoryFieldErrors = useMemo<Record<string, string>>(() => {
+        if (!triedSubmit) return {}
+        const errors: Record<string, string> = {}
+        for (const k of mandatoryMissing) errors[k] = 'This field is required.'
+        return errors
+    }, [triedSubmit, mandatoryMissing])
 
     const handleFieldChange = (key: string, value: unknown) => {
         setFieldValues((prev) => ({ ...prev, [key]: value }))
@@ -141,6 +191,17 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         }
     }
 
+    const handleNext = () => {
+        if (mandatoryMissing.length > 0) {
+            setTriedSubmit(true)
+            message.error('Please fill in the required fields before continuing')
+            return
+        }
+        setCurrentStep(1)
+    }
+
+    const handleBack = () => setCurrentStep(0)
+
     const handleSubmit = async () => {
         if (!invitation) return
         if (!signature) {
@@ -148,17 +209,11 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
             return
         }
 
-        // Mandatory-field gate — only require keys that are both in mandatory_field_keys
-        // AND currently present in the layout. Stale keys (field removed from template)
-        // are silently ignored, matching edge-fn behavior.
-        const layoutFields = extractFields(layout)
-        const layoutKeys = new Set(layoutFields.map((f) => f.fieldKey))
-        const missing = mandatoryKeys
-            .filter((k) => layoutKeys.has(k))
-            .filter((k) => !hasMeaningfulValue(mergedValues[k]))
-        if (missing.length > 0) {
-            const labels = missing.map((k) => layoutFields.find((f) => f.fieldKey === k)?.fieldLabel ?? k)
-            message.error(`Please fill ${missing.length} required field${missing.length > 1 ? 's' : ''}: ${labels.join(', ')}`)
+        // Mandatory-field gate — reveal per-field inline errors via triedSubmit. Stale keys
+        // (field removed from template) are silently ignored, matching edge-fn behavior.
+        if (mandatoryMissing.length > 0) {
+            setTriedSubmit(true)
+            setCurrentStep(0)
             return
         }
 
@@ -351,7 +406,7 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     }
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: token.paddingLG, gap: token.marginMD, overflow: 'hidden' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: token.paddingLG, gap: token.marginMD, overflow: 'hidden', background: token.colorBgContainer }}>
             <Card size="small">
                 <Space direction="vertical" size={2} style={{ width: '100%' }}>
                     <Typography.Title level={4} style={{ margin: 0 }}>
@@ -388,7 +443,11 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                     </Typography.Text>
                 </Card>
             )}
-            {isResubmitMode && (
+            {/* Resubmit banner lives inside the HR feedback column in step 1 (below).
+               Only surface it at page level when the form is NOT submittable — that's
+               defensive, shouldn't actually trigger since isResubmitMode implies the
+               contract is in 'sent' status which is a submittable state. */}
+            {isResubmitMode && !formSubmittable && (
                 <Card size="small" style={{ background: token.colorWarningBg, borderColor: token.colorWarningBorder }}>
                     <Typography.Text>
                         <strong>HR has requested changes.</strong> Please review the comments below, update your contract, re-sign, and resubmit.
@@ -428,75 +487,192 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
             {!formSubmittable ? (
                 <div style={{ flex: 1 }} />
             ) : (
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: token.marginMD, overflow: 'hidden' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <App_ContractFiller
-                        layout={layout}
-                        fieldValues={mergedValues}
-                        onChange={handleFieldChange}
-                        columns={qColumns.columns}
-                        choices={qChoices.choices}
-                        mandatoryKeys={mandatoryKeys}
-                    />
-                </div>
+                <>
+                    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
+                        {currentStep === 0 ? (
+                            <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: token.marginMD, overflow: 'hidden' }}>
+                                {/* Left: contract filler fills the remaining space */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <App_ContractFiller
+                                        layout={layout}
+                                        fieldValues={mergedValues}
+                                        onChange={handleFieldChange}
+                                        columns={qColumns.columns}
+                                        choices={qChoices.choices}
+                                        mandatoryKeys={mandatoryKeys}
+                                        hrFieldKeys={hrFieldKeys}
+                                        attachmentFieldKeys={attachmentFieldKeys}
+                                        fillerRole="employee"
+                                        errors={mandatoryFieldErrors}
+                                        organization_id={invitation.organization_id}
+                                        uploadContext={{ kind: 'invitation_col', invitation_id: invitation.id }}
+                                    />
+                                </div>
 
-                <Card
-                    size="small"
-                    style={{ width: 520, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-                    styles={{ body: { padding: token.paddingSM, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' } }}
-                >
-                    <App_SignaturePad value={signature} onChange={setSignature} />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: token.marginMD }}>
-                        <Button
-                            type="primary"
-                            size="large"
-                            loading={mSubmit.mutation.isPending}
-                            onClick={handleSubmit}
-                        >
-                            {isResubmitMode ? 'Resubmit contract' : 'Submit contract'}
-                        </Button>
-                    </div>
-
-                    {hrComments.length > 0 && (
-                        <>
-                            {/* Separator between signature + submit and the HR comment thread */}
-                            <div style={{
-                                marginTop: token.marginMD,
-                                marginBottom: token.marginSM,
-                                borderTop: `1px solid ${token.colorBorderSecondary}`,
-                            }} />
-                            <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM, marginBottom: token.marginXS }}>
-                                <MessageOutlined style={{ marginRight: token.marginXXS }} />
-                                HR Comments ({hrComments.length})
-                            </Typography.Text>
-                            {/* Scrollable comments region — fills remaining card height */}
-                            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: token.marginXS, marginTop: token.marginXS }}>
-                                {hrComments.map((c) => (
-                                    <div
-                                        key={c.id}
-                                        style={{
-                                            background: token.colorFillQuaternary,
-                                            border: `1px solid ${token.colorBorderSecondary}`,
-                                            borderRadius: token.borderRadiusSM,
-                                            padding: token.paddingXS,
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
-                                            <Typography.Text strong style={{ fontSize: token.fontSizeSM }}>HR</Typography.Text>
-                                            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                                                {formatCommentTime(c.created_at)}
+                                {/* Right: HR feedback column — ~320px (narrower than the old
+                                   signature card). Resubmit alert sits on top, then the
+                                   scrollable comment list below. */}
+                                <Card
+                                    size="small"
+                                    style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                                    styles={{ body: { padding: token.paddingSM, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' } }}
+                                >
+                                    {isResubmitMode && (
+                                        <div
+                                            style={{
+                                                background: token.colorWarningBg,
+                                                border: `1px solid ${token.colorWarningBorder}`,
+                                                borderRadius: token.borderRadiusSM,
+                                                padding: token.paddingXS,
+                                                marginBottom: token.marginSM,
+                                            }}
+                                        >
+                                            <Typography.Text style={{ fontSize: token.fontSizeSM }}>
+                                                <strong>HR requested changes.</strong> Review the feedback below, update the contract, and resubmit.
                                             </Typography.Text>
                                         </div>
-                                        <Typography.Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: token.fontSizeSM }}>
-                                            {c.body}
-                                        </Typography.Paragraph>
-                                    </div>
-                                ))}
+                                    )}
+
+                                    <Typography.Text
+                                        strong
+                                        style={{
+                                            fontSize: token.fontSizeSM,
+                                            marginBottom: token.marginXS,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <MessageOutlined style={{ marginRight: token.marginXXS }} />
+                                        HR feedback ({hrComments.length})
+                                    </Typography.Text>
+
+                                    {hrComments.length === 0 ? (
+                                        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                                            No feedback from HR yet.
+                                        </Typography.Text>
+                                    ) : (
+                                        <div
+                                            style={{
+                                                flex: 1,
+                                                minHeight: 0,
+                                                overflow: 'auto',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: token.marginXS,
+                                            }}
+                                        >
+                                            {hrComments.map((c) => (
+                                                <div
+                                                    key={c.id}
+                                                    style={{
+                                                        background: token.colorFillQuaternary,
+                                                        border: `1px solid ${token.colorBorderSecondary}`,
+                                                        borderRadius: token.borderRadiusSM,
+                                                        padding: token.paddingXS,
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                                                        <Typography.Text strong style={{ fontSize: token.fontSizeSM }}>HR</Typography.Text>
+                                                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                                            {formatCommentTime(c.created_at)}
+                                                        </Typography.Text>
+                                                    </div>
+                                                    <Typography.Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: token.fontSizeSM }}>
+                                                        {c.body}
+                                                    </Typography.Paragraph>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </Card>
                             </div>
-                        </>
-                    )}
-                </Card>
-            </div>
+                        ) : (
+                            /* Step 2 — centered summary + signature pad */
+                            <div
+                                style={{
+                                    flex: 1,
+                                    minHeight: 0,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: token.marginMD,
+                                    padding: `${token.paddingLG}px 0`,
+                                }}
+                            >
+                                <Card
+                                    size="small"
+                                    title={
+                                        <Typography.Text strong>
+                                            You're about to sign
+                                        </Typography.Text>
+                                    }
+                                    style={{ width: '100%', maxWidth: 560 }}
+                                >
+                                    <Descriptions column={1} size="small" colon={false}>
+                                        <Descriptions.Item label="Contract">
+                                            {template?.name ?? '—'}
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label="Organization">
+                                            {invitation.organizations?.name ?? '—'}
+                                        </Descriptions.Item>
+                                        <Descriptions.Item label="Signed as">
+                                            {invitation.employee_email}
+                                        </Descriptions.Item>
+                                    </Descriptions>
+                                </Card>
+                                <Card
+                                    size="small"
+                                    style={{ width: '100%', maxWidth: 560 }}
+                                    styles={{ body: { padding: token.paddingSM } }}
+                                >
+                                    <App_SignaturePad value={signature} onChange={setSignature} />
+                                </Card>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sticky bottom step bar */}
+                    <div
+                        style={{
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: token.marginMD,
+                            padding: `${token.paddingSM}px ${token.paddingMD}px`,
+                            borderTop: `1px solid ${token.colorBorderSecondary}`,
+                            background: token.colorBgContainer,
+                        }}
+                    >
+                        <div style={{ flex: 1, maxWidth: 360 }}>
+                            <Steps
+                                size="small"
+                                current={currentStep}
+                                items={[{ title: 'Fill fields' }, { title: 'Sign' }]}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: token.marginXS }}>
+                            {currentStep === 0 ? (
+                                <Button type="primary" size="large" onClick={handleNext}>
+                                    Next →
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button size="large" onClick={handleBack}>
+                                        ← Back
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        size="large"
+                                        loading={mSubmit.mutation.isPending}
+                                        onClick={handleSubmit}
+                                    >
+                                        {isResubmitMode ? 'Resubmit contract' : 'Submit contract'}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     )

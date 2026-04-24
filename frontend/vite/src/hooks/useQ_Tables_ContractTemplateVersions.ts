@@ -7,7 +7,7 @@ const fetchContractTemplateVersions = async (templateId: string) => {
     const sb_FromContractTemplateVersions_Select = await supabase
         .from("contract_template_versions")
         .select(
-            "id, template_id, organization_id, version_number, type, layout, pdf_file_path, mandatory_field_keys, content_hash, created_at, created_by, profiles(id, full_name, email, avatar_url)",
+            "id, template_id, organization_id, version_number, type, layout, pdf_file_path, mandatory_field_keys, hr_field_keys, attachment_field_keys, content_hash, created_at, created_by, profiles(id, full_name, email, avatar_url)",
         )
         .eq("template_id", templateId)
         .order("version_number", { ascending: false });
