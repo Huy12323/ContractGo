@@ -36,7 +36,7 @@ Two `.env` variables provide default assignees so agents don't ask every time:
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | `DEFAULT_INTAKE_ASSIGNEE_UUID` | `/intake` | Default assignee for new intake items |
-| `DEFAULT_ITEM_ASSIGNEE_UUID` | `/pm`, `/pp` | Default assignee for T1–T4 work items and cycle `owned_by` |
+| `DEFAULT_ITEM_ASSIGNEE_UUID` | `/pm`, `/pp` | Default assignee for T1 + T2 work items and cycle `owned_by` |
 
 **Resolution order:**
 1. If user explicitly says "assign to X" → use that person (look up via `get_project_members` MCP)
@@ -211,7 +211,7 @@ Three sections per module:
 2. **Technical Implementation** — engineer-readable: current state only (file paths, components, schema, related modules). Include **Known Issues** for legacy debt. If module spans multiple repos, list each repo and what it contributes.
 3. **Version History** — one-line links: `- [vX.Y.Z](outline_link) — summary`
 
-Both sections 1 and 2 are **rewritten** (not appended) on each `/pp` to reflect current state. Keep concise for agent context limits.
+Both sections 1 and 2 are **rewritten** (not appended) on each **T1 seal** (i.e., when `/pp` marks the last remaining T2 of a tier 1 as Done and auto-completes the T1). Per-T2 `/pp` does NOT rewrite the spec — it only appends to the version doc. This keeps `/pp` fast on the common path and concentrates spec rewrites at the natural boundary where the final state is known.
 
 ### Version Doc Format (under Versions/vX.Y.Z/)
 
@@ -225,13 +225,16 @@ Two-phase document — created by `/pm` with context, completed by `/pp` with im
 - Affected Files — files to be touched, with identified issues
 - Design Decisions — QA outcomes, convention choices
 
-**Appended by `/pp`:**
+**Appended by `/pp` (per T2):**
 - Summary (3-5 implementation bullets)
-- Requirements (from tier 2)
-- Implementation details (phases + tasks with identifier links)
-- New/changed files
+- Media (optional — screenshots/recordings uploaded via `outline-upload.js`)
+- Implementation (phase/task names only — no Plane identifier links since T3/T4 no longer exist)
 
 `/pp` appends below `/pm` context — never replaces it.
+
+### Planning Decisions persistence
+
+Both `/pm` (T2 breakdown) and `/p` (implementation planning) append to a `## Planning Decisions` section of the version doc. Plan files are treated as ephemeral local state — Outline is the durable documentation layer. Persisting decisions on the version doc means the next agent working on a sibling T2 sees the rationale without re-asking, and Done T2s retain their decisions for archaeology.
 
 ---
 
@@ -242,18 +245,18 @@ Two-phase document — created by `/pm` with context, completed by `/pp` with im
 **Baseline versioning (inherited systems):** When onboarding an existing/legacy codebase, `v1.0.0` represents the "maintenance baseline" — the current state as-inherited with no features. Modules are created with specs documenting the current state. No tier 1 work items are needed until actual work begins. Bug fixes and data changes enter as intake items, get triaged to the right module, and become tier 2 items under `v1.0.0`. Patch bumps (`v1.0.1`) apply when meaningful work ships.
 
 ```
-Tier 1: [vX.Y.Z | Module] Title                                   ← /pm creates (Backlog → Todo → In Progress → Done)
-  Tier 2: [vX.Y.Z | Module] Title > Feature                       ← /pm creates (Todo → In Progress → Done)
-    Tier 3: [vX.Y.Z | Module] Title > Feature > Phase X - Name    ← /pp creates (Done)
-      Tier 4: [vX.Y.Z | Module] Title > Feature > Phase X > Task  ← /pp creates (Done)
+Tier 1: [vX.Y.Z | Module] Title              ← /pm creates (Backlog → Todo → In Progress → Done)
+  Tier 2: [vX.Y.Z | Module] Title > Feature  ← /pm creates (Todo → In Progress → Done)
 ```
+
+Plane work-item hierarchy is two tiers only. Phases and tasks (the old tier 3 + tier 4) live inside the **T2 description body** and the local plan file — not as separate Plane rows. The 1:1 rule is: the body of a T2 description equals the plan file (minus the `## Context` section, which is stripped at `/pp` push time because it's stale after ship). This keeps the plan file as the staging ground for the T2 description and lets sibling agents read the same content from Plane (post-`/pp`) or from the local plan file (pre-`/pp`).
 
 ### Title Format
 
 ```
 [...]  = metadata block (version + module) — always first
 |      = separates version from module name inside brackets
->      = hierarchy separator — chains T1 title through all children
+>      = hierarchy separator — T2 title appends " > Feature" to its T1 parent
 ```
 
 ### Title Examples
@@ -261,17 +264,11 @@ Tier 1: [vX.Y.Z | Module] Title                                   ← /pm create
 ```
 Tier 1: [v2.0.0 | Auth] Password reset flow
 Tier 2: [v2.0.0 | Auth] Password reset flow > Google OAuth login
-Tier 3: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A - Auth layout
-Tier 4: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A > Build two-panel grid
 ```
 
 ### Version Sealing
 
 Once a tier 1 is Done, that version-module scope is sealed. New work = version bump + new tier 1.
-
-### Property Cloning (Tier 2 → Tier 3 → Tier 4)
-
-Clone: `priority`, `start_date`, `due_date`, `cycle`, `module`, `assignees`
 
 ### Work Item Descriptions
 
@@ -288,7 +285,7 @@ Version: [Outline]({version_module_doc_url})
 Intake: [{PROJ-N}]({intake_browse_url})
 ```
 
-**Tier 2:**
+**Tier 2 (initial — created by `/pm`):**
 
 ```markdown
 Version: [Outline]({version_module_doc_url})
@@ -296,21 +293,9 @@ Version: [Outline]({version_module_doc_url})
 Requirements: [pass/fail criteria]
 ```
 
-**Tier 3 (phase):**
+**Tier 2 (after `/pp` push — full body from plan file):**
 
-```markdown
-Version: [Outline]({version_doc_url})
-
-{Phase description}
-```
-
-**Tier 4 (task):**
-
-```markdown
-Version: [Outline]({version_doc_url})
-
-{Task description}
-```
+The T2 description is replaced with the plan file content (minus `## Context`). Sections: `Requirements`, `Scope boundaries`, `Decisions`, `Implementation` (phase narratives + task checkboxes). Converted from markdown to HTML by `scripts/plan-to-plane-desc.js` and PATCHed via `plane-item-update.js --desc-file`.
 
 ---
 
@@ -678,7 +663,7 @@ node scripts/plane-item-create.js --name "Title" --state done --parent {PROJECT_
 
 Creates a work item via POST with all fields in one call. `--name` is required; all other flags optional. `--desc <IDENT-N>` reads description from `temp/plane/{IDENT-N}.html`; `--desc-file <path>` reads from arbitrary file. `--parent` accepts identifiers or UUIDs. Returns `Created: {PROJECT_IDENTIFIER}-1234 (uuid)` — use this to capture the identifier and UUID for plan files.
 
-**Key use case:** `/pp` creates many T3/T4 items in sequence. Using this script instead of MCP `create_work_item` avoids cascade failures and pydantic validation errors.
+**Key use case:** `/pm` creating T2 items during BREAKDOWN, `/pp` never creates work items post-v4.0 (T3/T4 are removed — implementation details live in the T2 description body).
 
 ### `plane-intake-get.js` — Get intake item (fields + description)
 
@@ -861,7 +846,7 @@ Items submitted directly in Plane (not through `/intake`) may lack the Intake Co
 - Calling MCP during `/s` (all updates are local)
 - Creating duplicate cycles — MUST `list_cycles` first and reuse existing
 - Missing module/cycle assignment on new work items
-- Using `Backlog` instead of `Done` for tier 3+4 items (they're always Done)
+- Creating tier 3 or tier 4 work items on Plane (removed in v4.0 — phase/task detail lives in the T2 description body, synced from the plan file by `/pp`)
 - Missing navigation links in work item descriptions or module description
 - Forgetting to rewrite BOTH Non-Technical and Technical spec doc sections after `/pp`
 - Adding tier 2 under a Done tier 1 (version is sealed — must bump version)
@@ -872,4 +857,4 @@ Items submitted directly in Plane (not through `/intake`) may lack the Intake Co
 - Using projects/work-items/ URL format for human-facing links — use browse URL (`/browse/{IDENT}-{N}/`) instead
 - Using MCP `retrieve_work_item` / `update_work_item` / `create_work_item` when scripts exist — always use `plane-item-get.js` / `plane-item-update.js` / `plane-item-create.js` instead. Scripts bypass MCP token limits, pydantic errors, and cascade failures
 
-<!-- Template version: 2.0 — Unified config: config.json replaces project-config.json + pa-config.json. Workspace/project two-level resolution. -->
+<!-- Template version: 3.0 — Plane work items are T1 + T2 only. T3/T4 work items removed from the framework (never created on Plane). Phase/task detail lives inside the T2 description body, which is 1:1 with the local plan file minus the Context section. Spec doc rewrites moved from per-T2 to T1-seal only. Property cloning removed. -->

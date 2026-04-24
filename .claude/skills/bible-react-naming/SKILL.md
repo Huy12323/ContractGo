@@ -81,18 +81,27 @@ export const UI_HorizontalNav = () => <nav>...</nav>;
 
 ## Stores (TanStack Store)
 
-**Pattern:** `Store_[Scope_Name]` | **Location:** ALWAYS `src/stores/`
+**Pattern:** `Store_[Scope_Name]`
 
-Stores are global singletons — never co-locate with pages. If state is page-scoped and only needed by children, use Provider Context instead.
+**Location depends on store scope** (see `bible-tanstack-store` for the full global vs per-instance pattern):
+
+- **Global stores** (module-level singletons): `src/stores/Store_[Name].ts`. Any component may import without a Provider wrapper.
+- **Per-instance stores** (subtree-scoped via factory + Context): co-located with the Provider that owns them — e.g., `src/pages/Page_Dashboard/Store_PageDashboard.ts` alongside `Provider_Page_Dashboard.tsx`. The Store file exports the State class + selector hooks + Actions factory; the Provider file instantiates via `useState(() => new Store(init))` and distributes through Context.
+
+Rule of thumb: if the state must isolate across concurrent mounts of the same component tree, it's per-instance (co-located). Otherwise, if any component should read it without a Provider wrapper, it's global (`src/stores/`).
 
 ```tsx
-// src/stores/Store_PageDashboard.ts
-export const Store_PageDashboard = new Store(new State_PageDashboard());
-export const useStore_PageDashboard_SelectedTab = () =>
-    useStore(Store_PageDashboard, (s) => s.selectedTab);
+// Global — src/stores/Store_App.ts
+export const Store_App = new Store(new State_App());
+export const useStore_App_Theme = () => useStore(Store_App, (s) => s.theme);
+
+// Per-instance — src/pages/Page_Dashboard/Store_PageDashboard.ts
+export class State_PageDashboard { selectedId: string = ""; }
+export const useStore_PageDashboard_SelectedId = (store: Store<State_PageDashboard>) =>
+    useStore(store, (s) => s.selectedId);
 ```
 
-**Scope depth:** `App` (app-wide), `PageDashboard` (cross-subcomponent), `PageDashboard_Timeline` (feature-specific).
+**Scope depth:** `App` (app-wide), `PageDashboard` (cross-subcomponent), `PageDashboard_Timeline` (feature-specific). Same naming for both models.
 
 ## Services (Singleton Classes)
 
@@ -217,7 +226,8 @@ const PADDING = 8;
 | `useOrganizations()` | `useQ_PageDashboard_Organizations()` |
 | Scope missing subcomponent segment | `useQ_Page_Sub_Entity` not `useQ_Page_Entity` |
 | Store without scope | `Store_PageDashboard` not `Store_Dashboard` |
-| Store co-located with page | ALWAYS in `src/stores/` |
+| Global store co-located with a page | Global stores live in `src/stores/` |
+| Per-instance store dumped in `src/stores/` | Per-instance stores co-locate with their Provider — see `bible-tanstack-store` |
 | Single-function hook | Inline logic in consumer |
 | `SCREAMING_SNAKE` for constants | `const_[Scope]_PascalName` |
 | Invented junction entity name | Use actual table names with `$` |

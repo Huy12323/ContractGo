@@ -1,8 +1,8 @@
 # Bible Sync
 
 Bible: git@github.com:aiursoftware/bible.git
-Last synced: 87ee102
-Synced on: 2026-04-07
+Last synced: ddd1f63
+Synced on: 2026-04-22
 Consumer type: standard
 
 ## Tracked Files
@@ -18,7 +18,7 @@ Consumer type: standard
 | .claude/commands/gitpush.md | synced | |
 | .claude/commands/load-skills.md | synced | |
 | .claude/commands/bible-sync.md | synced | |
-| .claude/skills/po/SKILL.md | diverged | Filled with project-specific constants (workspace, project IDs, states, estimates, Outline doc IDs) |
+| .claude/skills/po/SKILL.md | diverged | Filled with project-specific constants (workspace, project IDs, states, estimates, Outline doc IDs); template bumped to v3.0 (T1+T2 only) via 3-way merge |
 | scripts/config-get.js | synced | |
 | scripts/lib/config.js | synced | |
 | scripts/lib/plane-parse-id.js | synced | |
@@ -32,6 +32,7 @@ Consumer type: standard
 | scripts/plane-intake-get.js | synced | |
 | scripts/plane-intake-update.js | synced | |
 | scripts/plane-intake-handling.js | synced | |
+| scripts/plan-to-plane-desc.js | synced | |
 | scripts/outline-pull.js | synced | |
 | scripts/outline-push.js | synced | |
 | scripts/outline-upload.js | synced | |

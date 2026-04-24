@@ -4,6 +4,8 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 
 > **To apply this flow to a new codebase:** Copy `.claude/skills/po/`, `.claude/commands/project/{pm,p,pp,s,rp}.md`, `scripts/plane-cycle-items.js`, `docs/pm.md`, and set up MCP servers. Update the `po` skill with project-specific constants.
 
+> **v4.0 change note:** Plane work items stop at **Tier 2**. Phases + tasks live inside the T2 description body, synced 1:1 from the local plan file by `/pp` (minus the `## Context` section which is stripped on push). Earlier versions of this framework used Tier 3 (phase) and Tier 4 (task) Plane rows — those have been removed.
+
 ---
 
 ## Table of Contents
@@ -30,9 +32,9 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 | Role | Command | Purpose |
 |------|---------|---------|
 | Manager | `/pm` | Vision, module creation, tier 2 breakdown, intake triage, catch-up |
-| Engineer | `/p` | Break tier 2 into implementation phases (tier 3+4) locally |
+| Engineer | `/p` | Break tier 2 into implementation phases + tasks in a local plan file (no Plane work items created) |
 | Engineer | `/s` | Skills-aware task execution |
-| Engineer | `/pp` | Push tier 3+4 to Plane, auto-condense spec on Outline, mark tier 2 done |
+| Engineer | `/pp` | Sync plan file → T2 description on Plane, append to version doc, rewrite spec on T1 seal |
 | PM | `/pi` | Post-intake: task report on Outline, stakeholder announcement |
 | Reporter | `/rp` | Generate cycle reports from Plane data + Outline specs, publish to Outline |
 | Reference | `po` skill | Plane/Outline constants, MCP tools, naming conventions |
@@ -41,28 +43,24 @@ Portable PM framework for AI-assisted development. Integrates **Plane** (task tr
 
 ## Work Item Tier System
 
-Four tiers with clear ownership boundaries:
+Plane work items stop at **Tier 2**. Phases and tasks live inside the T2 description body — synced from the local plan file by `/pp` (minus the stripped `## Context` section).
 
 ```
 Tier 1: [vX.Y.Z | Module] Title
   └─ Tier 2: [vX.Y.Z | Module] Title > Feature
-       └─ Tier 3: [vX.Y.Z | Module] Title > Feature > Phase X - Name
-            └─ Tier 4: [vX.Y.Z | Module] Title > Feature > Phase X > Task
 ```
 
 | Tier | Created by | Purpose | Estimate | Owner |
 |------|-----------|---------|----------|-------|
 | 1 | `/pm` base / catch-up / triage | Scope — tracks module version completion | Never | Manager |
-| 2 | `/pm` breakdown / triage | Feature behavior & requirements | Fibonacci (agent determines, `/pp` reassesses) | Manager assigns |
-| 3 | `/pp` (from temp file) | Implementation phase | Never | Engineer |
-| 4 | `/pp` (from temp file) | Implementation task | Never | Engineer |
+| 2 | `/pm` breakdown / triage | Feature behavior & requirements. Phase + task detail appears in the description body after `/pp`. | Fibonacci (agent determines, `/pp` reassesses) | Manager assigns |
 
 ### Title Format
 
 ```
-[...]        = metadata block (version + module) — always first
-|            = separates version from module name inside brackets
->            = hierarchy separator — chains T1 title through all children
+[...]   = metadata block (version + module) — always first
+|       = separates version from module name inside brackets
+>       = hierarchy separator — T2 title appends " > Feature" to its T1 parent
 ```
 
 **Examples:**
@@ -70,15 +68,11 @@ Tier 1: [vX.Y.Z | Module] Title
 ```
 Tier 1: [v2.0.0 | Auth] Password reset flow
 Tier 2: [v2.0.0 | Auth] Password reset flow > Google OAuth login
-Tier 3: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A - Auth layout
-Tier 4: [v2.0.0 | Auth] Password reset flow > Google OAuth login > Phase A > Build two-panel grid
 ```
 
 ```
 Tier 1: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul
 Tier 2: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor
-Tier 3: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > Phase A - Bezier controls
-Tier 4: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > Phase A > Build control points
 ```
 
 ### Status Transitions
@@ -89,7 +83,7 @@ Tier 4: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > 
 | Backlog | Created by `/pm` base protocol |
 | Todo | `/pm` breakdown creates tier 2 items |
 | In Progress | Engineer runs `/p` on any child tier 2 |
-| Done | `/pp` auto-detects all tier 2 siblings Done → marks tier 1 Done |
+| Done | `/pp` auto-detects all tier 2 siblings Done → marks tier 1 Done + rewrites spec + Bible review |
 
 **Version sealing rule:** Once a tier 1 is Done, that version-module scope is **sealed permanently**. New work on the same module requires a version bump and a new tier 1. While a tier 1 is still active (not Done), new tier 2 items can be added under it via `/pm` breakdown or triage.
 
@@ -98,12 +92,7 @@ Tier 4: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > 
 |-------|---------|
 | Todo | Created by `/pm` breakdown protocol |
 | In Progress | Engineer runs `/p` to plan implementation |
-| Done | `/pp` pushes tier 3+4 and marks tier 2 Done |
-
-**Tier 3+4:**
-| State | Trigger |
-|-------|---------|
-| Done | Created as Done by `/pp` (implementation already complete) |
+| Done | `/pp` pushes plan body to T2 description, appends to version doc, marks T2 Done |
 
 ### Priority Rules
 
@@ -111,21 +100,12 @@ Tier 4: [v3.0.0 | 3D Scene: Timeline] Keyframe system overhaul > Curve editor > 
 |------|-------------------|--------|
 | 1 | Medium (default) | System |
 | 2 | Medium, High, or Urgent only (no Low/None) | Manager |
-| 3 | Clone from tier 2 parent | System |
-| 4 | Clone from tier 2 parent | System |
 
-### Property Cloning
+### Plan File ↔ T2 Description (1:1 sync)
 
-Tier 2 → Tier 3 → Tier 4: The following properties clone from the tier 2 parent:
-- `priority` (match or higher)
-- `start_date`
-- `due_date`
-- `cycle`
-- `module`
-- `assignees`
-- `labels`
+The plan file (local, under `cycles/YYYY-WW/module/TIER1-ID/TIER2-ID-slug.md`) has the same sections and order as the T2 description body on Plane: `Requirements`, `Scope boundaries`, `Decisions`, `Implementation` (phase narratives + task checkboxes). The plan file additionally carries a `## Context` section at the bottom for agent orientation during `/s` and sibling-awareness during concurrent `/p` sessions; `/pp` strips it at push time since it's stale after ship.
 
-Only `title`, `description`, and `parent` differ per tier.
+`scripts/plan-to-plane-desc.js` is the one-way sync — reads the plan file, strips `## Context`, converts markdown to HTML, writes to `temp/plane/{T2-IDENT}.html`. `/pp` then feeds that HTML to `plane-item-update.js --desc-file`.
 
 ---
 
@@ -502,7 +482,7 @@ Manager should review ALL pending intake before triaging. Related requests for t
 ```
 Step 1: PLAN    ─── /p [tier 2 link] ──► cycles/[cycle]/[module]/[tier1]/[tier2]-slug.md (plan file)
 Step 2: EXECUTE ─── /s [task] ─────────► Implementation + plan file checkbox updates
-Step 3: PUSH    ─── /pp ───────────────► Tier 3+4 on Plane + auto-condense spec on Outline
+Step 3: PUSH    ─── /pp ───────────────► Sync plan body to T2 description + append version doc (spec rewrite deferred to T1 seal)
 ```
 
 This loop repeats for each tier 2 work item assigned to the engineer.
@@ -525,7 +505,7 @@ This loop repeats for each tier 2 work item assigned to the engineer.
 7. Read module spec from Outline (both non-technical and technical sections)
 8. Read related module specs if referenced in the technical section
 9. Assess feasibility — if not doable or needs discussion, surface to user
-10. Break tier 2 into implementation phases (tier 3) and tasks within each phase (tier 4)
+10. Break tier 2 into implementation phases + tasks inside the plan file — NO Plane work items are created (phases/tasks live in the plan file and later the T2 description body)
 11. Create **plan file** at `cycles/[YYYY-WW]/[module-slug]/[TIER1-ID]/[TIER2-ID]-[feature-slug].md`
 12. **User must confirm** before plan file creation
 
@@ -591,42 +571,37 @@ Phase B: (pending)
 
 ### Command: `/pp` (Push + Condense)
 
-**Trigger:** `/pp [temp file path]`
+**Trigger:** `/pp [plan file path]`
 
 **Preconditions:**
-- All phases/tasks in temp file should be marked `[x]` (implementation complete)
+- All phases/tasks in plan file should be marked `[x]` (implementation complete)
 - Verify against tier 2 requirements (pass/fail criteria from description)
 
 **Process:**
 
-1. **Read temp file** for phases, tasks, and context
-2. **Deep research** — Read every file listed in the temp file's Tech context. Verify implementation matches phases/tasks. If discrepancies found, reconcile (code wins for minor differences; ask user for major contradictions)
-3. **Create tier 3 work items** (phases) on Plane — state: **Done**
-4. **Write SPARK-N to temp file immediately** after each tier 3 creation (before creating its tier 4 children) — ensures recoverability if session is interrupted
-5. **Create tier 4 work items** (tasks) on Plane — state: **Done**, parent: tier 3. Write each tier 4 SPARK-N to temp file immediately after creation
-6. All properties **cloned from tier 2 parent** (priority, dates, cycle, module, assignees)
-7. **Reassess estimate** — compare actual work (phases, tasks, files, concerns) against tier 2 estimate using the same Fibonacci scale and estimation rules as `/pm`. Always present comparison to user. If user approves update: store `Original Estimate: N points` in tier 2 description, update `estimate_point` to new value. See [Estimate Reassessment](#estimate-reassessment-pp).
-8. **Mark tier 2 work item as Done** on Plane
-9. **Update tier 2 cycle** to current week
+1. **Read plan file** for phases, tasks, decisions, and context
+2. **Deep research** — Read every file listed in the plan file's `## Context` Tech line. Verify implementation matches phases/tasks. If discrepancies found, reconcile (code wins for minor differences — update plan file narrative / Decisions before push; ask user for major contradictions)
+3. **Reassess estimate** — compare actual work (phases, tasks, files, concerns) against tier 2 estimate using the same Fibonacci scale and estimation rules as `/pm`. Announce the new estimate (no user prompt). If updated: append `Original Estimate: N points` to the plan file's Decisions (so it flows into the T2 description) + update `estimate_point` on Plane. See [Estimate Reassessment](#estimate-reassessment-pp).
+4. **Sync plan file → T2 description on Plane.** Run `node scripts/plan-to-plane-desc.js <plan-file.md>` to generate `temp/plane/{T2-IDENT}.html` (strips `## Context`, converts markdown to HTML). Then `node scripts/plane-item-update.js {T2-IDENT} --desc-file temp/plane/{T2-IDENT}.html` PATCHes the description. The T2 body on Plane now equals the plan file minus Context — sibling agents can read either source and see the same content.
+5. **Mark tier 2 work item as Done** on Plane
+6. **Append T2 section to version doc on Outline:**
+    - At `Versions/[vX.Y.Z]/[Module]` — preserve `/pm` context sections, append a per-T2 implementation section below
+    - Section contents: Summary (3-5 bullets) + Media (optional — screenshots/recordings via `outline-upload.js`) + Implementation (phase headings + task names only, no Plane identifier links — readers follow the `{PROJECT_IDENTIFIER}-{T2-N}` link in the section heading to the Plane T2 for full detail)
+    - No `### Files Changed` subsection — files are documented in the module spec doc Technical Implementation section (rewritten on seal, below)
+7. **Auto-complete tier 1 if all siblings done:**
+    - Run `plane-work-items.js` to get sibling status (see `po` skill → Plane Scripts), or check via MCP
+    - If all tier 2 items under the same tier 1 are Done: mark tier 1 as Done, tick the intake tracking checklist (if any), run the roadmap feature cascade (if any), update Plane module status to `completed`, and **proceed to steps 8 + 9**
+    - If not: skip steps 8 + 9 (spec rewrite + Bible review are T1-seal-only work)
 
-10. **Auto-condense spec doc on Outline:**
+8. **Spec rewrite on T1 seal** (step 7 triggered):
    - Read current spec doc from Outline
-   - **Rewrite Non-Technical Description** to reflect current behavior (not append — replace with current state)
-   - **Rewrite Technical Implementation** to reflect current files, components, schema (not append — replace with current state)
+   - **Rewrite Non-Technical Description** to reflect current behavior after this tier 1's completed work (not append — replace with current state)
+   - **Rewrite Technical Implementation** to reflect current files, components, schema across every T2 that shipped under this T1 (not append — replace with current state)
    - **Append** one-line version link to Version History section: `- [vX.Y.Z](link) — summary`
    - Keep both sections concise — agents read these and context limits matter
+   - Spec rewrites happen ONCE per T1, not per T2 — this is where the final state is known.
 
-11. **Create/update version doc on Outline:**
-    - At `Versions/[vX.Y.Z]/[Module]` — preserve `/pm` context sections, append implementation details below
-    - Add summary + implementation details + SPARK-N work item links
-    - Include navigation links back to spec doc and Plane module
-
-12. **Auto-complete tier 1 if all siblings done:**
-    - Run `plane-work-items.js` to get sibling status (see `po` skill → Plane Scripts), or check via MCP
-    - If all tier 2 items under the same tier 1 are Done: mark tier 1 as Done, update Plane module status to `completed`
-
-13. **Bible review (on version seal only):**
-    - **Only triggered when step 12 marks a tier 1 as Done** (version sealed)
+9. **Bible review on T1 seal** (step 7 triggered):
     - Read the Specifications root doc (Product Bible)
     - Review whether the completed version introduced: new modules, changed user journeys, altered cross-module relationships, or shifted the product scope
     - If any changes apply: update only the affected sections of the Bible (Module Map, User Journeys, Architecture Overview, or Product Vision)
@@ -635,12 +610,12 @@ Phase B: (pending)
 **Output:**
 ```
 Published
-Work Items: [X] tier 3 + [Y] tier 4 created (Done)
 Tier 2: [SPARK-N] marked Done | Estimate: [kept N / updated N→N]
-Spec updated: [module name] — [files added/changed count]
-Version doc: [created/updated] at Versions/[vX.Y.Z]/[Module]
+T2 description: synced from plan file (minus Context)
+Version doc: [Feature Name] section appended to Versions/[vX.Y.Z]/[Module]
 Tier 1: [Done / still in progress — N of M tier 2 complete]
-Bible: [updated — sections changed / no update needed / tier 1 still in progress]
+Spec: [rewritten on T1 seal / deferred — T1 still in progress]
+Bible: [updated — sections changed / no update needed / T1 still in progress]
 ```
 
 ---
@@ -1120,9 +1095,9 @@ The version and module name go inside the `[...]` metadata block (version first)
 Module:  "3D Scene: Canvas"
 Tier 1:  [v2.0.0 | 3D Scene: Canvas] Object placement system
 Tier 2:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls
-Tier 3:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls > Phase A - Transform gizmo
-Tier 4:  [v2.0.0 | 3D Scene: Canvas] Object placement system > Gizmo controls > Phase A > Build rotation handle
 ```
+
+Phase + task content (formerly the Tier 3/Tier 4 titles) lives inside the T2 description body under the `## Implementation` section after `/pp` runs — not as separate Plane work items.
 
 ---
 
@@ -1185,7 +1160,7 @@ After MCP is configured, the first `/pm` run will:
 | `.claude/skills/po/SKILL.md` | Project-specific constants, MCP tools, naming conventions |
 | `.claude/commands/project/pm.md` | Manager command — vision, breakdown |
 | `.claude/commands/project/p.md` | Engineer command — tier 2 → rich temp file |
-| `.claude/commands/project/pp.md` | Engineer command — push tier 3+4 + auto-condense |
+| `.claude/commands/project/pp.md` | Engineer command — sync plan file → T2 description, append version doc, rewrite spec on T1 seal |
 | `.claude/commands/project/s.md` | Engineer command — skills-aware implementation |
 | `.claude/commands/project/rp.md` | Reporter command — cycle reports to Outline |
 | `.claude/commands/pa/pi.md` | PM command — post-intake: task report + stakeholder announcement |

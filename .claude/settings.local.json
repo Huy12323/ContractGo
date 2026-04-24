@@ -6,7 +6,18 @@
       "Bash(cp _shared_send-email/index.ts shared--send-email/index.ts)",
       "Bash(cp _shared_send-email/deno.json shared--send-email/deno.json)",
       "Bash(cp _shared_send-email/templates/*.html shared--send-email/templates/)",
-      "Bash(pnpm exec *)"
+      "Bash(pnpm exec *)",
+      "Bash(cp .bible/.claude/commands/project/p.md .claude/commands/p.md)",
+      "Bash(cp .bible/.claude/commands/project/pp.md .claude/commands/pp.md)",
+      "Bash(cp .bible/docs/pm.md docs/pm.md)",
+      "Bash(cp .bible/.claude/skills/bible-react-naming/SKILL.md .claude/skills/bible-react-naming/SKILL.md)",
+      "Bash(cp .bible/.claude/skills/bible-tanstack-store/SKILL.md .claude/skills/bible-tanstack-store/SKILL.md)",
+      "Bash(git -C .bible show 87ee102:.claude/skills/po/SKILL.md)",
+      "Bash(git -C .bible show ddd1f63:.claude/skills/po/SKILL.md)",
+      "Bash(cp .claude/skills/po/SKILL.md /tmp/po-ours.md)",
+      "Bash(git merge-file *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(npx supabase db push --db-url \"postgresql://postgres.aiur--hr:a3f7e9aa319ec0cdc667597bc1e74b0450c210bf90b0ebbf@aiur--hr-db.aiursoftware.com:10002/postgres?sslmode=disable\" --dry-run --debug)"
     ]
   }
 }

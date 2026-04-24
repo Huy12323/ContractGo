@@ -1,11 +1,11 @@
 ---
 name: /pp
-description: Push + condense — push tier 3+4 to Plane, auto-condense spec on Outline
+description: Push + condense — sync plan file into T2 description, append to version doc, rewrite spec on T1 seal
 ---
 
 # Push + Condense Command
 
-Push completed implementation to **Plane** (tier 3+4 work items) and **auto-condense** the spec on **Outline**.
+Push completed implementation to **Plane** (T2 description only — no T3/T4) and append a section to the version doc on **Outline**. On T1 seal, also rewrite the module spec and trigger Bible review.
 
 Always load `po` skill via `Skill("po")`.
 
@@ -30,22 +30,24 @@ Always load `po` skill via `Skill("po")`.
 | `/pp plan sc3` | 3 latest screenshots, no time filter |
 | `/pp plan 10 re2 3sc` | 2 recordings + 3 screenshots not older than :10 |
 
-Read plan file → parse header (work item ID, module, spec link) + phases/tasks.
+Read plan file → parse header (work item ID, module, version doc link) + phases/tasks.
 
 ### Media argument parsing
 
 All media tokens are optional and can appear in any order after the plan file path.
 
 - **`MM`** — standalone number (not attached to `re`/`sc`). Clock minute floor — filters to files with timestamp at or after the most recent occurrence of `:MM`. If MM > current minute of the hour, it refers to the previous hour. If omitted, no time filter — just get the absolute latest file(s).
-  - Example: current time 17:08, `MM=5` → filter to files >= 17:05
-  - Example: current time 17:08, `MM=50` → filter to files >= 16:50
-  - Example: current time 17:08, `MM=10` → filter to files >= 16:10 (10 > 08, so previous hour)
+    - Example: current time 17:08, `MM=5` → filter to files >= 17:05
+    - Example: current time 17:08, `MM=50` → filter to files >= 16:50
+    - Example: current time 17:08, `MM=10` → filter to files >= 16:10 (10 > 08, so previous hour)
 - **`Nre` or `reN`** — recording count. Number before OR after `re`. No number = count 1. **Reject if numbers on both sides** (e.g., `2re5` is invalid — stop and tell user).
 - **`Nsc` or `scN`** — screenshot count. Same rules as recording.
 
 ---
 
-## Media Collection (if `re` or `sc` provided)
+## Media File Resolution (IMMEDIATE — if `re` or `sc` provided)
+
+**Run FIRST, before Preconditions.** Lock in file paths immediately after parsing arguments. During deep research and T2 push, new screenshots/recordings from concurrent feature work may appear in the media directories. Resolving paths now ensures only this feature's media is captured.
 
 **Env vars required:** `BIBLE_RECORDINGS_DIR`, `BIBLE_SCREENSHOTS_DIR` in root `.env`. If missing, **STOP and ask the user** for the directory path, then append to `.env` before proceeding.
 
@@ -53,7 +55,7 @@ All media tokens are optional and can appear in any order after the plan file pa
 
 **Reject immediately** if a media token has numbers on both sides of the code (e.g., `2re5`, `3sc1`). Stop and tell the user the format is invalid — count goes on one side only.
 
-### Finding files
+### Resolving file paths
 
 Parse timestamps from filenames:
 
@@ -66,17 +68,7 @@ Parse timestamps from filenames:
 
 **Sort** all matching files by timestamp descending, then take the **N latest** (where N = count from the media token, default 1). If fewer than N files match, take all that match and warn the user.
 
-### Uploading
-
-Use `outline-upload.js` to upload **each** file to the version doc:
-
-```bash
-node scripts/outline-upload.js "<file-path>" --doc <version-doc-uuid>
-```
-
-The script auto-detects video dimensions via `ffprobe` and includes `WxH` in the markdown link text (required for Outline's inline video player). Capture the `MARKDOWN=` output line from each upload — these are the embed syntax lines to insert in Step 6.
-
-**Hold the markdown embeds** — they are inserted during Step 6 (Version Doc), grouped under the T2's section.
+**Store the resolved file paths** — do not upload yet. Uploading happens in Step 5 (Version Doc).
 
 ---
 
@@ -103,58 +95,13 @@ Discrepancies: [count]
 [List each discrepancy if count > 0]
 ```
 
-**Minor differences (code wins):** Renamed files, extra features, different patterns.
+**Minor differences (code wins):** Renamed files, extra features, different patterns — record in the plan file's phase narrative or Decisions section before push.
 
 **Major contradictions (ask user):** Feature not implemented, fundamentally different approach.
 
 ---
 
-## Step 2: Create Work Items on Plane
-
-**Create tier 3 (phases) and tier 4 (tasks) — all in Done state.**
-
-**Use `plane-item-create.js`** for all work item creation. This avoids MCP cascade failures and pydantic validation errors. The script returns `Created: {PROJECT_IDENTIFIER}-N (uuid)` — capture both for the plan file and for setting parent on child items.
-
-**UUID resolution:** The tier 2 UUID comes from `plane-item-get.js` output (Preconditions). If resuming a partial run where some identifiers already exist in the plan file's Plane IDs section, run `plane-item-get.js` on those identifiers to get their UUIDs.
-
-**Description for tier 3/4:** Write the description HTML to a temp file (named by parent T2 identifier to avoid collisions) using the **Write tool** (never `echo`/`cat` in Bash), then reference it via `--desc-file`:
-
-```
-# Write tool → temp/plane/{PROJECT_IDENTIFIER}-{T2}.html
-<p>Version: <a href="...">Outline</a></p><p>Phase summary here</p>
-
-# Then create with all fields in one call
-node scripts/plane-item-create.js \
-  --name "[vX.Y.Z | Module] Title > Feature > Phase A - Name" \
-  --state done --parent {PROJECT_IDENTIFIER}-{T2} \
-  --desc-file temp/plane/{PROJECT_IDENTIFIER}-{T2}.html \
-  --priority medium --assignees <uuid> \
-  --start 2026-03-01 --due 2026-03-07 \
-  --add-to-cycle <cycle-uuid> --add-to-module <module-uuid>
-```
-
-For each phase in plan file:
-
-1. **Create tier 3** (phase) via `plane-item-create.js`:
-    - `--name`: `[version | Module] T1 Title > Feature > Phase [X] - [Name]`
-    - `--state done`
-    - `--parent {PROJECT_IDENTIFIER}-{T2}` (resolves identifier to UUID)
-    - `--desc-file`: temp file with `Version: [Outline]({version_doc_url})\n\n{phase summary}`
-    - Clone from tier 2: `--priority`, `--start`, `--due`, `--assignees`, `--add-to-cycle`, `--add-to-module`
-
-2. **Write identifier to plan file immediately** — update the plan file's Plane IDs section with the tier 3 identifier right after creation, before creating its tier 4 children. This ensures recoverability if the session is interrupted.
-
-3. **Create tier 4** (tasks) under each tier 3 via `plane-item-create.js`:
-    - `--name`: `[version | Module] T1 Title > Feature > Phase [X] > [Task]`
-    - `--state done`
-    - `--parent {PROJECT_IDENTIFIER}-{T3}` (the tier 3 identifier just created)
-    - `--desc-file`: temp file with `Version: [Outline]({version_doc_url})\n\n{task description}`
-    - Clone same properties from tier 2
-    - Write each tier 4 identifier to plan file immediately after creation
-
----
-
-## Step 3: Estimate Reassessment
+## Step 2: Estimate Reassessment
 
 **Always compare actual work against the tier 2 estimate.** Use the same Fibonacci scale and estimation rules as `/pm`:
 
@@ -178,8 +125,8 @@ Actual: [N] phases, [N] tasks, [N] files, [N] concerns
 ([one-line rationale for the change])
 ```
 
-- Edit `temp/plane/{PROJECT_IDENTIFIER}-{N}.html` to append `Original Estimate: [N] points`
-- Run: `node scripts/plane-item-update.js {PROJECT_IDENTIFIER}-{N} --desc --estimate {new_value}`
+- Append `Original Estimate: [N] points` to the end of the plan file's `## Decisions` section (so it flows into the T2 description body in Step 3)
+- Run: `node scripts/plane-item-update.js {PROJECT_IDENTIFIER}-{N} --estimate {new_value}` (description is pushed in Step 3)
 
 **If estimate matches:**
 
@@ -192,6 +139,23 @@ Actual: [N] phases, [N] tasks, [N] files, [N] concerns
 
 ---
 
+## Step 3: Sync Plan File → T2 Description on Plane
+
+The plan file body is already the future T2 description body (per `/p` convention). `/pp` strips the `## Context` section, converts markdown → HTML, and PATCHes the T2 description.
+
+```bash
+# Convert plan file → T2 description HTML. Strips ## Context, runs MD→HTML,
+# writes to temp/plane/{T2-IDENT}.html, prints the output path.
+node scripts/plan-to-plane-desc.js cycles/[YYYY-WW]/[module]/[T1-IDENT]/[T2-IDENT]-[slug].md
+
+# Push the generated HTML to the T2 description.
+node scripts/plane-item-update.js {PROJECT_IDENTIFIER}-{T2-N} --desc-file temp/plane/{T2-IDENT}.html
+```
+
+After this step, the Plane T2 description = plan file content minus Context. Any sibling agent reading Plane sees Requirements + Scope boundaries + Decisions + Implementation (phase narratives + task checkboxes) identical to what plan-file-reading agents see locally.
+
+---
+
 ## Step 4: Mark Tier 2 Done
 
 ```bash
@@ -200,49 +164,30 @@ node scripts/plane-item-update.js {PROJECT_IDENTIFIER}-{N} --state done
 
 ---
 
-## Step 5: Auto-Condense Spec on Outline
-
-**Rewrite the module spec doc (under Specifications/) to reflect current state.**
-
-Spec docs must stay concise — agents read these and context limits matter.
-
-Use pull → Edit → push workflow (see `po` skill → Outline Scripts):
-
-```bash
-node scripts/outline-pull.js <spec-doc-id>     # pull to temp/outline/<uuid>.md
-```
-
-1. Read the pulled file with Read tool
-2. **Rewrite Non-Technical Description** — Edit tool to replace with current behavior (not append). 2-4 sentences + capability bullets reflecting what exists NOW after this tier 2's changes
-3. **Rewrite Technical Implementation** — Edit tool to replace with current files, components, schema. Include changes from this tier 2's implementation alongside what already existed
-4. **Append** to Version History (one line only) via Edit tool:
-    - `- [vX.Y.Z](version_doc_link) — one-line summary`
-
-```bash
-node scripts/outline-push.js temp/outline/<uuid>.md   # push back to Outline
-```
-
----
-
-## Step 6: Create/Update Version Doc on Outline
+## Step 5: Append T2 Section to Version Doc on Outline
 
 At `Versions/[vX.Y.Z]/[Module]`:
 
-**Version doc was created by `/pm` with context sections** (rationale, scope, Figma refs, affected files, design decisions). `/pp` must **preserve these sections and append implementation details below them**.
+The version doc was created by `/pm` with context sections (rationale, scope, Figma refs, affected files, Planning Decisions). `/pp` appends a per-T2 implementation section below them — never replaces existing content.
 
-**If version doc exists with `/pm` context** (expected case):
+**Upload any resolved media first** (from Media File Resolution above):
 
-Use pull → Edit → push workflow:
+```bash
+node scripts/outline-upload.js "<file-path>" --doc <version-doc-uuid>
+```
+
+Capture the `MARKDOWN=` output line from each upload — these are the embed syntax lines for the Media subsection.
+
+**Pull, append, push:**
 
 ```bash
 node scripts/outline-pull.js <version-doc-id>
 ```
 
-1. Read the pulled file — it has context from `/pm`
-2. Append feature implementation section below the existing content via Edit tool:
+Append via Edit tool at the end of the pulled doc:
 
 ```markdown
-## [Feature Name]
+## [Feature Name] ({PROJECT_IDENTIFIER}-{T2-N})
 
 ### Summary
 
@@ -250,35 +195,36 @@ node scripts/outline-pull.js <version-doc-id>
 
 ### Media
 
-[screenshot markdown embed from Media Collection step]
+[screenshot markdown embed]
 
-[recording markdown embed from Media Collection step]
+[recording markdown embed]
 
 ### Implementation
 
-[Phases and tasks with identifier links]
+**Phase A — [Phase Name]**
+- [task name]
+- [task name]
 
-### Files Changed
-
-[List of new/modified files]
+**Phase B — [Phase Name]**
+- [task name]
+- [task name]
 ```
 
-**Media subsection:** Only include `### Media` if `re` or `sc` args were provided and files were successfully uploaded. Each embed is the `MARKDOWN=` output from `outline-upload.js`. Screenshots render inline as images; recordings render with Outline's video player (dimensions in link text).
+**Media subsection:** Only include `### Media` if `re` or `sc` args were provided and files were successfully uploaded. Each embed is the `MARKDOWN=` output from `outline-upload.js`. Screenshots render inline as images; recordings render with Outline's video player.
 
-3. Push back — never replace `/pm` context sections:
+**Implementation subsection:** phase headings + task names only, no Plane identifier links (T3/T4 don't exist). For the full phase narrative + decisions + requirements, a reader follows the `{PROJECT_IDENTIFIER}-{T2-N}` link in the section heading to the Plane T2.
+
+**No `### Files Changed` subsection** — files are documented in the module's spec doc Technical Implementation section (rewritten on T1 seal). Duplicating here is noise.
+
+Push back:
 
 ```bash
 node scripts/outline-push.js temp/outline/<uuid>.md
 ```
 
-**If version doc doesn't exist** (edge case — `/pm` didn't create it):
-
-1. Find or create version parent doc (e.g., `Versions/v1.0.0/`) under VERSIONS_DOC_ID
-2. Create module version doc with nav links + implementation section. Use the full Plane module name as the doc title, flat under the version doc (not nested): `Versions/v3.0.0/3D Scene: Canvas`
-
 ---
 
-## Step 7: Auto-Complete Tier 1
+## Step 6: Auto-Complete Tier 1
 
 Check if ALL tier 2 items under the same tier 1 parent are Done or Cancelled. A tier 1 is complete when every tier 2 child has reached a terminal state (Done or Cancelled).
 
@@ -290,9 +236,9 @@ node scripts/plane-work-items.js {PROJECT_IDENTIFIER}-{N} --cycle {YYYY/WW}
 
 Read output file → check "All Complete" field.
 
-1. If all are Done or Cancelled:
+1. **If all are Done or Cancelled (T1 sealed):**
     - Mark tier 1 as Done: `node scripts/plane-item-update.js {PROJECT_IDENTIFIER}-{N} --state done`
-    - **Tick intake tracking checklist** — run `node scripts/plane-intake-handling.js <INTAKE-ID> tick <T1-ID>` to check off this T1 on any linked intake item. The script reads the intake's `## Tracking` section, ticks the T1's checkbox, and reports completion status. If all T1s on the intake are now checked, the script outputs "All complete" — in that case, mark intake item as Done via `node scripts/plane-item-update.js <INTAKE-IDENT> --state done`.
+    - **Tick intake tracking checklist** — run `node scripts/plane-intake-handling.js <INTAKE-ID> tick <T1-ID>` to check off this T1 on any linked intake item. If all T1s on the intake are now checked, the script outputs "All complete" — in that case, mark intake item as Done via `node scripts/plane-item-update.js <INTAKE-IDENT> --state done`.
         - **Finding the intake item:** Read the T1's description — if it contains an `Intake: [PROJ-N](url)` line, extract the intake identifier. Use that identifier to run the tick command. If no Intake line exists, the T1 was not created from an intake item — skip.
     - **Roadmap feature cascade** — if T1 description contains `Roadmap Feature: [Title](outline_url)` (planned work from roadmap, not intake):
         1. Pull the **feature doc** from Outline using the URL
@@ -316,16 +262,41 @@ Read output file → check "All Complete" field.
         5. If NOT all T1s Done → do nothing (feature not complete yet). The cascade only fires when the feature is fully done.
         - **Note:** Use pull → Edit → push for each Outline doc. Process bottom-up: module doc first, then version doc, then root. Each push is independent.
     - Update Plane module status to `completed` and `target_date` to today (MCP `update_module`)
-    - **Proceed to Step 8 (Bible Review)**
-2. If not all complete:
+    - **Proceed to Step 7 (Spec Rewrite) and Step 8 (Bible Review)**
+
+2. **If not all complete:**
     - Report: `Tier 1: [N] of [M] tier 2 complete ([D] Done, [C] Cancelled)`
-    - Skip Step 8
+    - **Skip Step 7 and Step 8** — spec rewrite and Bible review are T1-seal-only work.
 
 ---
 
-## Step 8: Bible Review (Version Seal Only)
+## Step 7: Spec Rewrite on T1 Seal
 
-**Only triggered when Step 7 marks a tier 1 as Done** (version sealed). Skip this step if tier 1 is still in progress.
+**Only triggered when Step 6 marks a tier 1 as Done.** Skip if T1 still in progress.
+
+Rewrite the module spec doc (under `Specifications/`) to reflect current state after this version's completed work. This is the ONE moment where spec rewrites happen — not per-T2.
+
+Use pull → Edit → push workflow (see `po` skill → Outline Scripts):
+
+```bash
+node scripts/outline-pull.js <spec-doc-id>
+```
+
+1. Read the pulled file with Read tool
+2. **Rewrite Non-Technical Description** — Edit tool to replace with current behavior. 2-4 sentences + capability bullets reflecting what exists NOW after this tier 1's changes. Include **Users** line. Include **Known Issues / Feature Requests** for inherited/maintenance systems.
+3. **Rewrite Technical Implementation** — Edit tool to replace with current files, components, schema, related modules. Roll in every T2 from this T1. Include **Known Issues** for legacy debt.
+4. **Append** to Version History (one line only) via Edit tool:
+    - `- [vX.Y.Z](version_doc_link) — one-line summary`
+
+```bash
+node scripts/outline-push.js temp/outline/<uuid>.md
+```
+
+---
+
+## Step 8: Bible Review (T1 Seal Only)
+
+**Only triggered when Step 6 marks a tier 1 as Done.** Skip if T1 still in progress.
 
 Use pull → Edit → push workflow:
 
@@ -352,12 +323,12 @@ node scripts/outline-push.js temp/outline/<uuid>.md
 
 ```
 Published
-Work Items: [X] tier 3 + [Y] tier 4 created (Done)
 Tier 2: [{ID}-N] marked Done | Cycle: [YYYY/WW]
-Spec updated: [module name]
-Version doc: [created/updated] at Versions/[vX.Y.Z]/[Module]
+T2 description: synced from plan file (minus Context)
+Version doc: [Feature Name] section appended to Versions/[vX.Y.Z]/[Module]
 Tier 1: [Done | N of M tier 2 complete]
-Bible: [updated — sections changed / no update needed / tier 1 still in progress]
+Spec: [rewritten on T1 seal | deferred — T1 still in progress]
+Bible: [updated — sections changed | no update needed | T1 still in progress]
 ```
 
 ---
@@ -365,22 +336,21 @@ Bible: [updated — sections changed / no update needed / tier 1 still in progre
 ## Critical Rules
 
 1. **ALWAYS deep research (HARD GATE)** — verify implementation before publishing
-2. **CODE WINS** for minor discrepancies
+2. **CODE WINS** for minor discrepancies — update the plan file's phase narrative / Decisions before Step 3 push
 3. **ASK** for major contradictions
-4. **All tier 3+4 in Done state** — implementation already complete
-5. **Clone properties from tier 2** — priority, dates, cycle, module, assignees
-6. **Rewrite spec doc** — both Non-Technical and Technical sections reflect current state (not append)
+4. **No T3/T4 work items** — phase/task detail lives in the T2 description body (1:1 with plan file minus Context)
+5. **Plan file body ↔ T2 description body are 1:1** — `plan-to-plane-desc.js` is the one-way sync (plan file → T2 on Plane, strip Context, MD→HTML)
+6. **Spec rewrite on T1 seal only** — per-T2 `/pp` does NOT touch the spec doc; that's concentrated in Step 7 when the final state is known
 7. **Version doc accumulates** — each tier 2 adds a section, not a new doc
-8. **Reassess estimate** — always compare actual work against tier 2 estimate, announce and apply (no user prompt)
-9. **Auto-complete tier 1** — check sibling tier 2s after every push; Done + Cancelled both count as complete
-10. **Bible review on version seal** — when tier 1 → Done, review and update Product Bible (Specifications root doc) for any changed sections
-11. **Incremental writes** — write identifier to plan file after each tier 3/4 creation, not deferred
-12. **Identifiers over UUID** — plan files store project identifiers (e.g., `SPARK-504`), not UUIDs. Resolve to UUID on demand via `retrieve_work_item_by_identifier`
-13. **Media is optional** — `re`/`sc` args are opt-in. Without them, /pp works exactly as before
-14. **Env guard for media** — if `re`/`sc` provided but `BIBLE_RECORDINGS_DIR`/`BIBLE_SCREENSHOTS_DIR` missing from `.env`, STOP and ask user for the path before proceeding
-15. **Reject dual-count** — `2re5`, `3sc1`, etc. (numbers on both sides of `re`/`sc`) are invalid. Stop and tell the user.
-16. **MM = clock minute floor** — MM is the minute-of-the-hour, not a duration. Compute the most recent clock time with that minute. If MM > current minute, it's the previous hour.
+8. **No `### Files Changed` in version doc** — files live in the spec doc Technical Implementation section instead (rewritten on seal)
+9. **Reassess estimate** — always compare actual work against tier 2 estimate, announce and apply (no user prompt)
+10. **Auto-complete tier 1** — check sibling tier 2s after every push; Done + Cancelled both count as complete
+11. **Bible review on T1 seal** — review and update Product Bible (Specifications root doc) for any changed sections
+12. **Media is optional** — `re`/`sc` args are opt-in. Without them, `/pp` skips the Media File Resolution + Step 5 `### Media` subsection
+13. **Env guard for media** — if `re`/`sc` provided but `BIBLE_RECORDINGS_DIR`/`BIBLE_SCREENSHOTS_DIR` missing from `.env`, STOP and ask user for the path before proceeding
+14. **Reject dual-count** — `2re5`, `3sc1`, etc. (numbers on both sides of `re`/`sc`) are invalid. Stop and tell the user.
+15. **MM = clock minute floor** — MM is the minute-of-the-hour, not a duration. Compute the most recent clock time with that minute. If MM > current minute, it's the previous hour.
 
 ---
 
-<!-- Command version: 3.3 — Media count syntax (xrex/xscx), MM = clock minute floor not duration, multi-file upload -->
+<!-- Command version: 4.0 — T3/T4 removed. Plan file → T2 description sync via plan-to-plane-desc.js (strips Context, MD→HTML). Spec rewrite moved to T1 seal only. Files Changed section removed from version doc. Per-T2 /pp drops from ~50 API calls to ~6. -->
