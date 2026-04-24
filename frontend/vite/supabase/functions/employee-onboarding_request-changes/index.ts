@@ -1,4 +1,5 @@
 import { createClient } from "supabase";
+import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 function requireEnv(name: string): string {
   const value = Deno.env.get(name);
@@ -8,6 +9,19 @@ function requireEnv(name: string): string {
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const R2_ACCOUNT_ID = requireEnv("R2_ACCOUNT_ID");
+const R2_ACCESS_KEY_ID = requireEnv("R2_ACCESS_KEY_ID");
+const R2_SECRET_ACCESS_KEY = requireEnv("R2_SECRET_ACCESS_KEY");
+const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
+
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,13 +163,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: invUpdateError.message }, 500);
     }
 
-    // Delete signature file from R2/storage (best-effort; don't fail the flow)
+    // Delete signature from R2 (best-effort; don't fail the flow). All signatures
+    // live in R2 now — `signature_path` is the R2 key.
     if (contract.signature_path) {
-      const { error: removeError } = await supabaseAdmin.storage
-        .from("org-files")
-        .remove([contract.signature_path]);
-      if (removeError) {
-        console.error("Signature remove error (non-fatal):", removeError);
+      try {
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: contract.signature_path as string,
+          }),
+        );
+      } catch (err) {
+        console.error("Signature R2 delete error (non-fatal):", err);
       }
     }
 

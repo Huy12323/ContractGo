@@ -58,11 +58,18 @@ Deno.serve(async (req) => {
       employee_email,
       contract_template_id,
       prefilled_fields,
+      skip_email,
     } = (await req.json()) as {
       organization_id: string;
       employee_email: string;
       contract_template_id: string;
       prefilled_fields: Record<string, unknown>;
+      // When true, skip the HR-fill gate + email dispatch. Used by the wizard's
+      // two-phase send flow: create invitation first (so invitation-scoped file
+      // uploads have a valid id), then PATCH prefilled_fields with resolved
+      // file_ids, then call `employee-onboarding_send-invitation-email` which
+      // runs the gate + fires the email.
+      skip_email?: boolean;
     };
 
     if (!organization_id || !employee_email || !contract_template_id) {
@@ -178,12 +185,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: message }, 409);
     }
 
-    // Pin the invitation to the template's current latest version (AHR-1490).
-    // Snapshot its layout + mandatory_field_keys so the invitation renders and
-    // validates correctly even if the template is later edited or hard-deleted.
+    // Pin the invitation to the template's current latest version (AHR-1490 / AHR-1640).
+    // Snapshot its layout + mandatory_field_keys + hr_field_keys so the invitation
+    // renders, validates, and locks HR-filled fields correctly even if the template
+    // is later edited or hard-deleted.
     const { data: version, error: versionError } = await supabaseAdmin
       .from("contract_template_versions")
-      .select("id, layout, mandatory_field_keys")
+      .select("id, layout, mandatory_field_keys, hr_field_keys, attachment_field_keys")
       .eq("template_id", contract_template_id)
       .order("version_number", { ascending: false })
       .limit(1)
@@ -197,6 +205,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // AHR-1640: HR-fill gate — all HR-state fields must be pre-filled before the invitation can
+    // be sent. The employee renders these fields locked (read-only), so an empty HR field would
+    // surface as a blank the employee can't fix. Validates against the pinned version's keys
+    // (source of truth — same set the snapshot and frontend use).
+    //
+    // Skipped when skip_email=true — gate re-runs on `send-invitation-email` once file uploads
+    // resolve and prefilled_fields has been PATCHed with real file_ids.
+    const hrFieldKeys: string[] = Array.isArray(version.hr_field_keys)
+      ? (version.hr_field_keys as string[])
+      : [];
+    if (!skip_email && hrFieldKeys.length > 0) {
+      const provided = (prefilled_fields || {}) as Record<string, unknown>;
+      const missing = hrFieldKeys.filter((k) => {
+        const v = provided[k];
+        return v === undefined || v === null || v === "";
+      });
+      if (missing.length > 0) {
+        return jsonResponse(
+          {
+            error: `HR-FILL fields must be filled before sending: ${missing.join(", ")}`,
+            missing_hr_field_keys: missing,
+          },
+          400,
+        );
+      }
+    }
+
     // Insert onboarding invitation — entity + departments decided at placement (AHR-1178)
     const { data: invitation, error: insertError } = await supabaseAdmin
       .from("onboarding_invitations")
@@ -208,6 +243,8 @@ Deno.serve(async (req) => {
         template_snapshot: {
           layout: version.layout,
           mandatory_field_keys: version.mandatory_field_keys,
+          hr_field_keys: version.hr_field_keys,
+          attachment_field_keys: version.attachment_field_keys,
         },
         prefilled_fields: prefilled_fields || {},
         sent_by: user.id,
@@ -218,6 +255,16 @@ Deno.serve(async (req) => {
     if (insertError) {
       console.error("Insert invitation error:", insertError);
       return jsonResponse({ error: insertError.message }, 500);
+    }
+
+    if (skip_email) {
+      // Caller is orchestrating a two-phase send (wizard file-upload flow). Return the
+      // invitation id + token so the caller can upload files scoped to this id, then
+      // call `send-invitation-email` to dispatch the notification.
+      return jsonResponse(
+        { id: invitation.id, invitation_token: invitation.invitation_token, status: "pending_email" },
+        200,
+      );
     }
 
     // Send email via shared--send-email

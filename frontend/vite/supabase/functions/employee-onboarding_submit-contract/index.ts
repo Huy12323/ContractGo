@@ -1,4 +1,5 @@
 import { createClient } from "supabase";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 function requireEnv(name: string): string {
   const value = Deno.env.get(name);
@@ -8,6 +9,19 @@ function requireEnv(name: string): string {
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const R2_ACCOUNT_ID = requireEnv("R2_ACCOUNT_ID");
+const R2_ACCESS_KEY_ID = requireEnv("R2_ACCESS_KEY_ID");
+const R2_SECRET_ACCESS_KEY = requireEnv("R2_SECRET_ACCESS_KEY");
+const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
+
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,16 +234,25 @@ Deno.serve(async (req) => {
       contractId = inserted.id;
     }
 
-    // Upload signature PNG to storage (path is keyed by contract.id — stable across resubmits)
-    const signaturePath = `${invitation.organization_id}/contracts/${contractId}/signature.png`;
+    // Upload signature PNG to R2 (migrated from Supabase Storage). Timestamp in the
+    // key avoids the upsert + caching concerns — each resubmit writes a fresh object
+    // and we overwrite signature_path to point at it.
+    const signaturePath = `orgs/${invitation.organization_id}/contracts/${contractId}/signature-${Date.now()}.png`;
     const signatureBytes = decodeBase64Png(signature_base64);
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("org-files")
-      .upload(signaturePath, signatureBytes, {
-        contentType: "image/png",
-        upsert: true,
-      });
+    let uploadError: Error | null = null;
+    try {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: signaturePath,
+          Body: signatureBytes,
+          ContentType: "image/png",
+        }),
+      );
+    } catch (err) {
+      uploadError = err instanceof Error ? err : new Error(String(err));
+    }
 
     if (uploadError) {
       console.error("Signature upload error:", uploadError);
@@ -262,7 +285,14 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error("Update contract error:", updateError);
-      await supabaseAdmin.storage.from("org-files").remove([signaturePath]);
+      // Best-effort rollback — orphan the R2 object if delete fails, not fatal
+      try {
+        await s3Client.send(
+          new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: signaturePath }),
+        );
+      } catch (err) {
+        console.error("R2 rollback delete failed:", err);
+      }
       if (!isResubmit) {
         await supabaseAdmin.from("contracts").delete().eq("id", contractId);
       }
