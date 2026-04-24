@@ -35,7 +35,6 @@ export const App_SignUpForm = ({ redirect: redirectTo }: SignUpFormProps) => {
       navigate({
         to: '/verify-email',
         search: { redirect: redirectTo },
-        state: { email: values.email },
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''

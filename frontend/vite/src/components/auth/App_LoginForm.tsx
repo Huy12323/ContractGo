@@ -29,7 +29,7 @@ export const App_LoginForm = ({ redirect: redirectTo }: LoginFormProps) => {
       const message = err instanceof Error ? err.message : ''
 
       if (message.includes('Email not confirmed')) {
-        navigate({ to: '/verify-email', state: { email: values.email } })
+        navigate({ to: '/verify-email' })
         return
       }
 

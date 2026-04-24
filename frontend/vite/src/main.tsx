@@ -20,12 +20,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-declare module '@tanstack/history' {
-  interface HistoryState {
-    email?: string
-  }
-}
-
 // Initialize auth listener before rendering
 Store_Auth_Actions.initAuth()
 
