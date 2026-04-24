@@ -17,7 +17,11 @@
       "Bash(cp .claude/skills/po/SKILL.md /tmp/po-ours.md)",
       "Bash(git merge-file *)",
       "Bash(echo \"exit=$?\")",
-      "Bash(npx supabase db push --db-url \"postgresql://postgres.aiur--hr:a3f7e9aa319ec0cdc667597bc1e74b0450c210bf90b0ebbf@aiur--hr-db.aiursoftware.com:10002/postgres?sslmode=disable\" --dry-run --debug)"
+      "Bash(npx supabase db push --db-url \"postgresql://postgres.aiur--hr:a3f7e9aa319ec0cdc667597bc1e74b0450c210bf90b0ebbf@aiur--hr-db.aiursoftware.com:10002/postgres?sslmode=disable\" --dry-run --debug)",
+      "Bash(rmdir .bible)",
+      "Bash(rm -rf .git/modules/.bible)",
+      "Bash(rmdir .git/modules)",
+      "Bash(git clone *)"
     ]
   }
 }
