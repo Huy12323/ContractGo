@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, useContext, useCallback, useMemo } from 'react'
+import React, { createContext, useReducer, useContext, useCallback, useMemo, useState } from 'react'
 import { Modal, Tabs, Typography, Button, App, theme } from 'antd'
 import { supabase } from '@/configs/supabase/config'
 import { useQ_Tables_OrgEmployees } from '@/hooks/useQ_Tables_OrgEmployees'
@@ -67,7 +67,7 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
     const pModal = useProvider_App_EmployeeDetailModal()
     const { editMode, patch } = pModal.state
     const isDirty = Object.keys(patch).length > 0
-    const mUpdateEmployee = useM_Employee_Update()
+    const mUpdateEmployee = useM_Employee_Update({ organizationId })
     const mFilesUpload = useM_Files_Upload()
 
     // Subscribe to the employees query (shared cache with the grid) so the modal
@@ -78,12 +78,20 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
         [qEmployees.employees, employeeId],
     )
 
+    // Lock applied for the entire save flow (file uploads + DB update + cleanup).
+    // The mutation's own `isPending` only covers the final DB write; the file-upload
+    // phase can take much longer for heavy files and previously left the Save button
+    // clickable, allowing repeat clicks → duplicate uploads / audit-log noise.
+    const [isSaving, setIsSaving] = useState(false)
+
     const resetToView = useCallback(() => {
         pModal.setState({ editMode: 'view', patch: {} })
     }, [pModal])
 
     const saveChanges = useCallback(async (): Promise<boolean> => {
         if (!employee) return false
+        if (isSaving) return false
+        setIsSaving(true)
         try {
             // Normalize file-column patches before the DB update:
             //   File instance            → upload to R2, insert files row, replace with file_id;
@@ -145,8 +153,10 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
             console.error(err)
             message.error(err instanceof Error ? err.message : 'Failed to save')
             return false
+        } finally {
+            setIsSaving(false)
         }
-    }, [employee, patch, mUpdateEmployee.mutation, mFilesUpload.mutation, message])
+    }, [employee, patch, mUpdateEmployee.mutation, mFilesUpload.mutation, message, isSaving])
 
     // Three-way dirty prompt. `afterResolve` runs after Save-success or Discard —
     // Cancel button passes a no-op (stays open in view mode); close paths pass
@@ -185,29 +195,34 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
 
     // Cancel button in edit mode — returns to view; does not close the modal.
     const handleCancelEdit = useCallback(() => {
+        if (isSaving) return
         if (!isDirty) {
             resetToView()
             return
         }
         promptDirty(() => {})
-    }, [isDirty, resetToView, promptDirty])
+    }, [isSaving, isDirty, resetToView, promptDirty])
 
     // Direct Save button — save, then return to view; does not close.
     const handleSaveAndView = useCallback(async () => {
+        if (isSaving) return
         const ok = await saveChanges()
         if (ok) resetToView()
-    }, [saveChanges, resetToView])
+    }, [isSaving, saveChanges, resetToView])
 
     // Modal close paths (X click, mask click, Escape). Clean → close directly;
     // dirty → prompt (Save or Discard both close; Continue editing stays).
+    // While a save is in flight, suppress all close paths so the modal can't be
+    // dismissed mid-upload — the only way out is to wait for the save to settle.
     const handleClose = useCallback(() => {
+        if (isSaving) return
         if (!isDirty) {
             resetToView()
             onClose()
             return
         }
         promptDirty(onClose)
-    }, [isDirty, resetToView, onClose, promptDirty])
+    }, [isSaving, isDirty, resetToView, onClose, promptDirty])
 
     // Edit / Cancel / Save belong to the Details tab (they operate on employee
     // fields). Today the modal has only one tab, so rendering them in the modal
@@ -226,14 +241,14 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
                   </Button>,
               ]
             : [
-                  <Button key="cancel" onClick={handleCancelEdit}>
+                  <Button key="cancel" onClick={handleCancelEdit} disabled={isSaving}>
                       Cancel
                   </Button>,
                   <Button
                       key="save"
                       type="primary"
-                      disabled={!isDirty}
-                      loading={mUpdateEmployee.mutation.isPending}
+                      disabled={!isDirty || isSaving}
+                      loading={isSaving}
                       onClick={handleSaveAndView}
                   >
                       Save

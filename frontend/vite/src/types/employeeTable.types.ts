@@ -1,5 +1,18 @@
 export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "single_select" | "multi_select" | "file";
 
+// Per-org dynamic table name from organization id.
+// Mirrors the SQL convention `<organization_id>__employees` from AHR-1947.
+export const orgEmployeesTable = (organizationId: string): string =>
+    `${organizationId}__employees`;
+
+// Generic shape for rows in any per-org `<orgid>__employees` table.
+// `employee_id` is the PK FK to `employees.id`. All other keys are dynamic
+// `col_<id>` columns whose set varies per organization.
+export type EmployeeDynamicRow = {
+    employee_id: string;
+    [key: string]: unknown;
+};
+
 export type EmployeeTable_FilterOperator =
     | "equals"
     | "not_equals"

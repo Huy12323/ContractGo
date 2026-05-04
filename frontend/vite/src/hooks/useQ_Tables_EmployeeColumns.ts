@@ -6,7 +6,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 const fetchEmployeeColumns = async (organizationId: string) => {
     const sb_FromEmployeeColumns_Select = await supabase
         .from("employee_columns")
-        .select("id, label, type, created_at, updated_at")
+        .select("id, label, type, config, created_at, updated_at")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: true });
     if (sb_FromEmployeeColumns_Select.error) throw sb_FromEmployeeColumns_Select.error;

@@ -60,11 +60,12 @@ Deno.serve(async (req) => {
         }
 
         // Parse request body
-        const { label, type, choices, organization_id } = await req.json() as {
+        const { label, type, choices, organization_id, config } = await req.json() as {
             label?: string;
             type?: string;
             choices?: unknown;
             organization_id?: string;
+            config?: unknown;
         };
 
         if (!label || typeof label !== "string" || !label.trim()) {
@@ -76,6 +77,11 @@ Deno.serve(async (req) => {
         if (!organization_id || typeof organization_id !== "string") {
             return jsonResponse({ error: "organization_id is required" }, 400);
         }
+        // config: optional plain object. Empty object when omitted.
+        if (config !== undefined && (typeof config !== "object" || config === null || Array.isArray(config))) {
+            return jsonResponse({ error: "config must be a plain object" }, 400);
+        }
+        const configValue = (config ?? {}) as Record<string, unknown>;
 
         // Verify caller is admin or owner in this organization
         const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -110,6 +116,7 @@ Deno.serve(async (req) => {
                 organization_id,
                 label: label.trim(),
                 type,
+                config: configValue,
             })
             .select()
             .single();
@@ -140,11 +147,15 @@ Deno.serve(async (req) => {
             }
         }
 
-        // ALTER TABLE employees — add the actual PG column via RPC
+        // ALTER TABLE on the org's per-org table — add the actual PG column via RPC.
+        // Use the authenticated client (not supabaseAdmin) so the RPC's
+        // is_admin_or_owner(p_organization_id) check sees the caller's auth.uid().
+        // The RPC is SECURITY DEFINER, so it still has the privileges to run ALTER TABLE.
         const pgType = PG_TYPE_MAP[type];
-        const { error: alterError } = await supabaseAdmin.rpc("add_employee_column", {
-            col_name: column.id,
-            col_type: pgType,
+        const { error: alterError } = await supabaseUser.rpc("add_employee_column", {
+            p_organization_id: organization_id,
+            p_col_name: column.id,
+            p_col_type: pgType,
         });
 
         if (alterError) {
