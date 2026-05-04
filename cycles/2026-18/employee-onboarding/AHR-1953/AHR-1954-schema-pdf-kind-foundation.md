@@ -35,6 +35,8 @@
 - **Decision:** Estimate adjusts from 2 → 3 pts to reflect snapshot reshape work.
   **Rationale:** Original estimate assumed only the `signed_pdf_r2_path` ALTER. Adding snapshot extension + edge function updates + backfills + one consumer-site fixup pushes it up one Fibonacci step.
 
+Original Estimate: 2 points
+
 ## Implementation
 
 ### Phase A — Migration

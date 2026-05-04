@@ -106,11 +106,11 @@ The new internal subcomponent that handles upload, render, and positioned-field 
 
 ### Phase E — Save flow + history/restore for PDF kind
 
-Wire save and version history to handle the new shape.
+Save and dirty detection were absorbed into Phase C (save handlers + dirty-check effect) and Phase D (pending-file dirty flag + save flow with deferred upload). Version history preview wired up separately.
 
-- [ ] In the existing save handler: when `kind === 'pdf'`, the save body becomes `{type: 'pdf', layout: pdfLayoutArray, pdf_file_path, mandatory_field_keys, hr_field_keys, attachment_field_keys}`. Existing `useM_ContractTemplate_Update` accepts the wider body via T2 #1's hook plumbing (verify type signature is broad enough; widen if needed)
-- [ ] Dirty detection extends to: `kind` change, `pdfLayoutArray` change, `pdf_file_path` change. Treat as dirty signals same as TipTap's `mandatorySet/hrSet/attachmentSet` deltas
-- [ ] `App_ContractTemplateVersionsModal`: when previewing a `pdf` kind version, render `App_PdfDocument` with read-only overlays (fields rendered as static labeled rectangles, no drag/resize). Restore callback already carries `{layout, type, pdf_file_path, mandatory_field_keys, hr_field_keys, attachment_field_keys}` — composer's `handleRestored` extends to also reset PDF builder state if restoring to pdf kind
+- [x] Save handler for PDF kind: absorbed into Phase C — save/Save-As handlers branch on kind, include `type` + `pdf_file_path`, layout shape branches by kind. Phase D extends with deferred-upload flow (stub-create → upload → PATCH)
+- [x] Dirty detection: absorbed into Phase C — dirty-check effect extended to track `kind`, `pdfFilePath`, `pdfLayout`. Phase D adds `pendingPdfFile !== null` as dirty signal
+- [x] `App_ContractTemplateVersionsModal`: branches preview on `selectedKind` — PDF versions render `App_ContractFiller` with `kind="pdf"`, `pdfFileUrl` from `useQ_ContractTemplate_PdfReadUrl`, and `layout` cast to `PdfLayout`; TipTap versions render unchanged. Restore callback already handles both kinds (Phase C)
 - [ ] Verify a save against an existing `pdf` template produces a new `contract_template_versions` row with the new content_hash (manual test via psql post-save)
 
 ### Phase F — Verification

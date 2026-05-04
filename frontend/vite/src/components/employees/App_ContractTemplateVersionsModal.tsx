@@ -9,8 +9,10 @@ import { useQ_Tables_ContractTemplateVersions } from '@/hooks/useQ_Tables_Contra
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_ContractTemplate_Restore } from '@/hooks/useM_ContractTemplate_Restore'
+import { useQ_ContractTemplate_PdfReadUrl } from '@/hooks/useQ_ContractTemplate_PdfReadUrl'
 import type { Enums } from '@/types/database.helpers'
 import type { Json } from '@/types/database.types'
+import type { PdfLayout } from '@/types/contractTemplate.types'
 
 dayjs.extend(relativeTime)
 
@@ -94,6 +96,13 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
         () => versions.find((v) => v.id === selectedVersionId) ?? null,
         [versions, selectedVersionId],
     )
+
+    const selectedKind: 'tiptap' | 'pdf' = selected?.type === 'pdf' ? 'pdf' : 'tiptap'
+
+    const qPdfUrl = useQ_ContractTemplate_PdfReadUrl({
+        contractTemplateId: selectedKind === 'pdf' ? templateId : null,
+        pdfFilePathKey: selectedKind === 'pdf' ? selected?.pdf_file_path : null,
+    })
 
     const previewLayout = useMemo(
         () => (selected?.layout ?? { type: 'doc', content: [] }) as JSONContent,
@@ -232,24 +241,39 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
             {/* Right: preview */}
             <div style={{ flex: 1, overflow: 'auto', padding: token.paddingMD }}>
                 {selected ? (
-                    <App_ContractFiller
-                        // Remount on version switch — App_ContractFiller's TipTap editor
-                        // reads `layout` only at initial useEditor() and ignores prop
-                        // changes thereafter. Keying by version id forces a fresh editor.
-                        key={selected.id}
-                        mode="review"
-                        layout={previewLayout}
-                        fieldValues={{}}
-                        prefilledValues={{}}
-                        onChange={() => {}}
-                        columns={qColumns.columns}
-                        choices={qChoices.choices}
-                        mandatoryKeys={previewMandatoryKeys}
-                        hrFieldKeys={previewHrFieldKeys}
-                        attachmentFieldKeys={previewAttachmentFieldKeys}
-                        organization_id={organizationId}
-                        /* No uploadContext — version peek is always readonly. */
-                    />
+                    selectedKind === 'pdf' ? (
+                        <App_ContractFiller
+                            key={selected.id}
+                            kind="pdf"
+                            mode="review"
+                            layout={selected.layout as PdfLayout}
+                            pdfFileUrl={qPdfUrl.url ?? null}
+                            fieldValues={{}}
+                            prefilledValues={{}}
+                            onChange={() => {}}
+                            columns={qColumns.columns}
+                            choices={qChoices.choices}
+                            mandatoryKeys={previewMandatoryKeys}
+                            hrFieldKeys={previewHrFieldKeys}
+                            attachmentFieldKeys={previewAttachmentFieldKeys}
+                            organization_id={organizationId}
+                        />
+                    ) : (
+                        <App_ContractFiller
+                            key={selected.id}
+                            mode="review"
+                            layout={previewLayout}
+                            fieldValues={{}}
+                            prefilledValues={{}}
+                            onChange={() => {}}
+                            columns={qColumns.columns}
+                            choices={qChoices.choices}
+                            mandatoryKeys={previewMandatoryKeys}
+                            hrFieldKeys={previewHrFieldKeys}
+                            attachmentFieldKeys={previewAttachmentFieldKeys}
+                            organization_id={organizationId}
+                        />
+                    )
                 ) : qVersions.query.isLoading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: token.paddingXL }}>
                         <Spin />

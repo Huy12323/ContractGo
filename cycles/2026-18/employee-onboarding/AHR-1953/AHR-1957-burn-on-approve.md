@@ -38,6 +38,11 @@
 - **Decision:** Coordinate system: `x_abs = x_pct * pageWidth`, `y_abs = pageHeight - (y_pct + h_pct) * pageHeight` (pdf-lib origin is bottom-left; layout origin is top-left).
   **Rationale:** pdf-lib's y=0 is the page bottom. The layout's y_pct=0 is the page top. Converting y_pct to bottom-left by subtracting from height and accounting for box height gives the correct bottom-left corner of the box.
 
+- **Decision:** Estimate adjusts from 5 → 3 pts post-implementation.
+  **Rationale:** Original 5 pts assumed cross-cutting complexity. Actual scope is one edge function + R2 integration (2 files, 3 phases, 3 concerns). No schema, no RLS, no frontend components — one end-to-end slice, not multiple coordinated slices.
+
+Original Estimate: 5 points
+
 ## Implementation
 
 ### Phase A — Dependencies + R2 client setup

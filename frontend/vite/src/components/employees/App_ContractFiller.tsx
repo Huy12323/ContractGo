@@ -519,20 +519,15 @@ const ContractFillerBody_Pdf = forwardRef<ContractFillerBodyRef, PdfBodyProps>((
         ref,
         (): ContractFillerBodyRef => ({
             scrollToField: (fieldKey) => {
-                const f = pdfLayout.find((entry) => entry.key === fieldKey)
-                if (!f) return
-                // Scroll inside the PDF container only — same pattern as App_FormBuilderModal's
-                // scrollPdfPageIntoView. Uses .pdf-scroll-container (one mounted instance).
-                const container = document.querySelector('.pdf-scroll-container') as HTMLElement | null
-                const pageEl = document.querySelector(`[data-pdf-page="${f.page}"]`) as HTMLElement | null
-                if (!container || !pageEl) return
-                const pageTop = pageEl.offsetTop - container.offsetTop
-                const fieldOffset = f.y_pct * pageEl.offsetHeight
-                const padding = 8
-                container.scrollTo({
-                    top: Math.max(0, pageTop + fieldOffset - padding),
-                    behavior: 'smooth',
-                })
+                const el = document.querySelector(`[data-pdf-field="${fieldKey}"]`) as HTMLElement | null
+                if (!el) return
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                el.style.transition = 'box-shadow 0.3s'
+                el.style.boxShadow = '0 0 0 3px rgba(22, 119, 255, 0.5)'
+                setTimeout(() => {
+                    el.style.boxShadow = ''
+                    el.style.transition = ''
+                }, 1500)
             },
         }),
         [pdfLayout],
@@ -646,7 +641,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
     // Signature — image when filled, italic placeholder when empty
     if (field.type === 'signature') {
         return (
-            <div style={baseStyle}>
+            <div data-pdf-field={field.key} style={baseStyle}>
                 {typeof value === 'string' && value.length > 0 ? (
                     <img
                         src={value}
@@ -664,6 +659,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
     if (mode === 'readonly') {
         return (
             <div
+                data-pdf-field={field.key}
                 style={{
                     ...baseStyle,
                     display: 'flex',
@@ -686,6 +682,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
     if (field.type === 'date') {
         return (
             <input
+                data-pdf-field={field.key}
                 type="date"
                 placeholder={fieldLabel}
                 title={fieldLabel}
@@ -704,6 +701,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
                 .join(', ')
             return (
                 <div
+                    data-pdf-field={field.key}
                     title={fieldLabel}
                     style={{
                         ...baseStyle,
@@ -723,6 +721,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
         // shows the field's label instead of a meaningless dash.
         return (
             <select
+                data-pdf-field={field.key}
                 title={fieldLabel}
                 value={typeof value === 'string' ? value : ''}
                 onChange={(e) => onChange(e.target.value)}
@@ -740,6 +739,7 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
     // text / email / phone / number / unknown
     return (
         <input
+            data-pdf-field={field.key}
             type="text"
             placeholder={fieldLabel}
             title={fieldLabel}
