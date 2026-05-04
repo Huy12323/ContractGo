@@ -25,9 +25,16 @@ export type UseM_Files_Upload_Params_InvitationCol = {
     column_id: string;
 };
 
+export type UseM_Files_Upload_Params_ContractTemplatePdf = {
+    resource_type: "contract_template_pdf";
+    file: File;
+    contract_template_id: string;
+};
+
 export type UseM_Files_Upload_Params =
     | UseM_Files_Upload_Params_EmployeeCol
-    | UseM_Files_Upload_Params_InvitationCol;
+    | UseM_Files_Upload_Params_InvitationCol
+    | UseM_Files_Upload_Params_ContractTemplatePdf;
 
 export type UseM_Files_Upload_Result = {
     file_id: string;
@@ -61,10 +68,19 @@ const buildUploadStartBody = (
             size,
         };
     }
+    if (params.resource_type === "invitation_col") {
+        return {
+            resource_type: "invitation_col" as const,
+            invitation_id: params.invitation_id,
+            column_id: params.column_id,
+            file_name,
+            content_type,
+            size,
+        };
+    }
     return {
-        resource_type: "invitation_col" as const,
-        invitation_id: params.invitation_id,
-        column_id: params.column_id,
+        resource_type: "contract_template_pdf" as const,
+        contract_template_id: params.contract_template_id,
         file_name,
         content_type,
         size,

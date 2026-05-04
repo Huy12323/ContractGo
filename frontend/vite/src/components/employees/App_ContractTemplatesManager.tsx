@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { App, Button, Card, Empty, Input, Typography, theme } from 'antd'
-import { FileTextOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { FileTextOutlined, FilePdfOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useQ_Tables_ContractTemplates } from '@/hooks/useQ_Tables_ContractTemplates'
 import { useM_ContractTemplate_Archive } from '@/hooks/useM_ContractTemplate_Archive'
 import { App_FormBuilderModal } from './App_FormBuilderModal'
@@ -106,7 +106,11 @@ export const App_ContractTemplatesManager = ({ organizationId, selectedTemplateI
                                 styles={{ body: { padding: `${token.paddingSM}px ${token.paddingMD}px` } }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: token.marginSM }}>
-                                    <FileTextOutlined style={{ color: token.colorPrimary }} />
+                                    {t.type === 'pdf' ? (
+                                        <FilePdfOutlined style={{ color: token.colorError }} />
+                                    ) : (
+                                        <FileTextOutlined style={{ color: token.colorInfo }} />
+                                    )}
                                     <Typography.Text strong style={{ flex: 1 }}>{t.name}</Typography.Text>
                                     <div style={{ display: 'flex', gap: token.marginXXS, opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s' }}>
                                         <Button

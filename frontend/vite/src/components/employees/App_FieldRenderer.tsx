@@ -28,6 +28,11 @@ type Props = {
     disabled?: boolean
     /** When set, input renders with ANTD error status + red helper text below */
     error?: string
+    /** When set, the whole card becomes clickable (cursor: pointer) and click fires
+     *  this callback. Consumers wire it to "scroll the document to where this field
+     *  sits" so HR or the employee can quickly find a field's position on the contract.
+     *  Clicks inside the input control are stopped so typing doesn't trigger navigation. */
+    onNavigate?: () => void
 }
 
 const isMeaningful = (v: unknown): boolean => v !== undefined && v !== null && v !== ''
@@ -67,6 +72,7 @@ const InputControl = ({
             return <DatePicker {...common} placeholder={fieldLabel} value={typeof value === 'string' && value ? dayjs(value) : null} onChange={(_d, ds) => onChange?.(ds)} />
         case 'boolean':
             return <Switch size="small" disabled={disabled} checked={!!value} onChange={(v) => onChange?.(v)} />
+        case 'single_select':
         case 'multi_select':
             return <Select {...common} placeholder={fieldLabel} options={choices ?? []} value={value as string | undefined} onChange={(v) => onChange?.(v)} />
         default:
@@ -98,7 +104,7 @@ const ReadonlyDisplay = ({
 
     const text = (() => {
         if (fieldType === 'boolean') return value ? 'Yes' : 'No'
-        if (fieldType === 'multi_select') {
+        if (fieldType === 'single_select' || fieldType === 'multi_select') {
             const match = (choices ?? []).find((c) => c.value === value)
             return match?.label ?? String(value)
         }
@@ -119,11 +125,13 @@ export const App_FieldRenderer = ({
     choices,
     disabled,
     error,
+    onNavigate,
 }: Props) => {
     const { token } = theme.useToken()
 
     return (
         <div
+            onClick={onNavigate ? () => onNavigate() : undefined}
             style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -132,6 +140,7 @@ export const App_FieldRenderer = ({
                 background: token.colorBgContainer,
                 border: `1px solid ${token.colorBorderSecondary}`,
                 borderRadius: token.borderRadiusSM,
+                cursor: onNavigate ? 'pointer' : undefined,
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: token.marginXS, justifyContent: 'space-between' }}>
@@ -143,15 +152,19 @@ export const App_FieldRenderer = ({
             {mode === 'readonly' ? (
                 <ReadonlyDisplay fieldLabel={fieldLabel} fieldType={fieldType} value={value} choices={choices} />
             ) : (
-                <InputControl
-                    fieldLabel={fieldLabel}
-                    fieldType={fieldType}
-                    value={value}
-                    onChange={onChange}
-                    choices={choices}
-                    disabled={disabled}
-                    hasError={!!error}
-                />
+                // Stop propagation so typing/focusing the input doesn't bubble up to
+                // the card-click handler and trigger navigation.
+                <div onClick={(e) => e.stopPropagation()}>
+                    <InputControl
+                        fieldLabel={fieldLabel}
+                        fieldType={fieldType}
+                        value={value}
+                        onChange={onChange}
+                        choices={choices}
+                        disabled={disabled}
+                        hasError={!!error}
+                    />
+                </div>
             )}
             {error && (
                 <Typography.Text type="danger" style={{ fontSize: 11 }}>

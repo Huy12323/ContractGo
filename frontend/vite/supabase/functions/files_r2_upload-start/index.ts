@@ -17,7 +17,7 @@ const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
 
 const PRESIGNED_URL_EXPIRES_IN = 3600;
 const MAX_SIZE_BYTES = 500 * 1024 * 1024;
-const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "user_avatar"] as const;
+const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "user_avatar", "contract_template_pdf"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const corsHeaders = {
@@ -237,6 +237,37 @@ Deno.serve(async (req) => {
             }
 
             r2Key = `orgs/${orgId}/invitations/${invitation_id}/${column_id}/${timestamp}-${uniqueId}-${sanitized}`;
+        } else if (resource_type === "contract_template_pdf") {
+            // AHR-1955: PDF kind contract template — HR uploads a source PDF that the
+            // builder overlays positioned fields on. Org-scoped under the template id
+            // so re-uploads can replace cleanly without orphaning prior PDFs (the
+            // builder's "Replace PDF" flow updates contract_templates.pdf_file_path
+            // to point at the new key; old key is left in R2 until org/template delete
+            // cascades the bucket prefix).
+            const { contract_template_id } = body as { contract_template_id?: string };
+            if (!contract_template_id || typeof contract_template_id !== "string") {
+                return jsonResponse(
+                    { error: "contract_template_id is required for resource_type=contract_template_pdf" },
+                    400,
+                );
+            }
+
+            const { data: template } = await supabaseAdmin
+                .from("contract_templates")
+                .select("organization_id")
+                .eq("id", contract_template_id)
+                .maybeSingle();
+            if (!template) {
+                return jsonResponse({ error: "Contract template not found" }, 404);
+            }
+
+            const orgId = template.organization_id as string;
+            const isAdminOrOwner = await isOrgAdminOrOwner(supabaseAdmin, orgId, user.id);
+            if (!isAdminOrOwner) {
+                return jsonResponse({ error: "Forbidden — admin or owner role required" }, 403);
+            }
+
+            r2Key = `orgs/${orgId}/contract-templates/${contract_template_id}/${timestamp}-${uniqueId}-${sanitized}`;
         } else {
             // user_avatar
             const { user_id } = body as { user_id?: string };

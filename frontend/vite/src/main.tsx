@@ -7,6 +7,7 @@ import { Provider_SupabaseRealtimeSync } from '@/providers/realtime/Provider_Sup
 import { queryClient } from '@/lib/query-client'
 import { routeTree } from './routeTree.gen'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
+import '@/configs/pdfjs/config'
 
 const router = createRouter({
   routeTree,

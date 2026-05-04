@@ -286,6 +286,7 @@ export type Database = {
           signature_path: string | null
           signed_at: string | null
           signed_by: string | null
+          signed_pdf_r2_path: string | null
           signer_ip: string | null
           status: Database["public"]["Enums"]["contracts_status_enum"]
           template_snapshot: Json
@@ -308,6 +309,7 @@ export type Database = {
           signature_path?: string | null
           signed_at?: string | null
           signed_by?: string | null
+          signed_pdf_r2_path?: string | null
           signer_ip?: string | null
           status?: Database["public"]["Enums"]["contracts_status_enum"]
           template_snapshot?: Json
@@ -330,6 +332,7 @@ export type Database = {
           signature_path?: string | null
           signed_at?: string | null
           signed_by?: string | null
+          signed_pdf_r2_path?: string | null
           signer_ip?: string | null
           status?: Database["public"]["Enums"]["contracts_status_enum"]
           template_snapshot?: Json
@@ -439,6 +442,47 @@ export type Database = {
           },
         ]
       }
+      employee_audit_log: {
+        Row: {
+          actor_user_id: string | null
+          changed_at: string
+          employee_id: string
+          field_key: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          organization_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          changed_at?: string
+          employee_id: string
+          field_key: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          changed_at?: string
+          employee_id?: string
+          field_key?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_column_choices: {
         Row: {
           created_at: string | null
@@ -489,6 +533,7 @@ export type Database = {
       }
       employee_columns: {
         Row: {
+          config: Json
           created_at: string | null
           id: string
           label: string
@@ -497,6 +542,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          config?: Json
           created_at?: string | null
           id?: string
           label: string
@@ -505,6 +551,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          config?: Json
           created_at?: string | null
           id?: string
           label?: string
@@ -592,16 +639,6 @@ export type Database = {
         Row: {
           __full_name: string | null
           birthday: string
-          col_1l4l5L8NCW1uZCd9: string | null
-          col_34rTppCGsFaxRD1i: string | null
-          col_BbrubylYdfQPBzbv: string | null
-          col_cR7KdqqEGKsUgCsj: string | null
-          col_DUmkBaLXAekq86zj: string | null
-          col_O3kqkJThGyzgrfqv: string | null
-          col_R40xjPYyJ0uFlAS0: string | null
-          col_ROstCxqFP6M5d8cI: string | null
-          col_VllUwn3BnBxlhdFG: string | null
-          col_X6MDhHHD5onD1ePT: string | null
           created_at: string
           email: string
           first_name: string
@@ -614,16 +651,6 @@ export type Database = {
         Insert: {
           __full_name?: string | null
           birthday?: string
-          col_1l4l5L8NCW1uZCd9?: string | null
-          col_34rTppCGsFaxRD1i?: string | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_cR7KdqqEGKsUgCsj?: string | null
-          col_DUmkBaLXAekq86zj?: string | null
-          col_O3kqkJThGyzgrfqv?: string | null
-          col_R40xjPYyJ0uFlAS0?: string | null
-          col_ROstCxqFP6M5d8cI?: string | null
-          col_VllUwn3BnBxlhdFG?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -636,16 +663,6 @@ export type Database = {
         Update: {
           __full_name?: string | null
           birthday?: string
-          col_1l4l5L8NCW1uZCd9?: string | null
-          col_34rTppCGsFaxRD1i?: string | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_cR7KdqqEGKsUgCsj?: string | null
-          col_DUmkBaLXAekq86zj?: string | null
-          col_O3kqkJThGyzgrfqv?: string | null
-          col_R40xjPYyJ0uFlAS0?: string | null
-          col_ROstCxqFP6M5d8cI?: string | null
-          col_VllUwn3BnBxlhdFG?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -847,6 +864,53 @@ export type Database = {
             columns: ["sent_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_eNQs8MLXx8TaCqAm__employees: {
+        Row: {
+          col_1l4l5L8NCW1uZCd9: string | null
+          col_34rTppCGsFaxRD1i: string | null
+          col_4jeyfUv4BsJGoO7K: string | null
+          col_BbrubylYdfQPBzbv: string | null
+          col_DUmkBaLXAekq86zj: string | null
+          col_iuv6rrRF50FtJ6bn: string | null
+          col_JFUZPqizQPBqxrxb: string | null
+          col_ROstCxqFP6M5d8cI: string | null
+          col_X6MDhHHD5onD1ePT: string | null
+          employee_id: string
+        }
+        Insert: {
+          col_1l4l5L8NCW1uZCd9?: string | null
+          col_34rTppCGsFaxRD1i?: string | null
+          col_4jeyfUv4BsJGoO7K?: string | null
+          col_BbrubylYdfQPBzbv?: string | null
+          col_DUmkBaLXAekq86zj?: string | null
+          col_iuv6rrRF50FtJ6bn?: string | null
+          col_JFUZPqizQPBqxrxb?: string | null
+          col_ROstCxqFP6M5d8cI?: string | null
+          col_X6MDhHHD5onD1ePT?: string | null
+          employee_id: string
+        }
+        Update: {
+          col_1l4l5L8NCW1uZCd9?: string | null
+          col_34rTppCGsFaxRD1i?: string | null
+          col_4jeyfUv4BsJGoO7K?: string | null
+          col_BbrubylYdfQPBzbv?: string | null
+          col_DUmkBaLXAekq86zj?: string | null
+          col_iuv6rrRF50FtJ6bn?: string | null
+          col_JFUZPqizQPBqxrxb?: string | null
+          col_ROstCxqFP6M5d8cI?: string | null
+          col_X6MDhHHD5onD1ePT?: string | null
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_eNQs8MLXx8TaCqAm__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -1056,7 +1120,21 @@ export type Database = {
     Functions: {
       accept_invitation: { Args: { invitation_token: string }; Returns: Json }
       add_employee_column: {
-        Args: { col_name: string; col_type: string }
+        Args: {
+          p_col_name: string
+          p_col_type: string
+          p_organization_id: string
+        }
+        Returns: undefined
+      }
+      audit_employee_diff: {
+        Args: {
+          p_employee_id: string
+          p_new: Json
+          p_old: Json
+          p_organization_id: string
+          p_skip_keys: string[]
+        }
         Returns: undefined
       }
       authorize: {
@@ -1096,7 +1174,15 @@ export type Database = {
       get_organization_role: { Args: { org_id: string }; Returns: string }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
+      is_invitation_recipient: {
+        Args: { p_invitation_id: string }
+        Returns: boolean
+      }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
+      provision_org_employees_table: {
+        Args: { p_organization_id: string }
+        Returns: undefined
+      }
       reorder_employee_views: { Args: { p_ids: string[] }; Returns: undefined }
       seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
     }

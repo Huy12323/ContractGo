@@ -15,7 +15,9 @@ import type { Json } from '@/types/database.types'
 dayjs.extend(relativeTime)
 
 export type App_ContractTemplateVersionsModal_OnRestored = (body: {
-    layout: JSONContent
+    /** TipTap doc when type='tiptap', PdfLayout array when type='pdf'. Consumer
+     *  branches on `type` and casts accordingly. */
+    layout: JSONContent | unknown
     type: Enums<'contract_template_type_enum'>
     pdf_file_path: string | null
     mandatory_field_keys: string[]

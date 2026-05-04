@@ -3,16 +3,18 @@ import { useNavigate } from '@tanstack/react-router'
 import { Button, Card, Descriptions, Spin, Steps, Typography, theme, App, Space, Tag } from 'antd'
 import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, MessageOutlined, SwapOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/core'
-import { App_ContractFiller, extractFields } from '@/components/employees/App_ContractFiller'
+import { App_ContractFiller, extractFields, extractFields_Pdf } from '@/components/employees/App_ContractFiller'
 import { App_SignaturePad } from '@/components/employees/App_SignaturePad'
 import { useQ_PageOnboardingFiller_InvitationByToken } from '@/hooks/useQ_PageOnboardingFiller_InvitationByToken'
 import { useQ_PageOnboardingFiller_InvitationPreview } from '@/hooks/useQ_PageOnboardingFiller_InvitationPreview'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_Onboarding_SubmitContract } from '@/hooks/useM_Onboarding_SubmitContract'
+import { useQ_Invitation_PdfReadUrl } from '@/hooks/useQ_Invitation_PdfReadUrl'
 import { useQ_Me } from '@/hooks/useQ_Me'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
 import type { OnboardingInvitation_HrComments } from '@/types/invitation.types'
+import type { PdfLayout } from '@/types/contractTemplate.types'
 
 const CenteredMessage = ({ children }: { children: React.ReactNode }) => {
     const { token } = theme.useToken()
@@ -62,17 +64,38 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
     const preview = qPreview.preview
     const organizationId = invitation?.organization_id ?? ''
     const template = invitation?.contract_templates
-    // Render from the invitation's pinned snapshot (AHR-1490), not the live template.
-    // Snapshot is captured at send time and never mutates, so template edits after
-    // send cannot change what the invitee sees or what validation requires.
+    // Render from the invitation's pinned snapshot (AHR-1490 + AHR-1954), not the live
+    // template. Snapshot is captured at send time and never mutates — template edits or
+    // hard-deletes after send cannot change what the invitee sees or what validation
+    // requires. Wrapped shape: {type, layout, pdf_file_path, mandatory/hr/attachment keys}.
     const snapshot = invitation?.template_snapshot as
-        | { layout?: JSONContent; mandatory_field_keys?: string[]; hr_field_keys?: string[]; attachment_field_keys?: string[] }
+        | {
+              type?: 'tiptap' | 'pdf'
+              layout?: JSONContent | PdfLayout
+              pdf_file_path?: string | null
+              mandatory_field_keys?: string[]
+              hr_field_keys?: string[]
+              attachment_field_keys?: string[]
+          }
         | null
         | undefined
+    const kind: 'tiptap' | 'pdf' = snapshot?.type === 'pdf' ? 'pdf' : 'tiptap'
     const layout = useMemo(
         () => (snapshot?.layout ?? { type: 'doc', content: [] }) as JSONContent,
         [snapshot?.layout],
     )
+    const pdfLayout = useMemo<PdfLayout>(
+        () => (Array.isArray(snapshot?.layout) ? (snapshot.layout as PdfLayout) : []),
+        [snapshot?.layout],
+    )
+    const pdfFilePath = snapshot?.pdf_file_path ?? null
+
+    // Signed PDF URL for pdf-kind invitations. Hook handles the enabled gate via
+    // pdfFilePathKey — only fires when both invitation_id and pdf_file_path exist.
+    const qPdfReadUrl = useQ_Invitation_PdfReadUrl({
+        invitationId: kind === 'pdf' ? invitation?.id : undefined,
+        pdfFilePathKey: kind === 'pdf' ? pdfFilePath : undefined,
+    })
 
     const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
     const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
@@ -146,13 +169,17 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
 
     // Existing keys = layout fields + attachment keys (post-AHR-1791, attachments live
     // outside the layout). Mandatory validation must cover both so file fields stay gated.
+    // Kind-aware extraction — TipTap walks the doc tree, PDF iterates the positioned-field
+    // array.
     const existingTemplateKeys = useMemo(() => {
-        const layoutFields = extractFields(layout)
+        const layoutFields = kind === 'pdf'
+            ? extractFields_Pdf(pdfLayout, qColumns.columns)
+            : extractFields(layout)
         return new Set<string>([
             ...layoutFields.map((f) => f.fieldKey),
             ...(attachmentFieldKeys ?? []),
         ])
-    }, [layout, attachmentFieldKeys])
+    }, [kind, layout, pdfLayout, qColumns.columns, attachmentFieldKeys])
 
     // Keys missing a value — used by both the inline error derivation and the step-1 gate.
     const mandatoryMissing = useMemo(
@@ -493,20 +520,39 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
                             <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: token.marginMD, overflow: 'hidden' }}>
                                 {/* Left: contract filler fills the remaining space */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <App_ContractFiller
-                                        layout={layout}
-                                        fieldValues={mergedValues}
-                                        onChange={handleFieldChange}
-                                        columns={qColumns.columns}
-                                        choices={qChoices.choices}
-                                        mandatoryKeys={mandatoryKeys}
-                                        hrFieldKeys={hrFieldKeys}
-                                        attachmentFieldKeys={attachmentFieldKeys}
-                                        fillerRole="employee"
-                                        errors={mandatoryFieldErrors}
-                                        organization_id={invitation.organization_id}
-                                        uploadContext={{ kind: 'invitation_col', invitation_id: invitation.id }}
-                                    />
+                                    {kind === 'pdf' ? (
+                                        <App_ContractFiller
+                                            kind="pdf"
+                                            layout={pdfLayout}
+                                            pdfFileUrl={qPdfReadUrl.url ?? null}
+                                            fieldValues={mergedValues}
+                                            onChange={handleFieldChange}
+                                            columns={qColumns.columns}
+                                            choices={qChoices.choices}
+                                            mandatoryKeys={mandatoryKeys}
+                                            hrFieldKeys={hrFieldKeys}
+                                            attachmentFieldKeys={attachmentFieldKeys}
+                                            fillerRole="employee"
+                                            errors={mandatoryFieldErrors}
+                                            organization_id={invitation.organization_id}
+                                            uploadContext={{ kind: 'invitation_col', invitation_id: invitation.id }}
+                                        />
+                                    ) : (
+                                        <App_ContractFiller
+                                            layout={layout}
+                                            fieldValues={mergedValues}
+                                            onChange={handleFieldChange}
+                                            columns={qColumns.columns}
+                                            choices={qChoices.choices}
+                                            mandatoryKeys={mandatoryKeys}
+                                            hrFieldKeys={hrFieldKeys}
+                                            attachmentFieldKeys={attachmentFieldKeys}
+                                            fillerRole="employee"
+                                            errors={mandatoryFieldErrors}
+                                            organization_id={invitation.organization_id}
+                                            uploadContext={{ kind: 'invitation_col', invitation_id: invitation.id }}
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Right: HR feedback column — ~320px (narrower than the old

@@ -9,8 +9,10 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_Contract_ApproveContent } from '@/hooks/useM_Contract_ApproveContent'
 import { useM_Contract_RequestChanges } from '@/hooks/useM_Contract_RequestChanges'
+import { useQ_Invitation_PdfReadUrl } from '@/hooks/useQ_Invitation_PdfReadUrl'
 import { App_ContractFiller } from './App_ContractFiller'
 import type { OnboardingInvitation_HrComments } from '@/types/invitation.types'
+import type { PdfLayout } from '@/types/contractTemplate.types'
 
 type Props = {
     open: boolean
@@ -89,6 +91,30 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                 : undefined,
         }
     }, [invitation?.template_snapshot])
+
+    // Contract template_snapshot is the wrapped shape from AHR-1954: {type, layout, pdf_file_path}.
+    // For tiptap kind, layout is a JSONContent doc; for pdf, it's a PdfLayout array.
+    const contractSnapshot = useMemo(() => {
+        const snap = qContract.contract?.template_snapshot as
+            | {
+                  type?: 'tiptap' | 'pdf'
+                  layout?: JSONContent | PdfLayout
+                  pdf_file_path?: string | null
+              }
+            | null
+            | undefined
+        return snap ?? null
+    }, [qContract.contract?.template_snapshot])
+    const contractKind: 'tiptap' | 'pdf' = contractSnapshot?.type === 'pdf' ? 'pdf' : 'tiptap'
+
+    // Signed PDF URL via the dual-auth invitation_pdf resource — admin/owner path applies
+    // here. Reads the snapshot's pdf_file_path through `contract.invitation_id`. Hook gates
+    // itself when args are absent (tiptap kind, missing invitation_id, or no pdf_file_path).
+    const qPdfReadUrl = useQ_Invitation_PdfReadUrl({
+        invitationId:
+            contractKind === 'pdf' ? (qContract.contract?.invitation_id ?? null) : null,
+        pdfFilePathKey: contractKind === 'pdf' ? (contractSnapshot?.pdf_file_path ?? null) : null,
+    })
 
     // Resolve signed URL for the signature image
     useEffect(() => {
@@ -215,24 +241,50 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
                     <div style={{ flex: 1, display: 'flex', gap: token.marginMD, minHeight: 0 }}>
                         {/* Left: per-field diff cards + contract preview via App_ContractFiller (review mode) */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <App_ContractFiller
-                                mode="review"
-                                layout={(qContract.contract.template_snapshot as JSONContent) ?? { type: 'doc', content: [] }}
-                                fieldValues={mergedValues}
-                                prefilledValues={prefilledValues}
-                                onChange={() => {}}
-                                columns={qColumns.columns}
-                                choices={qChoices.choices}
-                                mandatoryKeys={snapshotKeys.mandatoryKeys}
-                                hrFieldKeys={snapshotKeys.hrFieldKeys}
-                                attachmentFieldKeys={snapshotKeys.attachmentFieldKeys}
-                                organization_id={qContract.contract.organization_id}
-                                uploadContext={
-                                    qContract.contract.invitation_id
-                                        ? { kind: 'invitation_col', invitation_id: qContract.contract.invitation_id }
-                                        : undefined
-                                }
-                            />
+                            {contractKind === 'pdf' ? (
+                                <App_ContractFiller
+                                    kind="pdf"
+                                    mode="review"
+                                    layout={(contractSnapshot?.layout as PdfLayout) ?? []}
+                                    pdfFileUrl={qPdfReadUrl.url ?? null}
+                                    fieldValues={mergedValues}
+                                    prefilledValues={prefilledValues}
+                                    onChange={() => {}}
+                                    columns={qColumns.columns}
+                                    choices={qChoices.choices}
+                                    mandatoryKeys={snapshotKeys.mandatoryKeys}
+                                    hrFieldKeys={snapshotKeys.hrFieldKeys}
+                                    attachmentFieldKeys={snapshotKeys.attachmentFieldKeys}
+                                    organization_id={qContract.contract.organization_id}
+                                    uploadContext={
+                                        qContract.contract.invitation_id
+                                            ? { kind: 'invitation_col', invitation_id: qContract.contract.invitation_id }
+                                            : undefined
+                                    }
+                                />
+                            ) : (
+                                <App_ContractFiller
+                                    mode="review"
+                                    layout={
+                                        (contractSnapshot?.layout as JSONContent | undefined)
+                                            ?? { type: 'doc', content: [] }
+                                    }
+                                    fieldValues={mergedValues}
+                                    prefilledValues={prefilledValues}
+                                    onChange={() => {}}
+                                    columns={qColumns.columns}
+                                    choices={qChoices.choices}
+                                    mandatoryKeys={snapshotKeys.mandatoryKeys}
+                                    hrFieldKeys={snapshotKeys.hrFieldKeys}
+                                    attachmentFieldKeys={snapshotKeys.attachmentFieldKeys}
+                                    organization_id={qContract.contract.organization_id}
+                                    uploadContext={
+                                        qContract.contract.invitation_id
+                                            ? { kind: 'invitation_col', invitation_id: qContract.contract.invitation_id }
+                                            : undefined
+                                    }
+                                />
+                            )}
                         </div>
 
                         {/* Right: comments thread + signature + actions */}

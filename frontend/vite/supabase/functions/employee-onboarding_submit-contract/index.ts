@@ -156,7 +156,9 @@ Deno.serve(async (req) => {
     // key without the employee touching it. Stale mandatory keys (no longer in the
     // snapshotted layout) are silently ignored.
     const snapshot = (invitation.template_snapshot ?? {}) as {
+      type?: "tiptap" | "pdf";
       layout?: unknown;
+      pdf_file_path?: string | null;
       mandatory_field_keys?: string[];
     };
     const mandatoryKeys = (snapshot.mandatory_field_keys ?? []) as string[];
@@ -199,11 +201,17 @@ Deno.serve(async (req) => {
     if (isResubmit) {
       contractId = existingContract!.id;
     } else {
-      // AHR-1491: template_snapshot + contract_template_version_id copied from
-      // the invitation. snapshot.layout is the authoritative rendering source
-      // for the signed contract (bare JSONB layout, not the richer invitation
-      // snapshot shape). contract_template_version_id is the provenance pointer.
-      const snapshotLayout = (snapshot.layout ?? {}) as Record<string, unknown>;
+      // AHR-1491 + AHR-1954: contract template_snapshot is now a wrapped
+      // {type, layout, pdf_file_path} object copied from invitation snapshot —
+      // self-sufficient for both render (tiptap kind, client-side) and burn
+      // (pdf kind, server-side at HR approval) even if the template / version
+      // is later hard-deleted. contract_template_version_id is the provenance
+      // pointer.
+      const contractSnapshot = {
+        type: snapshot.type ?? "tiptap",
+        layout: snapshot.layout ?? {},
+        pdf_file_path: snapshot.pdf_file_path ?? null,
+      };
 
       const { data: inserted, error: contractError } = await supabaseAdmin
         .from("contracts")
@@ -213,7 +221,7 @@ Deno.serve(async (req) => {
           invitation_id: invitation.id,
           contract_template_id: invitation.contract_template_id,
           contract_template_version_id: invitation.contract_template_version_id,
-          template_snapshot: snapshotLayout,
+          template_snapshot: contractSnapshot,
           field_values: field_values ?? {},
           prefilled_fields: invitation.prefilled_fields ?? {},
           status: "filled",

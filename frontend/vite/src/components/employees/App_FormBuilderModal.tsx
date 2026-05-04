@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Modal, Input, Button, Typography, Segmented, Select, Dropdown, App, theme, Tooltip } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/configs/supabase/config'
+import { useM_Files_Upload } from '@/hooks/useM_Files_Upload'
+import { useQ_ContractTemplate_PdfReadUrl } from '@/hooks/useQ_ContractTemplate_PdfReadUrl'
+import { QueryKeys } from '@/utils/query/queryKeys'
 import {
     AlignCenterOutlined,
     AlignLeftOutlined,
@@ -41,7 +46,13 @@ import { App_ContractFiller } from './App_ContractFiller'
 import { App_EmployeeFieldComposerModal } from './App_EmployeeFieldComposerModal'
 import { App_ContractTemplateVersionsModal, type App_ContractTemplateVersionsModal_OnRestored } from './App_ContractTemplateVersionsModal'
 import { isTipTapLayout, utils_FormBuilder_migrateLayout } from './utils_FormBuilder_migrateLayout'
+import { App_PdfZoomControls } from './App_PdfZoomControls'
+import { App_PdfFieldEditor } from './App_PdfFieldEditor'
+import { App_PdfThumbnailList } from './App_PdfThumbnailList'
+import type { PdfLayout } from '@/types/contractTemplate.types'
 import type { Json } from '@/types/database.types'
+
+type ContractTemplateKind = 'tiptap' | 'pdf'
 
 const UNIVERSAL_FIELDS = [
     { key: 'email', label: 'Email', type: 'text' },
@@ -104,11 +115,13 @@ interface Props {
 export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: Props) => {
     const { token } = theme.useToken()
     const { modal } = App.useApp()
+    const queryClient = useQueryClient()
     const qTemplates = useQ_Tables_ContractTemplates({ organizationId })
     const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
     const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
     const mCreate = useM_ContractTemplate_Create()
     const mUpdate = useM_ContractTemplate_Update({ templateId: formId ?? '' })
+    const mFileUpload = useM_Files_Upload()
 
     const [formName, setFormName] = useState('')
     const [preview, setPreview] = useState(false)
@@ -123,8 +136,53 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
     // Resets every time the user toggles into preview (fresh session per peek).
     const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({})
     const [previewSessionKey, setPreviewSessionKey] = useState(0)
-    const initialStateRef = useRef<{ name: string; layout: string; mandatory: string; hr: string; attachment: string }>({ name: '', layout: '', mandatory: '[]', hr: '[]', attachment: '[]' })
+    const initialStateRef = useRef<{
+        name: string
+        layout: string
+        mandatory: string
+        hr: string
+        attachment: string
+        kind: ContractTemplateKind
+        pdfFilePath: string | null
+        pdfLayout: string
+    }>({ name: '', layout: '', mandatory: '[]', hr: '[]', attachment: '[]', kind: 'tiptap', pdfFilePath: null, pdfLayout: '[]' })
     const [isDirty, setIsDirty] = useState(false)
+    // PDF kind state — coexists with TipTap state. Only one kind is active per template at a time.
+    const [kind, setKind] = useState<ContractTemplateKind>('tiptap')
+    const [pdfFilePath, setPdfFilePath] = useState<string | null>(null)
+    const [pdfLayout, setPdfLayout] = useState<PdfLayout>([])
+    const [pdfScale, setPdfScale] = useState(1.0)
+    // Field selected from the palette and pending click-to-drop on a PDF page (PDF kind only)
+    const [pendingPdfField, setPendingPdfField] = useState<{ key: string; label: string; type: string } | null>(null)
+    // Newly-picked PDF source file held in memory until Save. Save handler uploads it
+    // to R2 and patches pdf_file_path; never persisted client-side.
+    const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null)
+    // Page count exposed by App_PdfDocument once the source PDF loads. Drives the
+    // PDF-kind page selector that replaces the TipTap outline column.
+    const [pdfNumPages, setPdfNumPages] = useState(0)
+    // Selected PDF positioned-field — lifted from App_PdfFieldEditor so the palette
+    // can render the matching item with an active style and so navigation from the
+    // palette can set it programmatically.
+    const [pdfSelectedKey, setPdfSelectedKey] = useState<string | null>(null)
+
+    // PDF URL resolution lives here (not inside App_PdfFieldEditor) so the sidebar
+    // thumbnail list can render from the same URL without a second hook call.
+    // - pendingPdfFile (in-memory blob) takes precedence — used between pick and Save
+    // - else the saved pdf_file_path resolves to a signed R2 URL via the hook
+    const qPdfReadUrl = useQ_ContractTemplate_PdfReadUrl({
+        contractTemplateId: formId,
+        pdfFilePathKey: pendingPdfFile ? null : pdfFilePath,
+    })
+    const pdfBlobUrl = useMemo(
+        () => (pendingPdfFile ? URL.createObjectURL(pendingPdfFile) : null),
+        [pendingPdfFile],
+    )
+    useEffect(() => {
+        if (!pdfBlobUrl) return
+        return () => URL.revokeObjectURL(pdfBlobUrl)
+    }, [pdfBlobUrl])
+    const pdfFileUrl = pdfBlobUrl ?? qPdfReadUrl.url ?? null
+    const hasPdf = !!pendingPdfFile || !!pdfFilePath
     const [saveAsOpen, setSaveAsOpen] = useState(false)
     const [saveAsName, setSaveAsName] = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
@@ -311,16 +369,23 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         const attachmentChanged = JSON.stringify([...attachmentSet].sort()) !== initialStateRef.current.attachment
         const layoutChanged = JSON.stringify(editor.getJSON()) !== initialStateRef.current.layout
         const nameChanged = formName !== initialStateRef.current.name
-        setIsDirty(mandatoryChanged || hrChanged || attachmentChanged || layoutChanged || nameChanged)
-    }, [editor, mandatorySet, hrSet, attachmentSet, formName, tick])
+        const kindChanged = kind !== initialStateRef.current.kind
+        const pdfPathChanged = pdfFilePath !== initialStateRef.current.pdfFilePath
+        const pdfLayoutChanged = JSON.stringify(pdfLayout) !== initialStateRef.current.pdfLayout
+        const hasPendingPdfUpload = pendingPdfFile !== null
+        setIsDirty(
+            mandatoryChanged || hrChanged || attachmentChanged || layoutChanged || nameChanged
+            || kindChanged || pdfPathChanged || pdfLayoutChanged || hasPendingPdfUpload,
+        )
+    }, [editor, mandatorySet, hrSet, attachmentSet, formName, tick, kind, pdfFilePath, pdfLayout, pendingPdfFile])
 
     // Combined "used" set — a key counts as used when it's either in the layout body
-    // OR in the attachments panel. Powers the palette's grayed-out state + the prune
-    // logic below.
-    const effectiveUsedKeys = useMemo(
-        () => new Set([...usedKeys, ...attachmentSet]),
-        [usedKeys, attachmentSet],
-    )
+    // (TipTap kind), in the PDF positioned-fields layout (PDF kind), or in the
+    // attachments panel. Powers the palette's grayed-out state + the prune logic below.
+    const effectiveUsedKeys = useMemo(() => {
+        const pdfKeys = kind === 'pdf' ? pdfLayout.map((f) => f.key) : []
+        return new Set([...usedKeys, ...attachmentSet, ...pdfKeys])
+    }, [usedKeys, attachmentSet, kind, pdfLayout])
 
     // Prune mandatorySet + hrSet when a field is removed (either from the layout
     // or the attachments panel). Re-adding it later shouldn't carry old state.
@@ -381,6 +446,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         let resolvedMandatory: string[] = []
         let resolvedHr: string[] = []
         let resolvedAttachment: string[] = []
+        let resolvedKind: ContractTemplateKind = 'tiptap'
+        let resolvedPdfFilePath: string | null = null
+        let resolvedPdfLayout: PdfLayout = []
         if (formId) {
             const existing = qTemplates.templates.find((f) => f.id === formId)
             if (!existing) return // wait for templates query to load this form
@@ -388,9 +456,16 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             resolvedMandatory = (existing.mandatory_field_keys ?? []) as string[]
             resolvedHr = (existing.hr_field_keys ?? []) as string[]
             resolvedAttachment = (existing.attachment_field_keys ?? []) as string[]
+            resolvedKind = (existing.type === 'pdf' ? 'pdf' : 'tiptap') as ContractTemplateKind
+            resolvedPdfFilePath = existing.pdf_file_path ?? null
             setFormName(existing.name)
             const layout = existing.layout
-            if (isTipTapLayout(layout)) {
+            if (resolvedKind === 'pdf') {
+                // PDF kind: layout is the positioned-fields array. Reset TipTap editor to empty;
+                // dirty tracking on TipTap layout naturally noops since baseline matches.
+                resolvedPdfLayout = Array.isArray(layout) ? (layout as unknown as PdfLayout) : []
+                editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
+            } else if (isTipTapLayout(layout)) {
                 editor.commands.setContent(layout)
             } else if (Array.isArray(layout) && layout.length > 0) {
                 editor.commands.setContent(utils_FormBuilder_migrateLayout(layout as string[][], resolveFieldRef.current))
@@ -404,6 +479,14 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         setMandatorySet(new Set(resolvedMandatory))
         setHrSet(new Set(resolvedHr))
         setAttachmentSet(new Set(resolvedAttachment))
+        setKind(resolvedKind)
+        setPdfFilePath(resolvedPdfFilePath)
+        setPdfLayout(resolvedPdfLayout)
+        setPdfScale(1.0)
+        setPendingPdfField(null)
+        setPendingPdfFile(null)
+        setPdfNumPages(0)
+        setPdfSelectedKey(null)
         setPreview(false)
         setSearch('')
         setIsDirty(false)
@@ -419,15 +502,30 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             mandatory: JSON.stringify([...resolvedMandatory].sort()),
             hr: JSON.stringify([...resolvedHr].sort()),
             attachment: JSON.stringify([...resolvedAttachment].sort()),
+            kind: resolvedKind,
+            pdfFilePath: resolvedPdfFilePath,
+            pdfLayout: JSON.stringify(resolvedPdfLayout),
         }
     }, [open, formId, qTemplates.templates, editor, syncUsedKeys])
 
     const handleRestored: App_ContractTemplateVersionsModal_OnRestored = (body) => {
         if (!editor) return
-        editor.commands.setContent(body.layout)
+        const restoredKind: ContractTemplateKind = body.type === 'pdf' ? 'pdf' : 'tiptap'
+        const restoredPdfFilePath = body.pdf_file_path ?? null
+        let restoredPdfLayout: PdfLayout = []
+        if (restoredKind === 'pdf') {
+            restoredPdfLayout = Array.isArray(body.layout) ? (body.layout as unknown as PdfLayout) : []
+            // Reset TipTap editor to empty so dirty-tracking on its layout naturally noops
+            editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
+        } else {
+            editor.commands.setContent(body.layout as JSONContent)
+        }
         const restoredMandatory = body.mandatory_field_keys ?? []
         const restoredHr = body.hr_field_keys ?? []
         const restoredAttachment = body.attachment_field_keys ?? []
+        setKind(restoredKind)
+        setPdfFilePath(restoredPdfFilePath)
+        setPdfLayout(restoredPdfLayout)
         setMandatorySet(new Set(restoredMandatory))
         setHrSet(new Set(restoredHr))
         setAttachmentSet(new Set(restoredAttachment))
@@ -439,23 +537,132 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             mandatory: JSON.stringify([...restoredMandatory].sort()),
             hr: JSON.stringify([...restoredHr].sort()),
             attachment: JSON.stringify([...restoredAttachment].sort()),
+            kind: restoredKind,
+            pdfFilePath: restoredPdfFilePath,
+            pdfLayout: JSON.stringify(restoredPdfLayout),
         }
+    }
+
+    // Kind switch — destructive (clears the kind-specific layout). Confirm first.
+    const handleKindChange = (next: ContractTemplateKind) => {
+        if (next === kind) return
+        modal.confirm({
+            title: 'Switch template kind?',
+            content: (
+                <Typography.Paragraph style={{ marginBottom: 0 }}>
+                    Switching to <strong>{next === 'pdf' ? 'PDF' : 'Docs'}</strong> will discard your current layout.
+                    This is reversible by switching back, but the layout you just made will be lost. Continue?
+                </Typography.Paragraph>
+            ),
+            okText: `Switch to ${next === 'pdf' ? 'PDF' : 'Docs'}`,
+            okButtonProps: { danger: true },
+            cancelText: 'Cancel',
+            onOk: () => {
+                setKind(next)
+                setPendingPdfField(null) // clear any in-flight click-to-drop
+                setPendingPdfFile(null) // discard any unsaved PDF upload
+                setPdfNumPages(0)
+                setPdfSelectedKey(null)
+                if (next === 'pdf') {
+                    // Switching to PDF — clear TipTap doc; PDF layout starts empty (HR uploads source PDF in App_PdfFieldEditor)
+                    if (editor) editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
+                    setPdfLayout([])
+                    // pdfFilePath stays null until HR uploads
+                } else {
+                    // Switching to TipTap — clear PDF layout + file path
+                    setPdfLayout([])
+                    setPdfFilePath(null)
+                }
+            },
+        })
     }
 
     const handleNameChange = (name: string) => setFormName(name)
 
     const insertField = (field: { key: string; label: string; type: string }) => {
-        // File-type fields live in the attachment panel (above the editor) rather
-        // than inline in the TipTap body — attachments are supporting documents, not
-        // body content. Non-file fields keep the existing cursor-insert behavior.
+        // File-type fields live in the attachment panel rather than positioned on the
+        // document — attachments are supporting documents, not body content. Same for
+        // both kinds.
         if (field.type === 'file') {
             setAttachmentSet((prev) => (prev.has(field.key) ? prev : new Set([...prev, field.key])))
+            return
+        }
+        // PDF kind: arm a click-to-drop. App_PdfFieldEditor consumes pendingPdfField on
+        // page click and clears it via the consumer callback.
+        if (kind === 'pdf') {
+            setPendingPdfField(field)
+            // Mutual exclusivity — only one PDF palette item can be "active" at a time.
+            // Arming a drop clears any existing on-page selection.
+            setPdfSelectedKey(null)
             return
         }
         editor?.chain().focus().insertContent({
             type: 'fieldInput',
             attrs: { fieldKey: field.key, fieldLabel: field.label, fieldType: field.type },
         }).run()
+    }
+
+    // Scroll a PDF page into view *within the PDF scroll container only* — scrollIntoView
+    // bubbles to ancestors in some browsers and would also scroll the editor column /
+    // modal body, causing the action bar to disappear above the viewport.
+    //
+    // When `yOffsetPct` is provided, the destination scroll position lands at that
+    // percentage down the page — useful for navigating to a specific field whose
+    // y_pct we know. With it omitted (e.g. thumbnail click), scroll lands at the top
+    // of the page.
+    const scrollPdfPageIntoView = (pageNumber: number, yOffsetPct?: number) => {
+        const container = document.querySelector('.pdf-scroll-container') as HTMLElement | null
+        const pageEl = document.querySelector(`[data-pdf-page="${pageNumber}"]`) as HTMLElement | null
+        if (!container || !pageEl) return
+        const pageTop = pageEl.offsetTop - container.offsetTop
+        const fieldOffset = yOffsetPct !== undefined ? yOffsetPct * pageEl.offsetHeight : 0
+        // Small breathing room so the field doesn't sit flush against the container's top edge.
+        const topPadding = 8
+        container.scrollTo({
+            top: Math.max(0, pageTop + fieldOffset - topPadding),
+            behavior: 'smooth',
+        })
+    }
+
+    // Click on a USED field in the palette: navigate to where it currently sits in the
+    // form so HR can quickly inspect or adjust it. Branches by kind + by attachment.
+    const navigateToField = (field: { key: string; label: string; type: string }) => {
+        // Attachment field — scroll the attachment panel into view (same panel for both kinds).
+        if (field.type === 'file' && attachmentSet.has(field.key)) {
+            document
+                .querySelector('[data-attachment-panel]')
+                ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+            return
+        }
+        if (kind === 'pdf') {
+            const layoutField = pdfLayout.find((lf) => lf.key === field.key)
+            if (!layoutField) return
+            setPdfSelectedKey(field.key)
+            // Mutual exclusivity — selecting an existing field clears any pending drop arm.
+            setPendingPdfField(null)
+            // Pass the field's y_pct so the scroll lands the field itself near the top of
+            // the visible area, not just the top of the page that contains it.
+            scrollPdfPageIntoView(layoutField.page, layoutField.y_pct)
+            return
+        }
+        // TipTap kind — find the fieldInput node and scroll to it.
+        if (!editor) return
+        let nodePos: number | null = null
+        editor.state.doc.descendants((node, pos) => {
+            if (
+                node.type.name === 'fieldInput' &&
+                (node.attrs as Record<string, unknown>)?.fieldKey === field.key
+            ) {
+                nodePos = pos
+                return false
+            }
+            return undefined
+        })
+        if (nodePos === null) return
+        editor.chain().focus().setNodeSelection(nodePos).run()
+        const nodeDom = editor.view.nodeDOM(nodePos)
+        const el = nodeDom instanceof HTMLElement ? nodeDom : (nodeDom as Node | null)?.parentElement
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }
 
     const removeAttachment = (key: string) => {
@@ -469,14 +676,78 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
 
     const handleSave = async () => {
         if (!formName.trim() || !editor) return
-        const layout: Json = editor.getJSON() as Json
+        // Layout shape per kind: TipTap doc for tiptap, PdfLayout array for pdf.
+        const layout: Json = (kind === 'pdf' ? pdfLayout : editor.getJSON()) as Json
         const mandatory_field_keys = Array.from(mandatorySet)
         const hr_field_keys = Array.from(hrSet)
         const attachment_field_keys = Array.from(attachmentSet)
+
+        // PDF kind with a pending file requires a template_id for the upload's auth.
+        // For new templates, we stub-create the row first (empty layout, null pdf_file_path),
+        // then upload, then PATCH with the resolved pdf_file_path + final layout. This
+        // produces 2 version rows for the first save (stub + final), which is acceptable
+        // for the trade-off — HR gets a "type → upload → place → save" UX with no orphan
+        // R2 objects on discard (file is held in memory until Save runs).
+        if (kind === 'pdf' && pendingPdfFile) {
+            let templateIdForUpload = formId
+            if (!templateIdForUpload) {
+                const stub = await mCreate.mutation.mutateAsync({
+                    organization_id: organizationId,
+                    name: formName.trim(),
+                    layout: [] as unknown as Json,
+                    type: 'pdf',
+                    pdf_file_path: null,
+                })
+                templateIdForUpload = stub.id
+            }
+            const uploadResult = await mFileUpload.mutation.mutateAsync({
+                resource_type: 'contract_template_pdf',
+                contract_template_id: templateIdForUpload,
+                file: pendingPdfFile,
+            })
+            const sb_FromContractTemplates_Update = await supabase
+                .from('contract_templates')
+                .update({
+                    name: formName.trim(),
+                    layout,
+                    type: 'pdf',
+                    pdf_file_path: uploadResult.r2_key,
+                    mandatory_field_keys,
+                    hr_field_keys,
+                    attachment_field_keys,
+                })
+                .eq('id', templateIdForUpload)
+            if (sb_FromContractTemplates_Update.error) throw sb_FromContractTemplates_Update.error
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() })
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() })
+            setPendingPdfFile(null)
+            setPdfFilePath(uploadResult.r2_key)
+            onClose()
+            return
+        }
+
+        // Standard path (TipTap kind, OR PDF kind with no pending file change)
         if (formId) {
-            await mUpdate.mutation.mutateAsync({ name: formName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
+            await mUpdate.mutation.mutateAsync({
+                name: formName.trim(),
+                layout,
+                type: kind,
+                pdf_file_path: kind === 'pdf' ? pdfFilePath : null,
+                mandatory_field_keys,
+                hr_field_keys,
+                attachment_field_keys,
+            })
         } else {
-            await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: formName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
+            await mCreate.mutation.mutateAsync({
+                organization_id: organizationId,
+                name: formName.trim(),
+                layout,
+                type: kind,
+                pdf_file_path: kind === 'pdf' ? pdfFilePath : null,
+                mandatory_field_keys,
+                hr_field_keys,
+                attachment_field_keys,
+            })
         }
         onClose()
     }
@@ -488,11 +759,59 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
 
     const handleSaveAs = async () => {
         if (!saveAsName.trim() || !editor) return
-        const layout: Json = editor.getJSON() as Json
+        const layout: Json = (kind === 'pdf' ? pdfLayout : editor.getJSON()) as Json
         const mandatory_field_keys = Array.from(mandatorySet)
         const hr_field_keys = Array.from(hrSet)
         const attachment_field_keys = Array.from(attachmentSet)
-        await mCreate.mutation.mutateAsync({ organization_id: organizationId, name: saveAsName.trim(), layout, mandatory_field_keys, hr_field_keys, attachment_field_keys })
+
+        // PDF kind with a pending file: stub-create the new template, upload to its scope,
+        // then PATCH with full body (same pattern as handleSave). Source PDF is uniquely
+        // re-uploaded for the new template under its own R2 path — no shared object.
+        if (kind === 'pdf' && pendingPdfFile) {
+            const stub = await mCreate.mutation.mutateAsync({
+                organization_id: organizationId,
+                name: saveAsName.trim(),
+                layout: [] as unknown as Json,
+                type: 'pdf',
+                pdf_file_path: null,
+            })
+            const uploadResult = await mFileUpload.mutation.mutateAsync({
+                resource_type: 'contract_template_pdf',
+                contract_template_id: stub.id,
+                file: pendingPdfFile,
+            })
+            const sb_FromContractTemplates_Update = await supabase
+                .from('contract_templates')
+                .update({
+                    layout,
+                    pdf_file_path: uploadResult.r2_key,
+                    mandatory_field_keys,
+                    hr_field_keys,
+                    attachment_field_keys,
+                })
+                .eq('id', stub.id)
+            if (sb_FromContractTemplates_Update.error) throw sb_FromContractTemplates_Update.error
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() })
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() })
+            setSaveAsOpen(false)
+            onClose()
+            return
+        }
+
+        // Standard "Save as new" — copies current kind + layout; for PDF kind without a
+        // pending file change, the new template references the same pdf_file_path (R2 has
+        // no FK; the source PDF is logically content-addressable across templates until
+        // one of them re-uploads).
+        await mCreate.mutation.mutateAsync({
+            organization_id: organizationId,
+            name: saveAsName.trim(),
+            layout,
+            type: kind,
+            pdf_file_path: kind === 'pdf' ? pdfFilePath : null,
+            mandatory_field_keys,
+            hr_field_keys,
+            attachment_field_keys,
+        })
         setSaveAsOpen(false)
         onClose()
     }
@@ -650,6 +969,19 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                     placeholder="e.g. Standard Employment Contract"
                     style={{ flex: 1, maxWidth: 400 }}
                 />
+                <Segmented
+                    size="small"
+                    value={kind}
+                    onChange={(v) => handleKindChange(v as ContractTemplateKind)}
+                    options={[
+                        { value: 'tiptap', label: 'Docs' },
+                        { value: 'pdf', label: 'PDF' },
+                    ]}
+                    style={{ marginLeft: 'auto' }}
+                />
+                {kind === 'pdf' && !preview && (
+                    <App_PdfZoomControls scale={pdfScale} onScaleChange={setPdfScale} />
+                )}
                 <Tooltip title={formId ? 'Version history' : 'Save the template first to see history'}>
                     <Button
                         type="text"
@@ -657,7 +989,6 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                         icon={<HistoryOutlined />}
                         disabled={!formId}
                         onClick={() => setHistoryOpen(true)}
-                        style={{ marginLeft: 'auto' }}
                     />
                 </Tooltip>
                 <Segmented
@@ -728,12 +1059,26 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                         : mandatorySet.has(f.key)
                                             ? 'mandatory'
                                             : 'optional'
-                                    const bg = !isUsed ? token.colorBgContainer : token.colorFillTertiary
-                                    const borderColor = token.colorBorderSecondary
+                                    // Active when: PDF kind has this field selected on the page,
+                                    // OR a click-to-drop is armed for this field. Same visual style
+                                    // for both — the palette communicates "this field is the focus
+                                    // right now" regardless of whether it's already placed.
+                                    const isActive =
+                                        (kind === 'pdf' && pdfSelectedKey === f.key) ||
+                                        pendingPdfField?.key === f.key
+                                    const bg = isActive
+                                        ? token.colorPrimaryBg
+                                        : !isUsed
+                                            ? token.colorBgContainer
+                                            : token.colorFillTertiary
+                                    const borderColor = isActive
+                                        ? token.colorPrimary
+                                        : token.colorBorderSecondary
                                     return (
                                         <div
                                             key={f.key}
-                                            onClick={isUsed ? undefined : () => insertField(f)}
+                                            data-pdf-palette-item
+                                            onClick={() => (isUsed ? navigateToField(f) : insertField(f))}
                                             style={{
                                                 display: 'grid',
                                                 gridTemplateColumns: '1fr auto 96px',
@@ -743,7 +1088,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                                 border: `1px solid ${borderColor}`,
                                                 borderRadius: token.borderRadius,
                                                 background: bg,
-                                                cursor: isUsed ? 'default' : 'pointer',
+                                                cursor: 'pointer',
                                                 userSelect: 'none',
                                             }}
                                         >
@@ -779,15 +1124,15 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                         overflow: 'hidden',
                     }}>
                         <Typography.Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: token.marginXS, flexShrink: 0 }}>
-                            Outline
+                            {kind === 'pdf' ? 'Pages' : 'Outline'}
                         </Typography.Text>
                         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-                            {headings.length === 0 && (
+                            {kind === 'tiptap' && headings.length === 0 && (
                                 <Typography.Text type="secondary" style={{ fontSize: 12, padding: token.paddingSM }}>
                                     Add headings to see outline
                                 </Typography.Text>
                             )}
-                            {headings.map((h, i) => (
+                            {kind === 'tiptap' && headings.map((h, i) => (
                                 <div
                                     key={i}
                                     onClick={() => {
@@ -816,14 +1161,27 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                     </Typography.Text>
                                 </div>
                             ))}
+                            {kind === 'pdf' && (!pdfFileUrl || pdfNumPages === 0) && (
+                                <Typography.Text type="secondary" style={{ fontSize: 12, padding: token.paddingSM }}>
+                                    Upload a PDF to see pages
+                                </Typography.Text>
+                            )}
+                            {kind === 'pdf' && pdfFileUrl && pdfNumPages > 0 && (
+                                <App_PdfThumbnailList
+                                    fileUrl={pdfFileUrl}
+                                    numPages={pdfNumPages}
+                                    pdfLayout={pdfLayout}
+                                    onPageClick={scrollPdfPageIntoView}
+                                />
+                            )}
                         </div>
                     </div>
                 )}
 
                 {/* Editor column: toolbar + editor */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Toolbar — preventDefault keeps editor focused so selection stays visible */}
-                    {!preview && (
+                    {/* Toolbar — TipTap-specific; hidden when kind=pdf or in preview mode */}
+                    {!preview && kind === 'tiptap' && (
                         <div ref={toolbarRef} onMouseDown={(e) => e.preventDefault()} style={{
                             display: 'flex',
                             gap: token.marginXXS,
@@ -881,7 +1239,24 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                     {/* Editor area */}
                     {preview ? (
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                            {editor && (
+                            {kind === 'pdf' ? (
+                                <App_ContractFiller
+                                    key={previewSessionKey}
+                                    kind="pdf"
+                                    layout={pdfLayout}
+                                    pdfFileUrl={pdfFileUrl}
+                                    mode="fill"
+                                    fieldValues={previewValues}
+                                    onChange={(k, v) => setPreviewValues((prev) => ({ ...prev, [k]: v }))}
+                                    columns={qColumns.columns}
+                                    choices={qChoices.choices}
+                                    mandatoryKeys={Array.from(mandatorySet)}
+                                    hrFieldKeys={Array.from(hrSet)}
+                                    attachmentFieldKeys={Array.from(attachmentSet)}
+                                    fillerRole="hr"
+                                    organization_id={organizationId}
+                                />
+                            ) : editor && (
                                 <App_ContractFiller
                                     key={previewSessionKey}
                                     mode="fill"
@@ -900,12 +1275,90 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
                                 />
                             )}
                         </div>
+                    ) : kind === 'pdf' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                            {attachmentSet.size > 0 && (
+                                <div data-attachment-panel style={{
+                                    flexShrink: 0,
+                                    border: `1px solid ${token.colorBorderSecondary}`,
+                                    borderRadius: token.borderRadiusLG,
+                                    padding: token.paddingSM,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: token.marginXS,
+                                }}>
+                                    <Typography.Text strong style={{ fontSize: 12 }}>
+                                        Attachments ({attachmentSet.size})
+                                    </Typography.Text>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
+                                        {Array.from(attachmentSet).map((key) => {
+                                            const field = resolveField(key)
+                                            const state: App_FieldRenderer_State = hrSet.has(key)
+                                                ? 'hr'
+                                                : mandatorySet.has(key)
+                                                    ? 'mandatory'
+                                                    : 'optional'
+                                            return (
+                                                <div
+                                                    key={key}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: token.marginXS,
+                                                        padding: `${token.paddingXXS}px ${token.paddingSM}px`,
+                                                        border: `1px solid ${token.colorBorderSecondary}`,
+                                                        borderRadius: token.borderRadiusSM,
+                                                        background: token.colorBgContainer,
+                                                    }}
+                                                >
+                                                    <PaperClipOutlined style={{ color: token.colorTextSecondary, fontSize: 12 }} />
+                                                    <Typography.Text style={{ fontSize: 12 }}>{field.label}</Typography.Text>
+                                                    <App_FieldStateDropdown
+                                                        state={state}
+                                                        onChange={(next) => setFieldState(key, next)}
+                                                    />
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<CloseOutlined />}
+                                                        onClick={() => removeAttachment(key)}
+                                                    />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            <App_PdfFieldEditor
+                                pdfFileUrl={pdfFileUrl}
+                                hasPdf={hasPdf}
+                                pdfLayout={pdfLayout}
+                                onPdfLayoutChange={setPdfLayout}
+                                pdfScale={pdfScale}
+                                pendingFieldDrop={pendingPdfField}
+                                onPendingFieldDropConsumed={() => setPendingPdfField(null)}
+                                onArmFieldDrop={(f) => {
+                                    setPendingPdfField(f)
+                                    setPdfSelectedKey(null)
+                                }}
+                                pendingPdfFile={pendingPdfFile}
+                                onPendingPdfFileChange={setPendingPdfFile}
+                                hrSet={hrSet}
+                                mandatorySet={mandatorySet}
+                                onFieldStateChange={setFieldState}
+                                resolveField={resolveField}
+                                onNumPagesChange={setPdfNumPages}
+                                selectedKey={pdfSelectedKey}
+                                onSelectedKeyChange={setPdfSelectedKey}
+                                onNavigateToField={navigateToField}
+                            />
+                        </div>
                     ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM, flex: 1, minHeight: 0, overflow: 'hidden' }}>
                         {/* Attachments panel — file-type fields live here, not inline in the body.
                            Mirrors where the strip renders at preview / fill time. */}
                         {attachmentSet.size > 0 && (
-                            <div style={{
+                            <div data-attachment-panel style={{
                                 flexShrink: 0,
                                 border: `1px solid ${token.colorBorderSecondary}`,
                                 borderRadius: token.borderRadiusLG,

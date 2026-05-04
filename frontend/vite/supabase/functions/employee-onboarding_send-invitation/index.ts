@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     // is later edited or hard-deleted.
     const { data: version, error: versionError } = await supabaseAdmin
       .from("contract_template_versions")
-      .select("id, layout, mandatory_field_keys, hr_field_keys, attachment_field_keys")
+      .select("id, type, layout, pdf_file_path, mandatory_field_keys, hr_field_keys, attachment_field_keys")
       .eq("template_id", contract_template_id)
       .order("version_number", { ascending: false })
       .limit(1)
@@ -241,7 +241,9 @@ Deno.serve(async (req) => {
         contract_template_id,
         contract_template_version_id: version.id,
         template_snapshot: {
+          type: version.type,
           layout: version.layout,
+          pdf_file_path: version.pdf_file_path,
           mandatory_field_keys: version.mandatory_field_keys,
           hr_field_keys: version.hr_field_keys,
           attachment_field_keys: version.attachment_field_keys,

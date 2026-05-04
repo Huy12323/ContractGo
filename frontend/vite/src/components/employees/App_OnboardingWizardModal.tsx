@@ -6,10 +6,12 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_OnboardingInvitation_Send } from '@/hooks/useM_OnboardingInvitation_Send'
 import { useM_Files_Upload } from '@/hooks/useM_Files_Upload'
+import { useQ_ContractTemplate_PdfReadUrl } from '@/hooks/useQ_ContractTemplate_PdfReadUrl'
 import { supabase } from '@/configs/supabase/config'
 import { App_ContractFiller } from './App_ContractFiller'
 import { App_ContractTemplatesManager } from './App_ContractTemplatesManager'
 import type { JSONContent } from '@tiptap/core'
+import type { PdfLayout } from '@/types/contractTemplate.types'
 
 type Props = {
     open: boolean
@@ -48,6 +50,15 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
         () => qTemplates.templates.find((t) => t.id === selectedTemplateId) ?? null,
         [qTemplates.templates, selectedTemplateId],
     )
+    const selectedTemplateKind: 'tiptap' | 'pdf' = selectedTemplate?.type === 'pdf' ? 'pdf' : 'tiptap'
+
+    // PDF read URL — only fires when the selected template is pdf-kind. Wizard pre-dates
+    // the invitation so the live-template (admin-only) hook is correct here. The hook's
+    // enabled gate keeps it dormant otherwise.
+    const qSelectedTemplatePdfUrl = useQ_ContractTemplate_PdfReadUrl({
+        contractTemplateId: selectedTemplateKind === 'pdf' ? (selectedTemplate?.id ?? null) : null,
+        pdfFilePathKey: selectedTemplateKind === 'pdf' ? (selectedTemplate?.pdf_file_path ?? null) : null,
+    })
     const prefilledCount = useMemo(
         () => Object.values(prefilledFields).filter((v) => v !== undefined && v !== '' && v !== null).length,
         [prefilledFields],
@@ -290,21 +301,39 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
             {currentStep === 1 && (
                 <div style={{ height: '100%' }}>
                     {selectedTemplate ? (
-                        <App_ContractFiller
-                            layout={selectedTemplate.layout as JSONContent}
-                            fieldValues={prefilledFields}
-                            onChange={handleFieldChange}
-                            columns={qColumns.columns}
-                            choices={qChoices.choices}
-                            mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
-                            hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
-                            attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
-                            errors={hrFieldErrors}
-                            organization_id={organizationId}
-                            /* Defer — no invitation exists yet. Files are held in prefilledFields
-                               as File objects until Send orchestrates upload + linkage. */
-                            uploadContext={{ kind: 'defer' }}
-                        />
+                        selectedTemplateKind === 'pdf' ? (
+                            <App_ContractFiller
+                                kind="pdf"
+                                layout={(selectedTemplate.layout as unknown as PdfLayout) ?? []}
+                                pdfFileUrl={qSelectedTemplatePdfUrl.url ?? null}
+                                fieldValues={prefilledFields}
+                                onChange={handleFieldChange}
+                                columns={qColumns.columns}
+                                choices={qChoices.choices}
+                                mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
+                                hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
+                                attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
+                                errors={hrFieldErrors}
+                                organization_id={organizationId}
+                                uploadContext={{ kind: 'defer' }}
+                            />
+                        ) : (
+                            <App_ContractFiller
+                                layout={selectedTemplate.layout as JSONContent}
+                                fieldValues={prefilledFields}
+                                onChange={handleFieldChange}
+                                columns={qColumns.columns}
+                                choices={qChoices.choices}
+                                mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
+                                hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
+                                attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
+                                errors={hrFieldErrors}
+                                organization_id={organizationId}
+                                /* Defer — no invitation exists yet. Files are held in prefilledFields
+                                   as File objects until Send orchestrates upload + linkage. */
+                                uploadContext={{ kind: 'defer' }}
+                            />
+                        )
                     ) : (
                         <Typography.Text type="secondary">No template selected</Typography.Text>
                     )}

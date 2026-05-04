@@ -7,7 +7,7 @@ const fetchOrgOnboardingInvitations = async (organizationId: string) => {
     const sb_FromOnboardingInvitations_Select = await supabase
         .from("onboarding_invitations")
         .select(
-            "id, invitation_token, employee_email, status, hr_comments, template_snapshot, created_at, organization_id, entity_id, entities(id, name), contract_template_id, contract_templates(id, name), rel__department__invitation(department_id, departments(id, name)), contracts(id, status, signed_at, signature_path, approved_at, approved_by, employee_id)",
+            "id, invitation_token, employee_email, status, hr_comments, template_snapshot, prefilled_fields, created_at, organization_id, entity_id, entities(id, name), contract_template_id, contract_templates(id, name), rel__department__invitation(department_id, departments(id, name)), contracts(id, status, signed_at, signature_path, approved_at, approved_by, employee_id)",
         )
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });

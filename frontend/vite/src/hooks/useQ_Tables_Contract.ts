@@ -6,7 +6,7 @@ const fetchContract = async (contractId: string) => {
     const sb_FromContracts_Select = await supabase
         .from("contracts")
         .select(
-            "id, organization_id, status, template_snapshot, field_values, prefilled_fields, signature_path, signed_at, signed_by, invitation_id, approved_at, approved_by, contract_template_id, contract_template_version_id",
+            "id, organization_id, status, template_snapshot, signed_pdf_r2_path, field_values, prefilled_fields, signature_path, signed_at, signed_by, invitation_id, approved_at, approved_by, contract_template_id, contract_template_version_id",
         )
         .eq("id", contractId)
         .single();

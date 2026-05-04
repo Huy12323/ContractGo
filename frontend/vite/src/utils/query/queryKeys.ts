@@ -2,7 +2,12 @@ import type { Database } from "@/types/database.types";
 
 type TableName = keyof Database["public"]["Tables"];
 
-const createTableFactory = <T extends TableName>(tableName: T) =>
+// Per-org dynamic tables (`<orgid>__employees`) are NOT registered as static
+// query keys — they're discovered at runtime per organization. The static
+// QueryKeys factory exhaustiveness check excludes them via this filtered type.
+type StaticTableName = Exclude<TableName, `org_${string}__employees`>;
+
+const createTableFactory = <T extends string>(tableName: T) =>
     ({
         all: () => [tableName] as const,
         list: () => [tableName, "list"] as const,
@@ -17,6 +22,7 @@ export const QueryKeys = {
     contract_templates: createTableFactory("contract_templates"),
     contracts: createTableFactory("contracts"),
     departments: createTableFactory("departments"),
+    employee_audit_log: createTableFactory("employee_audit_log"),
     employee_column_choices: createTableFactory("employee_column_choices"),
     employee_columns: createTableFactory("employee_columns"),
     employee_views: createTableFactory("employee_views"),
@@ -30,4 +36,4 @@ export const QueryKeys = {
     realtime_table_events: createTableFactory("realtime_table_events"),
     rel__department__employee: createTableFactory("rel__department__employee"),
     rel__department__invitation: createTableFactory("rel__department__invitation"),
-} satisfies Record<TableName, ReturnType<typeof createTableFactory<TableName>>>;
+} satisfies Record<StaticTableName, ReturnType<typeof createTableFactory<StaticTableName>>>;

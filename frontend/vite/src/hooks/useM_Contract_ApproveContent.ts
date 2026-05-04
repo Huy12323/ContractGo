@@ -35,13 +35,25 @@ export const useM_Contract_ApproveContent = () => {
             }
             return sb_FunctionsEmployeeOnboardingApproveContent_Invoke.data as {
                 invitation_id: string;
+                employee_id?: string;
+                contract_id?: string;
                 status: string;
+                discarded_fields?: string[];
             };
         },
-        onSuccess: () => {
-            message.success("Content approved — ready for placement");
+        onSuccess: (data) => {
+            const discarded = data?.discarded_fields ?? [];
+            if (discarded.length > 0) {
+                message.warning(
+                    `Employee approved. ${discarded.length} field${discarded.length === 1 ? "" : "s"} no longer exist${discarded.length === 1 ? "s" : ""} and ${discarded.length === 1 ? "was" : "were"} discarded.`,
+                );
+            } else {
+                message.success("Employee approved");
+            }
             queryClient.invalidateQueries({ queryKey: QueryKeys.onboarding_invitations.all() });
             queryClient.invalidateQueries({ queryKey: QueryKeys.contracts.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.employees.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.departments.all() });
         },
         onError: (err: Error) => {
             console.error(err);

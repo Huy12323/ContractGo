@@ -14,7 +14,7 @@ const R2_WORKER_URL = requireEnv("R2_WORKER_URL");
 const ENVIRONMENT = Deno.env.get("ENVIRONMENT") || "development";
 
 const TOKEN_TTL_SECONDS = 7 * 24 * 3600;
-const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "contract_signature"] as const;
+const RESOURCE_TYPES = ["contract", "employee_col", "invitation_col", "contract_signature", "contract_template_pdf", "invitation_pdf"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const corsHeaders = {
@@ -153,6 +153,127 @@ Deno.serve(async (req) => {
             const urlSig = `${R2_WORKER_URL}/${contract.signature_path}?token=${jwtSig}`;
             return jsonResponse(
                 { url: urlSig, expiresAt: new Date(expSig * 1000).toISOString() },
+                200,
+            );
+        }
+
+        // AHR-1956: source PDF for `pdf` kind invitations — read the path from the
+        // invitation's template_snapshot (the durable, hard-delete-safe source) and sign it.
+        // Dual auth: invitee (email match) OR admin/owner. Mirrors the invitation_col pattern.
+        if (resource_type === "invitation_pdf") {
+            const { invitation_id } = body as { invitation_id?: string };
+            if (!invitation_id || typeof invitation_id !== "string") {
+                return jsonResponse(
+                    { error: "invitation_id is required for resource_type=invitation_pdf" },
+                    400,
+                );
+            }
+
+            const { data: invitation } = await supabaseAdmin
+                .from("onboarding_invitations")
+                .select("organization_id, employee_email, template_snapshot")
+                .eq("id", invitation_id)
+                .maybeSingle();
+            if (!invitation) {
+                return jsonResponse({ error: "Invitation not found" }, 404);
+            }
+
+            const snapshot = (invitation.template_snapshot ?? {}) as {
+                type?: string;
+                pdf_file_path?: string | null;
+            };
+            const pdfPath = snapshot.pdf_file_path;
+            if (!pdfPath || typeof pdfPath !== "string") {
+                return jsonResponse({ error: "Invitation snapshot has no PDF" }, 404);
+            }
+
+            const orgIdInv = invitation.organization_id as string;
+            // Dual auth: recipient email match OR org admin/owner. Recipient path supports
+            // the employee filler; admin path supports HR review surfaces (which read this
+            // resource via contract.invitation_id).
+            const inviteeEmail = (invitation.employee_email as string).toLowerCase().trim();
+            const userEmailInv = user.email?.toLowerCase().trim();
+            const isRecipientInv = !!userEmailInv && userEmailInv === inviteeEmail;
+            const canAccessInv =
+                isRecipientInv || (await isOrgAdminOrOwner(supabaseAdmin, orgIdInv, user.id));
+            if (!canAccessInv) {
+                return jsonResponse(
+                    { error: "Forbidden — must be invitation recipient or org admin/owner" },
+                    403,
+                );
+            }
+
+            const nowInv = Math.floor(Date.now() / 1000);
+            const expInv = nowInv + TOKEN_TTL_SECONDS;
+            const jwtInv = await new SignJWT({
+                userId: user.id,
+                orgId: orgIdInv,
+                r2Key: pdfPath,
+                resourceId: invitation_id,
+                resourceType: "invitation_pdf",
+                env: ENVIRONMENT,
+            })
+                .setProtectedHeader({ alg: "HS256" })
+                .setIssuedAt(nowInv)
+                .setExpirationTime(expInv)
+                .sign(secretBytes);
+            const urlInv = `${R2_WORKER_URL}/${pdfPath}?token=${jwtInv}`;
+            return jsonResponse(
+                { url: urlInv, expiresAt: new Date(expInv * 1000).toISOString() },
+                200,
+            );
+        }
+
+        // AHR-1955: source PDFs for `pdf` kind contract templates are stored as a raw
+        // r2_key on contract_templates.pdf_file_path — no `files` row, so file_id isn't
+        // applicable. Mirrors the contract_signature branch above. Admin/owner only.
+        if (resource_type === "contract_template_pdf") {
+            const { contract_template_id } = body as { contract_template_id?: string };
+            if (!contract_template_id || typeof contract_template_id !== "string") {
+                return jsonResponse(
+                    { error: "contract_template_id is required for resource_type=contract_template_pdf" },
+                    400,
+                );
+            }
+
+            const { data: template } = await supabaseAdmin
+                .from("contract_templates")
+                .select("organization_id, pdf_file_path")
+                .eq("id", contract_template_id)
+                .maybeSingle();
+            if (!template) {
+                return jsonResponse({ error: "Contract template not found" }, 404);
+            }
+            if (!template.pdf_file_path) {
+                return jsonResponse({ error: "Contract template has no PDF" }, 404);
+            }
+
+            const orgIdTpl = template.organization_id as string;
+            const isAdminOrOwnerTpl = await isOrgAdminOrOwner(supabaseAdmin, orgIdTpl, user.id);
+            if (!isAdminOrOwnerTpl) {
+                return jsonResponse(
+                    { error: "Forbidden — admin or owner role required" },
+                    403,
+                );
+            }
+
+            const nowTpl = Math.floor(Date.now() / 1000);
+            const expTpl = nowTpl + TOKEN_TTL_SECONDS;
+            const jwtTpl = await new SignJWT({
+                userId: user.id,
+                orgId: orgIdTpl,
+                r2Key: template.pdf_file_path as string,
+                resourceId: contract_template_id,
+                resourceType: "contract_template_pdf",
+                env: ENVIRONMENT,
+            })
+                .setProtectedHeader({ alg: "HS256" })
+                .setIssuedAt(nowTpl)
+                .setExpirationTime(expTpl)
+                .sign(secretBytes);
+            const urlTpl = `${R2_WORKER_URL}/${template.pdf_file_path}?token=${jwtTpl}`;
+            return jsonResponse(
+                { url: urlTpl, expiresAt: new Date(expTpl * 1000).toISOString() },
                 200,
             );
         }

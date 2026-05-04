@@ -3,11 +3,14 @@ import { App } from "antd";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 import type { Json } from "@/types/database.types";
+import type { Enums } from "@/types/database.helpers";
 
 export type UseM_ContractTemplate_Create_Params = {
     organization_id: string;
     name: string;
     layout: Json;
+    type?: Enums<"contract_template_type_enum">;
+    pdf_file_path?: string | null;
     mandatory_field_keys?: string[];
     hr_field_keys?: string[];
     attachment_field_keys?: string[];

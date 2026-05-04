@@ -1,4 +1,6 @@
 import { createClient } from "supabase";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 function requireEnv(name: string): string {
   const value = Deno.env.get(name);
@@ -8,6 +10,19 @@ function requireEnv(name: string): string {
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const R2_ACCOUNT_ID = requireEnv("R2_ACCOUNT_ID");
+const R2_ACCESS_KEY_ID = requireEnv("R2_ACCESS_KEY_ID");
+const R2_SECRET_ACCESS_KEY = requireEnv("R2_SECRET_ACCESS_KEY");
+const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
+
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +54,93 @@ function pickColumnValues(
   }
   return merged;
 }
+
+// ---------------------------------------------------------------------------
+// R2 helpers
+// ---------------------------------------------------------------------------
+
+async function fetchR2Object(key: string): Promise<Uint8Array> {
+  const response = await s3Client.send(
+    new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }),
+  );
+  return new Uint8Array(await response.Body!.transformToByteArray());
+}
+
+// ---------------------------------------------------------------------------
+// PDF burn — overlays field values + signature onto the source PDF
+// ---------------------------------------------------------------------------
+
+type PositionedField = {
+  key: string;
+  page: number;
+  x_pct: number;
+  y_pct: number;
+  w_pct: number;
+  h_pct: number;
+  type: string;
+};
+
+async function burnPdfContract({
+  sourcePdfBytes,
+  signatureBytes,
+  layout,
+  fieldValues,
+  choiceLabels,
+}: {
+  sourcePdfBytes: Uint8Array;
+  signatureBytes: Uint8Array | null;
+  layout: PositionedField[];
+  fieldValues: Record<string, unknown>;
+  choiceLabels: Record<string, Record<string, string>>;
+}): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(sourcePdfBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const signatureImage =
+    signatureBytes ? await pdfDoc.embedPng(signatureBytes) : null;
+
+  for (const field of layout) {
+    const page = pdfDoc.getPage(field.page - 1);
+    const { width: pageW, height: pageH } = page.getSize();
+
+    const x = field.x_pct * pageW;
+    const y = pageH - (field.y_pct + field.h_pct) * pageH;
+    const boxW = field.w_pct * pageW;
+    const boxH = field.h_pct * pageH;
+
+    if (field.type === "signature") {
+      if (signatureImage) {
+        page.drawImage(signatureImage, { x, y, width: boxW, height: boxH });
+      }
+      continue;
+    }
+
+    const rawValue = fieldValues[field.key];
+    if (rawValue === undefined || rawValue === null || rawValue === "") continue;
+
+    let text = String(rawValue);
+    if (field.type === "choice" && choiceLabels[field.key]) {
+      text = choiceLabels[field.key][text] ?? text;
+    }
+
+    const fontSize = Math.min(boxH * 0.8, 14);
+    const textY = y + (boxH - fontSize) / 2;
+
+    page.drawText(text, {
+      x: x + 2,
+      y: textY,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+      maxWidth: boxW - 4,
+    });
+  }
+
+  return pdfDoc.save();
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -82,103 +184,103 @@ Deno.serve(async (req) => {
     if (!contractId || !firstName || !lastName) {
       return jsonResponse(
         { error: "contract_id, first_name, last_name are required" },
-        400
+        400,
       );
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     // Resolve contract
-    const { data: contract, error: contractFetchError } = await supabaseAdmin
+    const sb_FromContracts_Select = await supabaseAdmin
       .from("contracts")
       .select(
-        "id, organization_id, status, invitation_id, signed_by, field_values, prefilled_fields"
+        "id, organization_id, status, invitation_id, signed_by, field_values, prefilled_fields, template_snapshot, signature_path",
       )
       .eq("id", contractId)
       .single();
 
-    if (contractFetchError || !contract) {
+    if (sb_FromContracts_Select.error || !sb_FromContracts_Select.data) {
       return jsonResponse({ error: "Contract not found" }, 404);
     }
+    const contract = sb_FromContracts_Select.data;
 
     if (contract.status !== "filled") {
       return jsonResponse(
         { error: `Contract is not pending approval (status: ${contract.status})` },
-        409
+        409,
       );
     }
 
     if (!contract.invitation_id) {
       return jsonResponse(
         { error: "Contract has no linked invitation" },
-        409
+        409,
       );
     }
 
     if (!contract.signed_by) {
       return jsonResponse(
         { error: "Contract has no signer recorded" },
-        409
+        409,
       );
     }
 
     // Auth: caller must be admin or owner of the contract's organization
-    const { data: org } = await supabaseAdmin
+    const sb_FromOrganizations_Select = await supabaseAdmin
       .from("organizations")
       .select("owner_id")
       .eq("id", contract.organization_id)
       .single();
 
-    const isOwner = org?.owner_id === user.id;
+    const isOwner = sb_FromOrganizations_Select.data?.owner_id === user.id;
 
     let isAdmin = false;
     if (!isOwner) {
-      const { data: adminRow } = await supabaseAdmin
+      const sb_FromAdmins_Select = await supabaseAdmin
         .from("admins")
         .select("id")
         .eq("organization_id", contract.organization_id)
         .eq("user_id", user.id)
         .maybeSingle();
-      isAdmin = !!adminRow;
+      isAdmin = !!sb_FromAdmins_Select.data;
     }
 
     if (!isOwner && !isAdmin) {
       return jsonResponse(
         { error: "Forbidden — admin or owner role required" },
-        403
+        403,
       );
     }
 
     // Resolve invitation
-    const { data: invitation, error: invitationFetchError } =
-      await supabaseAdmin
-        .from("onboarding_invitations")
-        .select("id, organization_id, employee_email, status")
-        .eq("id", contract.invitation_id)
-        .single();
+    const sb_FromOnboardingInvitations_Select = await supabaseAdmin
+      .from("onboarding_invitations")
+      .select("id, organization_id, employee_email, status")
+      .eq("id", contract.invitation_id)
+      .single();
 
-    if (invitationFetchError || !invitation) {
+    if (sb_FromOnboardingInvitations_Select.error || !sb_FromOnboardingInvitations_Select.data) {
       return jsonResponse({ error: "Linked invitation not found" }, 404);
     }
+    const invitation = sb_FromOnboardingInvitations_Select.data;
 
     if (invitation.organization_id !== contract.organization_id) {
       return jsonResponse(
         { error: "Invitation/contract organization mismatch" },
-        409
+        409,
       );
     }
 
     if (invitation.status !== "accepted") {
       return jsonResponse(
         { error: `Invitation is not in accepted state (status: ${invitation.status})` },
-        409
+        409,
       );
     }
 
-    // Build employees insert payload
     const colValues = pickColumnValues(
       contract.prefilled_fields as Record<string, unknown> | null,
-      contract.field_values as Record<string, unknown> | null
+      contract.field_values as Record<string, unknown> | null,
     );
 
     const employeeInsert = {
@@ -188,30 +290,43 @@ Deno.serve(async (req) => {
       first_name: firstName,
       last_name: lastName,
       birthday,
-      ...colValues,
     };
 
-    const { data: newEmployee, error: employeeInsertError } =
-      await supabaseAdmin
-        .from("employees")
-        // deno-lint-ignore no-explicit-any
-        .insert(employeeInsert as any)
-        .select("id")
-        .single();
+    const sb_FromEmployees_Insert = await supabaseAdmin
+      .from("employees")
+      .insert(employeeInsert)
+      .select("id")
+      .single();
 
-    if (employeeInsertError || !newEmployee) {
-      console.error("Insert employee error:", employeeInsertError);
+    if (sb_FromEmployees_Insert.error || !sb_FromEmployees_Insert.data) {
+      console.error("Insert employee error:", sb_FromEmployees_Insert.error);
       return jsonResponse(
         {
           error:
-            employeeInsertError?.message ?? "Failed to create employee row",
+            sb_FromEmployees_Insert.error?.message ?? "Failed to create employee row",
         },
-        500
+        500,
       );
+    }
+    const newEmployee = sb_FromEmployees_Insert.data;
+
+    const perOrgTable = `${invitation.organization_id}__employees`;
+    const sb_FromPerOrg_Upsert = await supabaseAdmin
+      // deno-lint-ignore no-explicit-any
+      .from(perOrgTable as any)
+      .upsert(
+        { employee_id: newEmployee.id, ...colValues },
+        { onConflict: "employee_id" },
+      );
+
+    if (sb_FromPerOrg_Upsert.error) {
+      console.error("Per-org insert error:", sb_FromPerOrg_Upsert.error);
+      await supabaseAdmin.from("employees").delete().eq("id", newEmployee.id);
+      return jsonResponse({ error: sb_FromPerOrg_Upsert.error.message }, 500);
     }
 
     // Update contract → active + audit fields
-    const { error: contractUpdateError } = await supabaseAdmin
+    const sb_FromContracts_Update = await supabaseAdmin
       .from("contracts")
       .update({
         employee_id: newEmployee.id,
@@ -221,25 +336,129 @@ Deno.serve(async (req) => {
       })
       .eq("id", contract.id);
 
-    if (contractUpdateError) {
-      console.error("Update contract error:", contractUpdateError);
-      // Rollback employee insert
+    if (sb_FromContracts_Update.error) {
+      console.error("Update contract error:", sb_FromContracts_Update.error);
       await supabaseAdmin.from("employees").delete().eq("id", newEmployee.id);
-      return jsonResponse(
-        { error: contractUpdateError.message },
-        500
-      );
+      return jsonResponse({ error: sb_FromContracts_Update.error.message }, 500);
+    }
+
+    // -----------------------------------------------------------------------
+    // PDF burn — only for pdf-kind contracts
+    // -----------------------------------------------------------------------
+    const templateSnapshot = contract.template_snapshot as
+      | { type: "pdf"; layout: PositionedField[]; pdf_file_path: string }
+      | { type: "tiptap" }
+      | null;
+
+    let burnedR2Key: string | null = null;
+
+    if (templateSnapshot && templateSnapshot.type === "pdf") {
+      try {
+        const burnValues: Record<string, unknown> = {
+          ...(contract.prefilled_fields as Record<string, unknown> ?? {}),
+          ...(contract.field_values as Record<string, unknown> ?? {}),
+        };
+
+        // Resolve choice labels for choice-type fields
+        const choiceFieldKeys = templateSnapshot.layout
+          .filter((f) => f.type === "choice")
+          .map((f) => f.key);
+
+        let choiceLabels: Record<string, Record<string, string>> = {};
+        if (choiceFieldKeys.length > 0) {
+          const sb_FromEmployeeColumnChoices_Select = await supabaseAdmin
+            .from("employee_column_choices")
+            .select("employee_column_id, value, label")
+            .in("employee_column_id", choiceFieldKeys);
+
+          if (sb_FromEmployeeColumnChoices_Select.data) {
+            for (const row of sb_FromEmployeeColumnChoices_Select.data) {
+              if (!choiceLabels[row.employee_column_id]) {
+                choiceLabels[row.employee_column_id] = {};
+              }
+              choiceLabels[row.employee_column_id][row.value] = row.label;
+            }
+          }
+        }
+
+        const sourcePdfBytes = await fetchR2Object(templateSnapshot.pdf_file_path);
+
+        let signatureBytes: Uint8Array | null = null;
+        if (contract.signature_path) {
+          signatureBytes = await fetchR2Object(contract.signature_path as string);
+        }
+
+        const burnedPdfBytes = await burnPdfContract({
+          sourcePdfBytes,
+          signatureBytes,
+          layout: templateSnapshot.layout,
+          fieldValues: burnValues,
+          choiceLabels,
+        });
+
+        burnedR2Key = `orgs/${contract.organization_id}/contracts/${contract.id}/signed-${Date.now()}.pdf`;
+
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: burnedR2Key,
+            Body: burnedPdfBytes,
+            ContentType: "application/pdf",
+          }),
+        );
+
+        const sb_FromContracts_UpdatePath = await supabaseAdmin
+          .from("contracts")
+          .update({ signed_pdf_r2_path: burnedR2Key })
+          .eq("id", contract.id);
+
+        if (sb_FromContracts_UpdatePath.error) {
+          console.error("Update signed_pdf_r2_path error:", sb_FromContracts_UpdatePath.error);
+          // Best-effort cleanup of the uploaded PDF
+          try {
+            await s3Client.send(
+              new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: burnedR2Key }),
+            );
+          } catch { /* best-effort */ }
+          throw new Error(sb_FromContracts_UpdatePath.error.message);
+        }
+      } catch (burnErr) {
+        console.error("PDF burn failed:", burnErr);
+        // Rollback: revert contract to filled, delete employee
+        await supabaseAdmin
+          .from("contracts")
+          .update({
+            employee_id: null,
+            approved_by: null,
+            approved_at: null,
+            status: "filled",
+            signed_pdf_r2_path: null,
+          })
+          .eq("id", contract.id);
+        await supabaseAdmin.from("employees").delete().eq("id", newEmployee.id);
+        // Best-effort cleanup of any R2 object written before the failure
+        if (burnedR2Key) {
+          try {
+            await s3Client.send(
+              new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: burnedR2Key }),
+            );
+          } catch { /* best-effort */ }
+        }
+        return jsonResponse(
+          { error: `PDF burn failed: ${burnErr instanceof Error ? burnErr.message : "Unknown error"}` },
+          500,
+        );
+      }
     }
 
     // Copy rel__department__invitation → rel__department__employee
-    const { data: deptLinks, error: deptFetchError } = await supabaseAdmin
+    const sb_FromRelDeptInvitation_Select = await supabaseAdmin
       .from("rel__department__invitation")
       .select("department_id")
       .eq("invitation_id", invitation.id);
 
-    if (deptFetchError) {
-      console.error("Fetch department links error:", deptFetchError);
-      // Rollback contract + employee
+    if (sb_FromRelDeptInvitation_Select.error) {
+      console.error("Fetch department links error:", sb_FromRelDeptInvitation_Select.error);
       await supabaseAdmin
         .from("contracts")
         .update({
@@ -247,28 +466,29 @@ Deno.serve(async (req) => {
           approved_by: null,
           approved_at: null,
           status: "filled",
+          signed_pdf_r2_path: null,
         })
         .eq("id", contract.id);
       await supabaseAdmin.from("employees").delete().eq("id", newEmployee.id);
       return jsonResponse(
         { error: "Failed to read invitation departments" },
-        500
+        500,
       );
     }
 
+    const deptLinks = sb_FromRelDeptInvitation_Select.data;
     if (deptLinks && deptLinks.length > 0) {
       const employeeDeptRows = deptLinks.map((row) => ({
         department_id: row.department_id,
         employee_id: newEmployee.id,
       }));
 
-      const { error: deptInsertError } = await supabaseAdmin
+      const sb_FromRelDeptEmployee_Insert = await supabaseAdmin
         .from("rel__department__employee")
         .insert(employeeDeptRows);
 
-      if (deptInsertError) {
-        console.error("Insert department links error:", deptInsertError);
-        // Rollback contract + employee + best-effort dept cleanup
+      if (sb_FromRelDeptEmployee_Insert.error) {
+        console.error("Insert department links error:", sb_FromRelDeptEmployee_Insert.error);
         await supabaseAdmin
           .from("rel__department__employee")
           .delete()
@@ -280,6 +500,7 @@ Deno.serve(async (req) => {
             approved_by: null,
             approved_at: null,
             status: "filled",
+            signed_pdf_r2_path: null,
           })
           .eq("id", contract.id);
         await supabaseAdmin
@@ -287,32 +508,31 @@ Deno.serve(async (req) => {
           .delete()
           .eq("id", newEmployee.id);
         return jsonResponse(
-          { error: deptInsertError.message },
-          500
+          { error: sb_FromRelDeptEmployee_Insert.error.message },
+          500,
         );
       }
     }
 
     // Flip invitation → approved
-    const { error: invitationUpdateError } = await supabaseAdmin
+    const sb_FromOnboardingInvitations_Update = await supabaseAdmin
       .from("onboarding_invitations")
       .update({ status: "approved" })
       .eq("id", invitation.id);
 
-    if (invitationUpdateError) {
+    if (sb_FromOnboardingInvitations_Update.error) {
       console.error(
         "Invitation status update error:",
-        invitationUpdateError
+        sb_FromOnboardingInvitations_Update.error,
       );
-      // Contract is active and employee exists — surface a 207 partial success
       return jsonResponse(
         {
           employee_id: newEmployee.id,
           contract_id: contract.id,
           status: "active_invitation_stale",
-          error: invitationUpdateError.message,
+          error: sb_FromOnboardingInvitations_Update.error.message,
         },
-        207
+        207,
       );
     }
 
@@ -322,13 +542,13 @@ Deno.serve(async (req) => {
         contract_id: contract.id,
         status: "active",
       },
-      200
+      200,
     );
   } catch (err) {
     console.error("employee-onboarding_approve-contract error:", err);
     return jsonResponse(
       { error: err instanceof Error ? err.message : "Internal error" },
-      500
+      500,
     );
   }
 });
