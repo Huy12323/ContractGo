@@ -5,7 +5,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 import type { Tables_OrgEmployeeViews_QueryData } from "@/hooks/useQ_Tables_OrgEmployeeViews";
 
 export type UseM_EmployeeView_Reorder_Body = {
-    organizationId: string;
+    entityId: string;
     orderedIds: string[];
 };
 
@@ -20,8 +20,8 @@ export const useM_EmployeeView_Reorder = () => {
             });
             if (sb_RpcReorderEmployeeViews.error) throw sb_RpcReorderEmployeeViews.error;
         },
-        onMutate: async ({ organizationId, orderedIds }) => {
-            const queryKey = [...QueryKeys.employee_views.list(), { organizationId }] as const;
+        onMutate: async ({ entityId, orderedIds }) => {
+            const queryKey = [...QueryKeys.employee_views.list(), { entityId }] as const;
             await queryClient.cancelQueries({ queryKey });
             const previousViews = queryClient.getQueryData<Tables_OrgEmployeeViews_QueryData>(queryKey);
             if (previousViews) {

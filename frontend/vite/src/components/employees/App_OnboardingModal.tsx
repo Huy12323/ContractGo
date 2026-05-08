@@ -12,6 +12,7 @@ type Props = {
     open: boolean
     onClose: () => void
     organizationId: string
+    entityId: string
 }
 
 type Invitation = Tables_OrgOnboardingInvitations_QueryData[number]
@@ -53,7 +54,7 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
     revoked: { color: 'default', label: 'Revoked' },
 }
 
-export const App_OnboardingModal = ({ open, onClose, organizationId }: Props) => {
+export const App_OnboardingModal = ({ open, onClose, organizationId, entityId }: Props) => {
     const { token } = theme.useToken()
     const { modal } = App.useApp()
 
@@ -466,6 +467,7 @@ export const App_OnboardingModal = ({ open, onClose, organizationId }: Props) =>
                 open={templatesManagerOpen}
                 onClose={() => setTemplatesManagerOpen(false)}
                 organizationId={organizationId}
+                entityId={entityId}
             />
 
             <App_OnboardingReviewModal

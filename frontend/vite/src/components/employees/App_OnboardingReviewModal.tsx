@@ -30,8 +30,14 @@ export const App_OnboardingReviewModal = ({ open, onClose, contractId, organizat
 
     const qContract = useQ_Tables_Contract({ contractId })
     const qInvitations = useQ_Tables_OrgOnboardingInvitations({ organizationId })
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const linkedInvitation = useMemo(() => {
+        const contract = qContract.contract
+        if (!contract?.invitation_id) return null
+        return qInvitations.invitations.find((inv) => inv.id === contract.invitation_id) ?? null
+    }, [qContract.contract, qInvitations.invitations])
+    const entityId = linkedInvitation?.entity_id ?? ''
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
     const mApproveContent = useM_Contract_ApproveContent()
     const mRequestChanges = useM_Contract_RequestChanges()
 

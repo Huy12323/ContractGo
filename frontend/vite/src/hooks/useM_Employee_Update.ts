@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
-import { orgEmployeesTable } from "@/types/employeeTable.types";
+import { entityEmployeesTable } from "@/types/employeeTable.types";
 
 export type UseM_Employee_Update_Params = {
-    organizationId: string;
+    entityId: string;
 };
 
 export type UseM_Employee_Update_Body = {
@@ -15,14 +15,13 @@ export type UseM_Employee_Update_Body = {
 
 const COL_KEY_PATTERN = /^col_[A-Za-z0-9]+$/;
 
-export const useM_Employee_Update = ({ organizationId }: UseM_Employee_Update_Params) => {
+export const useM_Employee_Update = ({ entityId }: UseM_Employee_Update_Params) => {
     const queryClient = useQueryClient();
     const { message } = App.useApp();
 
     const mutation = useMutation({
         mutationKey: ["employees", "update"],
         mutationFn: async ({ employeeId, patch }: UseM_Employee_Update_Body) => {
-            // Split patch by key prefix: col_* → per-org dynamic table; everything else → global employees.
             const universalPatch: Record<string, unknown> = {};
             const dynamicPatch: Record<string, unknown> = {};
             for (const [key, value] of Object.entries(patch)) {
@@ -38,11 +37,11 @@ export const useM_Employee_Update = ({ organizationId }: UseM_Employee_Update_Pa
                           .eq("id", employeeId)
                     : null;
 
-            const perOrgTable = orgEmployeesTable(organizationId) as "employees";
+            const perEntityTable = entityEmployeesTable(entityId) as "employees";
             const dynamicPromise =
                 Object.keys(dynamicPatch).length > 0
                     ? supabase
-                          .from(perOrgTable)
+                          .from(perEntityTable)
                           .upsert(
                               { employee_id: employeeId, ...dynamicPatch } as never,
                               { onConflict: "employee_id" },

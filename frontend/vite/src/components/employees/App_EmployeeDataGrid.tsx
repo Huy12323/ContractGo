@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { DataEditor, GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid'
-import type { GridCell, GridColumn, Item, Rectangle, Theme } from '@glideapps/glide-data-grid'
+import type { GridCell, GridColumn, Item, Rectangle, Theme, DataEditorRef, GridMouseEventArgs } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
 import { Empty, Dropdown, App, theme } from 'antd'
 import type { MenuProps } from 'antd'
@@ -16,6 +16,7 @@ import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
 import { useM_EmployeeColumn_Delete } from '@/hooks/useM_EmployeeColumn_Delete'
 import { useQ_Tables_OrgFiles } from '@/hooks/useQ_Tables_OrgFiles'
+import { useGlideTheme, GRID_EXPAND_ICON, drawExpandIcon } from '@/hooks/useGlideTheme'
 import {
   EmployeeDataTable_UniversalFields,
   isSystemFieldKey,
@@ -59,6 +60,7 @@ const isEmpty = (v: unknown) =>
   v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
 
 type Props = {
+  entityId: string
   organizationId: string
   filter?: (employee: EmployeeRow) => boolean
   sortState?: EmployeeTable_SortEntry[]
@@ -77,6 +79,7 @@ type Props = {
 }
 
 export const App_EmployeeDataGrid = ({
+  entityId,
   organizationId,
   filter,
   sortState,
@@ -95,11 +98,14 @@ export const App_EmployeeDataGrid = ({
 }: Props) => {
   const { token } = theme.useToken()
   const { modal } = App.useApp()
-  const qEmployees = useQ_Tables_OrgEmployees({ organizationId })
-  const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-  const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+  const qEmployees = useQ_Tables_OrgEmployees({ entityId })
+  const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+  const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
   const qOrgFiles = useQ_Tables_OrgFiles({ organizationId })
   const mDeleteColumn = useM_EmployeeColumn_Delete()
+
+  const gridRef = useRef<DataEditorRef>(null)
+  const hoveredRowRef = useRef<number | undefined>(undefined)
 
   const [menu, setMenu] = useState<{ colIndex: number; bounds: Rectangle } | null>(null)
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set())
@@ -364,13 +370,16 @@ export const App_EmployeeDataGrid = ({
         return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
       }
       const value = (record as unknown as Record<string, unknown>)[field.key]
+      const isPrimaryCol = col === 0 && isSystemFieldKey(field.key)
+      const expandPadding = isPrimaryCol ? { cellHorizontalPadding: GRID_EXPAND_ICON.padding } : undefined
       if (field.type !== 'boolean' && isEmpty(value)) {
         return {
           kind: GridCellKind.Text,
           data: '',
           displayData: 'Null',
           allowOverlay: false,
-          themeOverride: { textDark: token.colorTextTertiary },
+          ...(isPrimaryCol && { cursor: "pointer" as const }),
+          themeOverride: { textDark: token.colorTextTertiary, ...expandPadding },
         }
       }
       switch (field.type) {
@@ -427,6 +436,8 @@ export const App_EmployeeDataGrid = ({
             data: String(value),
             displayData: String(value),
             allowOverlay: false,
+            ...(isPrimaryCol && { cursor: "pointer" as const }),
+            ...(expandPadding && { themeOverride: expandPadding }),
           }
       }
     },
@@ -521,15 +532,12 @@ export const App_EmployeeDataGrid = ({
     [addFieldColIndex, onAddField],
   )
 
-  // Two click paths on this handler:
-  //   col === -1 → Glide's row-marker gutter (we use "clickable-number") → expand employee
-  //   col >=  0 → a data cell; only group-header rows do anything here (collapse toggle)
   const handleCellClicked = useCallback(
     ([col, row]: Item) => {
       const record = visibleRows[row]
       if (!record) return
       if (isGroupHeader(record)) {
-        if (col !== 0) return // group header span starts at col 0; clicks on marker (-1) are meaningless on these rows
+        if (col !== 0) return
         setCollapsedGroupIds((prev) => {
           const next = new Set(prev)
           if (next.has(record.id)) next.delete(record.id)
@@ -538,12 +546,10 @@ export const App_EmployeeDataGrid = ({
         })
         return
       }
-      if (col === -1) {
-        // record is a DisplayRow<EmployeeRow>; group-headers already short-circuited above
+      if (col === 0) {
         onExpandEmployee?.(record as EmployeeRow)
         return
       }
-      // File cell click → preview
       const field = visibleFields[col]
       if (field && field.type === 'file') {
         const fileId = (record as unknown as Record<string, unknown>)[field.key]
@@ -601,9 +607,17 @@ export const App_EmployeeDataGrid = ({
     setMenu(null)
   }
 
-  // Paint group header rows directly on the canvas. We detect them via
-  // `visibleRows[row]` and only paint at col 0 (the span covers the rest of the row
-  // so adjacent cells aren't drawn). Everything else falls through to Glide's default.
+  const handleItemHovered = useCallback((args: GridMouseEventArgs) => {
+    const newRow = args.kind === "cell" ? args.location[1] : undefined
+    if (hoveredRowRef.current !== newRow) {
+      const damage: { cell: Item }[] = []
+      if (hoveredRowRef.current !== undefined) damage.push({ cell: [0, hoveredRowRef.current] })
+      if (newRow !== undefined) damage.push({ cell: [0, newRow] })
+      hoveredRowRef.current = newRow
+      if (damage.length > 0) gridRef.current?.updateCells(damage)
+    }
+  }, [])
+
   const drawCell = useCallback(
     (
       args: {
@@ -618,6 +632,9 @@ export const App_EmployeeDataGrid = ({
       const record = visibleRows[args.row]
       if (!record || !isGroupHeader(record)) {
         drawContent()
+        if (args.col === 0 && hoveredRowRef.current === args.row && record && !isGroupHeader(record)) {
+          drawExpandIcon(args.ctx, args.rect.x, args.rect.y, args.rect.height, token.colorText)
+        }
         return
       }
       if (args.col !== 0) return // spanning cell already painted
@@ -648,7 +665,7 @@ export const App_EmployeeDataGrid = ({
       ctx.fillText(countText, rect.x + rect.width - 12, rect.y + rect.height / 2)
       ctx.restore()
     },
-    [visibleRows, collapsedGroupIds],
+    [visibleRows, collapsedGroupIds, token.colorText],
   )
 
   // Custom header drawer — the trailing "+" column gets a big centered plus glyph;
@@ -679,33 +696,7 @@ export const App_EmployeeDataGrid = ({
     [],
   )
 
-  const gridTheme: Partial<Theme> = useMemo(
-    () => ({
-      baseFontStyle: `${token.fontSizeSM}px`,
-      headerFontStyle: `600 ${token.fontSizeSM}px`,
-      fontFamily: token.fontFamily,
-      bgHeader: '#FFFFFF',
-      bgHeaderHovered: token.colorFillAlter,
-      bgHeaderHasFocus: token.colorFillAlter,
-      textHeader: token.colorText,
-      textDark: token.colorText,
-      textMedium: token.colorTextSecondary,
-      textLight: token.colorTextTertiary,
-      textBubble: token.colorPrimary,
-      bgBubble: token.colorPrimaryBg,
-      bgBubbleSelected: token.colorPrimaryBgHover,
-      borderColor: token.colorBorder,
-      horizontalBorderColor: token.colorBorder,
-      bgCell: token.colorBgContainer,
-      bgCellMedium: token.colorFillAlter,
-      accentColor: token.colorPrimary,
-      accentFg: '#ffffff',
-      accentLight: token.colorPrimaryBg,
-      cellHorizontalPadding: token.paddingXS,
-      cellVerticalPadding: token.paddingXXS,
-    }),
-    [token],
-  )
+  const gridTheme = useGlideTheme()
 
   if (!qEmployees.query.isLoading && qEmployees.employees.length === 0) {
     return (
@@ -725,9 +716,11 @@ export const App_EmployeeDataGrid = ({
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <DataEditor
+        ref={gridRef}
         columns={columns}
         rows={visibleRows.length}
         getCellContent={getCellContent}
+        getCellsForSelection
         rowHeight={32}
         headerHeight={36}
         smoothScrollX
@@ -735,11 +728,12 @@ export const App_EmployeeDataGrid = ({
         width="100%"
         height="100%"
         freezeColumns={1}
-        rowMarkers="clickable-number"
+        rowMarkers="number"
         theme={gridTheme}
         drawHeader={drawHeader}
         drawCell={drawCell}
         imageWindowLoader={imageWindowLoader}
+        onItemHovered={handleItemHovered}
         onColumnResize={handleColumnResize}
         onColumnResizeEnd={handleColumnResizeEnd}
         onColumnProposeMove={handleColumnProposeMove}

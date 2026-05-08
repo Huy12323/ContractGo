@@ -23,7 +23,7 @@ export const App_DepartmentSettingsModal = ({ open, onClose, departmentId, depar
     const [employeeSearch, setEmployeeSearch] = useState("");
 
     const { organizationId } = useOrganization();
-    const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ organizationId });
+    const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ entityId: organizationId });
 
     const mDeptUpdate = useM_DeptSettings_DepartmentUpdate({ departmentId });
     const mDeptDelete = useM_DeptSettings_DepartmentDelete({ departmentId, onSuccess: onClose });

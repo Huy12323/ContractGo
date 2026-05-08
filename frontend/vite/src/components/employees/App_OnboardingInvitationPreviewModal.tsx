@@ -5,6 +5,7 @@ import type { JSONContent } from '@tiptap/core'
 import { App_ContractFiller } from './App_ContractFiller'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
+import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
 import { useQ_Tables_Contract } from '@/hooks/useQ_Tables_Contract'
 import { useQ_Invitation_PdfReadUrl } from '@/hooks/useQ_Invitation_PdfReadUrl'
 import type { PdfLayout } from '@/types/contractTemplate.types'
@@ -39,8 +40,10 @@ const formatCommentTime = (iso: string): string => {
 
 export const App_OnboardingInvitationPreviewModal = ({ open, onClose, invitation, organizationId }: Props) => {
     const { token } = theme.useToken()
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const qEntities = useQ_Tables_OrgEntities({ organizationId })
+    const entityId = qEntities.entities[0]?.id ?? ""
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
 
     const linkedContractId = invitation?.contracts?.[0]?.id ?? null
     const qContract = useQ_Tables_Contract({ contractId: linkedContractId })

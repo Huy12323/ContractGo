@@ -8,6 +8,7 @@ import { App_ContractFiller } from '@/components/employees/App_ContractFiller'
 import { useQ_Tables_ContractTemplateVersions } from '@/hooks/useQ_Tables_ContractTemplateVersions'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
+import { useQ_Tables_OrgEntities } from '@/hooks/useQ_Tables_OrgEntities'
 import { useM_ContractTemplate_Restore } from '@/hooks/useM_ContractTemplate_Restore'
 import { useQ_ContractTemplate_PdfReadUrl } from '@/hooks/useQ_ContractTemplate_PdfReadUrl'
 import type { Enums } from '@/types/database.helpers'
@@ -78,8 +79,10 @@ const ModalBody = ({ templateId, organizationId, onClose, onRestored }: BodyProp
     const { modal } = App.useApp()
 
     const qVersions = useQ_Tables_ContractTemplateVersions({ templateId })
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const qEntities = useQ_Tables_OrgEntities({ organizationId })
+    const entityId = qEntities.entities[0]?.id ?? ""
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
     const mRestore = useM_ContractTemplate_Restore({ templateId })
 
     const versions = qVersions.versions

@@ -1,9 +1,9 @@
 export type EmployeeTable_FieldType = "text" | "number" | "date" | "boolean" | "single_select" | "multi_select" | "file";
 
-// Per-org dynamic table name from organization id.
-// Mirrors the SQL convention `<organization_id>__employees` from AHR-1947.
-export const orgEmployeesTable = (organizationId: string): string =>
-    `${organizationId}__employees`;
+// Per-entity dynamic table name from entity id.
+// Mirrors the SQL convention `<entity_id>__employees` from AHR-1968.
+export const entityEmployeesTable = (entityId: string): string =>
+    `${entityId}__employees`;
 
 // Generic shape for rows in any per-org `<orgid>__employees` table.
 // `employee_id` is the PK FK to `employees.id`. All other keys are dynamic

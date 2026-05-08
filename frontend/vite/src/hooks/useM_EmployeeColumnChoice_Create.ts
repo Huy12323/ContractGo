@@ -4,6 +4,7 @@ import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
 export type UseM_EmployeeColumnChoice_Create_Params = {
+    entity_id: string;
     employee_column_id: string;
     label: string;
     sort_order?: number;

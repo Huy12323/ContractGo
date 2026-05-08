@@ -6,7 +6,7 @@ import type { Json } from "@/types/database.types";
 import type { Enums } from "@/types/database.helpers";
 
 export type UseM_ContractTemplate_Create_Params = {
-    organization_id: string;
+    entity_id: string;
     name: string;
     layout: Json;
     type?: Enums<"contract_template_type_enum">;

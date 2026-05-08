@@ -3,13 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
-const fetchOrgEmployeesWithDepartments = async (organizationId: string) => {
+const fetchOrgEmployeesWithDepartments = async (entityId: string) => {
     const sb_FromEmployees_Select = await supabase
         .from("employees")
         .select(
-            "id, first_name, last_name, email, rel__department__employee(department_id, is_manager)",
+            "id, first_name, last_name, email, entity_id, rel__department__employee(department_id, is_manager)",
         )
-        .eq("organization_id", organizationId)
+        .eq("entity_id", entityId)
         .order("first_name", { ascending: true });
     if (sb_FromEmployees_Select.error) throw sb_FromEmployees_Select.error;
     return sb_FromEmployees_Select.data;
@@ -20,14 +20,14 @@ export type Tables_OrgEmployeesWithDepartments_QueryData = Awaited<
 >;
 
 export const useQ_Tables_OrgEmployeesWithDepartments = ({
-    organizationId,
+    entityId,
 }: {
-    organizationId: string;
+    entityId: string;
 }) => {
     const query = useQuery({
-        enabled: !!organizationId,
-        queryKey: [...QueryKeys.departments.list(), ...QueryKeys.entities.list(), "employees", { organizationId }],
-        queryFn: () => fetchOrgEmployeesWithDepartments(organizationId),
+        enabled: !!entityId,
+        queryKey: [...QueryKeys.departments.list(), ...QueryKeys.entities.list(), "employees", { entityId }],
+        queryFn: () => fetchOrgEmployeesWithDepartments(entityId),
     });
 
     const employees = useMemo(() => query.data || [], [query.data]);

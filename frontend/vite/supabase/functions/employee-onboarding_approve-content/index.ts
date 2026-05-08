@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     // Resolve invitation
     const sb_FromOnboardingInvitations_Select = await supabaseAdmin
       .from("onboarding_invitations")
-      .select("id, organization_id, employee_email, status")
+      .select("id, organization_id, entity_id, employee_email, status")
       .eq("id", invitation_id)
       .single();
 
@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
     const sb_FromEmployeeColumns_Select = await supabaseAdmin
       .from("employee_columns")
       .select("id")
-      .eq("organization_id", invitation.organization_id);
+      .eq("entity_id", invitation.entity_id);
 
     if (sb_FromEmployeeColumns_Select.error) {
       console.error("Fetch employee_columns error:", sb_FromEmployeeColumns_Select.error);
@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
     }
 
     const employeeInsert = {
-      organization_id: invitation.organization_id,
+      entity_id: invitation.entity_id,
       user_id: contract.signed_by,
       email: invitation.employee_email,
       first_name: firstName,
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
     }
     const newEmployee = sb_FromEmployees_Insert.data;
 
-    const perOrgTable = `${invitation.organization_id}__employees`;
+    const perOrgTable = `${invitation.entity_id}__employees`;
     const sb_FromPerOrg_Upsert = await supabaseAdmin
       // deno-lint-ignore no-explicit-any
       .from(perOrgTable as any)

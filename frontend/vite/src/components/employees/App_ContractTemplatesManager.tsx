@@ -7,11 +7,12 @@ import { App_FormBuilderModal } from './App_FormBuilderModal'
 
 type Props = {
     organizationId: string
+    entityId: string
     selectedTemplateId?: string | null
     onSelect?: (templateId: string) => void
 }
 
-export const App_ContractTemplatesManager = ({ organizationId, selectedTemplateId, onSelect }: Props) => {
+export const App_ContractTemplatesManager = ({ organizationId, entityId, selectedTemplateId, onSelect }: Props) => {
     const { token } = theme.useToken()
     const { modal } = App.useApp()
 
@@ -20,7 +21,7 @@ export const App_ContractTemplatesManager = ({ organizationId, selectedTemplateI
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
     const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null)
 
-    const qTemplates = useQ_Tables_ContractTemplates({ organizationId })
+    const qTemplates = useQ_Tables_ContractTemplates({ entityId })
     const mArchive = useM_ContractTemplate_Archive()
 
     const filteredTemplates = useMemo(() => {
@@ -138,6 +139,7 @@ export const App_ContractTemplatesManager = ({ organizationId, selectedTemplateI
                 open={builderOpen}
                 onClose={() => { setBuilderOpen(false); setEditingTemplateId(null) }}
                 organizationId={organizationId}
+                entityId={entityId}
                 formId={editingTemplateId}
             />
         </div>

@@ -62,7 +62,6 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         enabled: qInvitation.query.isFetched && !invitation,
     })
     const preview = qPreview.preview
-    const organizationId = invitation?.organization_id ?? ''
     const template = invitation?.contract_templates
     // Render from the invitation's pinned snapshot (AHR-1490 + AHR-1954), not the live
     // template. Snapshot is captured at send time and never mutates — template edits or
@@ -97,8 +96,9 @@ export const Page_OnboardingFiller = ({ invitationToken }: Props) => {
         pdfFilePathKey: kind === 'pdf' ? pdfFilePath : undefined,
     })
 
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const entityId = invitation?.entity_id ?? ''
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
 
     const prefilled = useMemo(
         () => (invitation?.prefilled_fields ?? {}) as Record<string, unknown>,

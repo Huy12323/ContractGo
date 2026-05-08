@@ -1,6 +1,8 @@
-import { useState, useMemo, useCallback } from 'react'
-import { App, Modal, Steps, Button, Input, Typography, Descriptions, Tag, theme } from 'antd'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { App, Modal, Steps, Button, Input, Typography, Descriptions, Tag, Select, theme } from 'antd'
 import { SendOutlined, FileTextOutlined } from '@ant-design/icons'
+import { useQuery } from '@tanstack/react-query'
+import { QueryKeys } from '@/utils/query/queryKeys'
 import { useQ_Tables_ContractTemplates } from '@/hooks/useQ_Tables_ContractTemplates'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
@@ -20,9 +22,9 @@ type Props = {
 }
 
 const STEPS = [
-    { title: 'Contract Template' },
-    { title: 'Pre-fill Fields' },
-    { title: 'Send Invitation' },
+    { title: 'Email & Entity' },
+    { title: 'Contract & Pre-fill' },
+    { title: 'Review & Send' },
 ]
 
 export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Props) => {
@@ -32,14 +34,26 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     const [currentStep, setCurrentStep] = useState(0)
 
     // Selection state
+    const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
     const [prefilledFields, setPrefilledFields] = useState<Record<string, unknown>>({})
     const [employeeEmail, setEmployeeEmail] = useState('')
 
     // Data hooks
-    const qTemplates = useQ_Tables_ContractTemplates({ organizationId })
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const qTemplates = useQ_Tables_ContractTemplates({ entityId: selectedEntityId || '' })
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId: selectedEntityId || '' })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId: selectedEntityId || '' })
+    const qEntities = useQuery({
+        enabled: !!organizationId,
+        queryKey: [...QueryKeys.entities.list(), { organizationId }],
+        queryFn: async () => {
+            const sb_FromEntities_Select = await supabase.from('entities').select('id, name, timezone').eq('organization_id', organizationId).order('created_at', { ascending: true })
+            if (sb_FromEntities_Select.error) throw sb_FromEntities_Select.error
+            return sb_FromEntities_Select.data
+        },
+    })
+    const entities = useMemo(() => qEntities.data || [], [qEntities.data])
+    const selectedEntity = useMemo(() => entities.find((e) => e.id === selectedEntityId) ?? null, [entities, selectedEntityId])
     const mSend = useM_OnboardingInvitation_Send()
     const mFilesUpload = useM_Files_Upload()
     const { message } = App.useApp()
@@ -76,6 +90,41 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     }, [selectedTemplate, prefilledFields])
 
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employeeEmail)
+    const normalizedEmail = employeeEmail.toLowerCase().trim()
+
+    const [debouncedEmail, setDebouncedEmail] = useState('')
+    useEffect(() => {
+        if (!isValidEmail) { setDebouncedEmail(''); return }
+        const timer = setTimeout(() => setDebouncedEmail(normalizedEmail), 500)
+        return () => clearTimeout(timer)
+    }, [normalizedEmail, isValidEmail])
+
+    const qDuplicateCheck = useQuery({
+        enabled: !!debouncedEmail && !!selectedEntityId,
+        queryKey: [...QueryKeys.employees.list(), 'duplicate-check', { entityId: selectedEntityId, email: debouncedEmail }],
+        queryFn: async () => {
+            const [sb_FromEmployees_Select, sb_FromOnboardingInvitations_Select] = await Promise.all([
+                supabase.from('employees').select('id').eq('entity_id', selectedEntityId!).ilike('email', debouncedEmail).limit(1),
+                supabase.from('onboarding_invitations').select('id, status').eq('entity_id', selectedEntityId!).ilike('employee_email', debouncedEmail).in('status', ['sent', 'accepted']).limit(1),
+            ])
+            if (sb_FromEmployees_Select.error) throw sb_FromEmployees_Select.error
+            if (sb_FromOnboardingInvitations_Select.error) throw sb_FromOnboardingInvitations_Select.error
+            const existingEmployee = (sb_FromEmployees_Select.data?.length ?? 0) > 0
+            const pendingInvitation = sb_FromOnboardingInvitations_Select.data?.[0] ?? null
+            return { existingEmployee, pendingInvitation }
+        },
+    })
+
+    const duplicateError = useMemo(() => {
+        if (!qDuplicateCheck.data) return null
+        if (qDuplicateCheck.data.existingEmployee) return 'An employee with this email already exists in this entity.'
+        if (qDuplicateCheck.data.pendingInvitation) {
+            return qDuplicateCheck.data.pendingInvitation.status === 'accepted'
+                ? 'A contract from this email is already pending HR approval in this entity.'
+                : 'There is already a pending invitation for this email in this entity.'
+        }
+        return null
+    }, [qDuplicateCheck.data])
 
     // When HR clicks Next from Step 2 with unfilled HR fields, flip this on so we start
     // showing inline per-field errors. Errors clear automatically as HR fills fields
@@ -95,15 +144,16 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     // Email validity + mSend pending still gate Step 3 as hard requirements.
     const canProceed = useMemo(() => {
         switch (currentStep) {
-            case 0: return !!selectedTemplateId
-            case 1: return true
-            case 2: return isValidEmail && unfilledHrKeys.length === 0 && !mSend.mutation.isPending
+            case 0: return isValidEmail && !!selectedEntityId && !duplicateError && !qDuplicateCheck.isLoading
+            case 1: return !!selectedTemplateId
+            case 2: return unfilledHrKeys.length === 0 && !mSend.mutation.isPending
             default: return false
         }
-    }, [currentStep, selectedTemplateId, isValidEmail, unfilledHrKeys.length, mSend.mutation.isPending])
+    }, [currentStep, isValidEmail, selectedEntityId, selectedTemplateId, unfilledHrKeys.length, mSend.mutation.isPending, duplicateError, qDuplicateCheck.isLoading])
 
     const handleReset = useCallback(() => {
         setCurrentStep(0)
+        setSelectedEntityId(null)
         setSelectedTemplateId(null)
         setPrefilledFields({})
         setEmployeeEmail('')
@@ -125,7 +175,7 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
     }, [onClose, handleReset])
 
     const handleSend = useCallback(async () => {
-        if (!selectedTemplateId || !employeeEmail) return
+        if (!selectedTemplateId || !employeeEmail || !selectedEntityId) return
 
         // Partition prefilled entries: Files go through the two-phase upload flow
         // below, scalar values go in the initial invitation row.
@@ -143,6 +193,7 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
             mSend.mutation.mutate(
                 {
                     organization_id: organizationId,
+                    entity_id: selectedEntityId,
                     employee_email: employeeEmail,
                     contract_template_id: selectedTemplateId,
                     prefilled_fields: scalarPrefilled,
@@ -162,6 +213,7 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
                 await supabase.functions.invoke('employee-onboarding_send-invitation', {
                     body: {
                         organization_id: organizationId,
+                        entity_id: selectedEntityId,
                         employee_email: employeeEmail,
                         contract_template_id: selectedTemplateId,
                         prefilled_fields: scalarPrefilled,
@@ -222,6 +274,7 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
         }
     }, [
         organizationId,
+        selectedEntityId,
         selectedTemplateId,
         prefilledFields,
         employeeEmail,
@@ -285,64 +338,9 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
             {/* Step content — fills remaining height */}
             <div style={{ flex: 1, overflow: currentStep === 1 ? 'hidden' : 'auto', minHeight: 0 }}>
 
-            {/* Step 1: Contract Template */}
+            {/* Step 0: Email & Entity */}
             {currentStep === 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM, height: '100%', minHeight: 0 }}>
-                    <Typography.Text strong>Select Contract Template *</Typography.Text>
-                    <App_ContractTemplatesManager
-                        organizationId={organizationId}
-                        selectedTemplateId={selectedTemplateId}
-                        onSelect={setSelectedTemplateId}
-                    />
-                </div>
-            )}
-
-            {/* Step 2: Pre-fill Fields */}
-            {currentStep === 1 && (
-                <div style={{ height: '100%' }}>
-                    {selectedTemplate ? (
-                        selectedTemplateKind === 'pdf' ? (
-                            <App_ContractFiller
-                                kind="pdf"
-                                layout={(selectedTemplate.layout as unknown as PdfLayout) ?? []}
-                                pdfFileUrl={qSelectedTemplatePdfUrl.url ?? null}
-                                fieldValues={prefilledFields}
-                                onChange={handleFieldChange}
-                                columns={qColumns.columns}
-                                choices={qChoices.choices}
-                                mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
-                                hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
-                                attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
-                                errors={hrFieldErrors}
-                                organization_id={organizationId}
-                                uploadContext={{ kind: 'defer' }}
-                            />
-                        ) : (
-                            <App_ContractFiller
-                                layout={selectedTemplate.layout as JSONContent}
-                                fieldValues={prefilledFields}
-                                onChange={handleFieldChange}
-                                columns={qColumns.columns}
-                                choices={qChoices.choices}
-                                mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
-                                hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
-                                attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
-                                errors={hrFieldErrors}
-                                organization_id={organizationId}
-                                /* Defer — no invitation exists yet. Files are held in prefilledFields
-                                   as File objects until Send orchestrates upload + linkage. */
-                                uploadContext={{ kind: 'defer' }}
-                            />
-                        )
-                    ) : (
-                        <Typography.Text type="secondary">No template selected</Typography.Text>
-                    )}
-                </div>
-            )}
-
-            {/* Step 3: Email + Send */}
-            {currentStep === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginMD }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginMD, maxWidth: 480 }}>
                     <div>
                         <Typography.Text strong style={{ display: 'block', marginBottom: token.marginXS }}>
                             Employee Email *
@@ -354,14 +352,101 @@ export const App_OnboardingWizardModal = ({ open, onClose, organizationId }: Pro
                             onChange={(e) => setEmployeeEmail(e.target.value)}
                         />
                     </div>
+                    <div>
+                        <Typography.Text strong style={{ display: 'block', marginBottom: token.marginXS }}>
+                            Entity *
+                        </Typography.Text>
+                        <Select
+                            placeholder="Select entity..."
+                            style={{ width: '100%' }}
+                            value={selectedEntityId}
+                            onChange={setSelectedEntityId}
+                            loading={qEntities.isLoading}
+                            options={entities.map((e) => ({ value: e.id, label: `${e.name}${e.timezone ? ` (${e.timezone})` : ''}` }))}
+                        />
+                    </div>
+                    {duplicateError && (
+                        <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>
+                            {duplicateError}
+                        </Typography.Text>
+                    )}
+                </div>
+            )}
 
+            {/* Step 1: Contract Template & Pre-fill */}
+            {currentStep === 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                    {!selectedTemplateId ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM, height: '100%', minHeight: 0 }}>
+                            <Typography.Text strong>Select Contract Template *</Typography.Text>
+                            <App_ContractTemplatesManager
+                                organizationId={organizationId}
+                                entityId={selectedEntityId || ''}
+                                selectedTemplateId={selectedTemplateId}
+                                onSelect={setSelectedTemplateId}
+                            />
+                        </div>
+                    ) : selectedTemplate ? (
+                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: token.marginSM, marginBottom: token.marginSM, flexShrink: 0 }}>
+                                <Tag color="blue">{selectedTemplate.name}</Tag>
+                                <Button type="link" size="small" onClick={() => setSelectedTemplateId(null)}>Change template</Button>
+                            </div>
+                            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                                {selectedTemplateKind === 'pdf' ? (
+                                    <App_ContractFiller
+                                        kind="pdf"
+                                        layout={(selectedTemplate.layout as unknown as PdfLayout) ?? []}
+                                        pdfFileUrl={qSelectedTemplatePdfUrl.url ?? null}
+                                        fieldValues={prefilledFields}
+                                        onChange={handleFieldChange}
+                                        columns={qColumns.columns}
+                                        choices={qChoices.choices}
+                                        mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
+                                        hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
+                                        attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
+                                        errors={hrFieldErrors}
+                                        organization_id={organizationId}
+                                        uploadContext={{ kind: 'defer' }}
+                                    />
+                                ) : (
+                                    <App_ContractFiller
+                                        layout={selectedTemplate.layout as JSONContent}
+                                        fieldValues={prefilledFields}
+                                        onChange={handleFieldChange}
+                                        columns={qColumns.columns}
+                                        choices={qChoices.choices}
+                                        mandatoryKeys={(selectedTemplate.mandatory_field_keys ?? []) as string[]}
+                                        hrFieldKeys={(selectedTemplate.hr_field_keys ?? []) as string[]}
+                                        attachmentFieldKeys={(selectedTemplate.attachment_field_keys ?? []) as string[]}
+                                        errors={hrFieldErrors}
+                                        organization_id={organizationId}
+                                        uploadContext={{ kind: 'defer' }}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <Typography.Text type="secondary">No template selected</Typography.Text>
+                    )}
+                </div>
+            )}
+
+            {/* Step 2: Review & Send */}
+            {currentStep === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginMD }}>
                     <Descriptions
                         column={1}
                         size="small"
                         bordered
                         title="Summary"
-                        style={{ marginTop: token.marginSM }}
                     >
+                        <Descriptions.Item label="Employee Email">
+                            {employeeEmail}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Entity">
+                            {selectedEntity?.name ?? '—'}{selectedEntity?.timezone ? ` (${selectedEntity.timezone})` : ''}
+                        </Descriptions.Item>
                         <Descriptions.Item label={<><FileTextOutlined /> Template</>}>
                             {selectedTemplate?.name ?? '—'}
                         </Descriptions.Item>

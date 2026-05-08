@@ -5,7 +5,7 @@ type TableName = keyof Database["public"]["Tables"];
 // Per-org dynamic tables (`<orgid>__employees`) are NOT registered as static
 // query keys — they're discovered at runtime per organization. The static
 // QueryKeys factory exhaustiveness check excludes them via this filtered type.
-type StaticTableName = Exclude<TableName, `org_${string}__employees`>;
+type StaticTableName = Exclude<TableName, `ent_${string}__employees`>;
 
 const createTableFactory = <T extends string>(tableName: T) =>
     ({
@@ -36,4 +36,6 @@ export const QueryKeys = {
     realtime_table_events: createTableFactory("realtime_table_events"),
     rel__department__employee: createTableFactory("rel__department__employee"),
     rel__department__invitation: createTableFactory("rel__department__invitation"),
+    timeclock_events: createTableFactory("timeclock_events"),
+    timeclock_sessions: createTableFactory("timeclock_sessions"),
 } satisfies Record<StaticTableName, ReturnType<typeof createTableFactory<StaticTableName>>>;

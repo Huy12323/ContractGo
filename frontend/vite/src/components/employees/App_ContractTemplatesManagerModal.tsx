@@ -6,9 +6,10 @@ type Props = {
     open: boolean
     onClose: () => void
     organizationId: string
+    entityId: string
 }
 
-export const App_ContractTemplatesManagerModal = ({ open, onClose, organizationId }: Props) => {
+export const App_ContractTemplatesManagerModal = ({ open, onClose, organizationId, entityId }: Props) => {
     const { token } = theme.useToken()
 
     return (
@@ -21,7 +22,7 @@ export const App_ContractTemplatesManagerModal = ({ open, onClose, organizationI
             destroyOnHidden
             styles={{ body: { height: '70vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' } }}
         >
-            <App_ContractTemplatesManager organizationId={organizationId} />
+            <App_ContractTemplatesManager organizationId={organizationId} entityId={entityId} />
         </Modal>
     )
 }

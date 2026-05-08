@@ -60,11 +60,11 @@ Deno.serve(async (req) => {
         }
 
         // Parse request body
-        const { label, type, choices, organization_id, config } = await req.json() as {
+        const { label, type, choices, entity_id, config } = await req.json() as {
             label?: string;
             type?: string;
             choices?: unknown;
-            organization_id?: string;
+            entity_id?: string;
             config?: unknown;
         };
 
@@ -74,17 +74,28 @@ Deno.serve(async (req) => {
         if (!type || !VALID_TYPES.includes(type)) {
             return jsonResponse({ error: `type must be one of: ${VALID_TYPES.join(", ")}` }, 400);
         }
-        if (!organization_id || typeof organization_id !== "string") {
-            return jsonResponse({ error: "organization_id is required" }, 400);
+        if (!entity_id || typeof entity_id !== "string") {
+            return jsonResponse({ error: "entity_id is required" }, 400);
         }
-        // config: optional plain object. Empty object when omitted.
         if (config !== undefined && (typeof config !== "object" || config === null || Array.isArray(config))) {
             return jsonResponse({ error: "config must be a plain object" }, 400);
         }
         const configValue = (config ?? {}) as Record<string, unknown>;
 
-        // Verify caller is admin or owner in this organization
+        // Resolve organization_id from entity and verify caller is admin or owner
         const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+        const { data: entity, error: entityError } = await supabaseAdmin
+            .from("entities")
+            .select("id, organization_id")
+            .eq("id", entity_id)
+            .single();
+
+        if (entityError || !entity) {
+            return jsonResponse({ error: "Entity not found" }, 404);
+        }
+
+        const organization_id = entity.organization_id;
 
         const { data: org } = await supabaseAdmin
             .from("organizations")
@@ -113,7 +124,7 @@ Deno.serve(async (req) => {
         const { data: column, error: insertError } = await supabaseAdmin
             .from("employee_columns")
             .insert({
-                organization_id,
+                entity_id,
                 label: label.trim(),
                 type,
                 config: configValue,
@@ -147,13 +158,10 @@ Deno.serve(async (req) => {
             }
         }
 
-        // ALTER TABLE on the org's per-org table — add the actual PG column via RPC.
-        // Use the authenticated client (not supabaseAdmin) so the RPC's
-        // is_admin_or_owner(p_organization_id) check sees the caller's auth.uid().
-        // The RPC is SECURITY DEFINER, so it still has the privileges to run ALTER TABLE.
+        // ALTER TABLE on the entity's per-entity table — add the actual PG column via RPC.
         const pgType = PG_TYPE_MAP[type];
         const { error: alterError } = await supabaseUser.rpc("add_employee_column", {
-            p_organization_id: organization_id,
+            p_entity_id: entity_id,
             p_col_name: column.id,
             p_col_type: pgType,
         });

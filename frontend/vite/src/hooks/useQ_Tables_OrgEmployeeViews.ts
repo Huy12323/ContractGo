@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
-const fetchOrgEmployeeViews = async (organizationId: string) => {
+const fetchOrgEmployeeViews = async (entityId: string) => {
     const sb_FromEmployeeViews_Select = await supabase
         .from("employee_views")
         .select("*")
-        .eq("organization_id", organizationId)
+        .eq("entity_id", entityId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
     if (sb_FromEmployeeViews_Select.error) throw sb_FromEmployeeViews_Select.error;
@@ -16,11 +16,11 @@ const fetchOrgEmployeeViews = async (organizationId: string) => {
 
 export type Tables_OrgEmployeeViews_QueryData = Awaited<ReturnType<typeof fetchOrgEmployeeViews>>;
 
-export const useQ_Tables_OrgEmployeeViews = ({ organizationId }: { organizationId: string }) => {
+export const useQ_Tables_OrgEmployeeViews = ({ entityId }: { entityId: string }) => {
     const query = useQuery({
-        enabled: !!organizationId,
-        queryKey: [...QueryKeys.employee_views.list(), { organizationId }],
-        queryFn: () => fetchOrgEmployeeViews(organizationId),
+        enabled: !!entityId,
+        queryKey: [...QueryKeys.employee_views.list(), { entityId }],
+        queryFn: () => fetchOrgEmployeeViews(entityId),
     });
 
     const employeeViews = useMemo(() => query.data || [], [query.data]);

@@ -12,19 +12,19 @@ import type { Enums } from '@/types'
 interface Props {
     open: boolean
     onClose: () => void
-    organizationId: string
+    entityId: string
     columnId?: string | null
     onCreated?: (columnId: string) => void
 }
 
 type Choice = { id?: string; label: string }
 
-export const App_EmployeeFieldComposerModal = ({ open, onClose, organizationId, columnId, onCreated }: Props) => {
+export const App_EmployeeFieldComposerModal = ({ open, onClose, entityId, columnId, onCreated }: Props) => {
     const { token } = theme.useToken()
     const { message } = App.useApp()
     const queryClient = useQueryClient()
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
 
     const [label, setLabel] = useState('')
     const [type, setType] = useState<Enums<'employee_column_type'>>('text')
@@ -58,7 +58,7 @@ export const App_EmployeeFieldComposerModal = ({ open, onClose, organizationId, 
                 'employee-management_create-column',
                 {
                     body: {
-                        organization_id: organizationId,
+                        entity_id: entityId,
                         label: label.trim(),
                         type,
                         ...((type === 'single_select' || type === 'multi_select')
@@ -128,6 +128,7 @@ export const App_EmployeeFieldComposerModal = ({ open, onClose, organizationId, 
                         .from('employee_column_choices')
                         .insert({
                             employee_column_id: columnId,
+                            entity_id: entityId,
                             label: choice.label.trim(),
                             sort_order: i,
                         })

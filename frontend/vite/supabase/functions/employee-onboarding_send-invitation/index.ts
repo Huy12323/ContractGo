@@ -55,28 +55,25 @@ Deno.serve(async (req) => {
     // Parse request
     const {
       organization_id,
+      entity_id,
       employee_email,
       contract_template_id,
       prefilled_fields,
       skip_email,
     } = (await req.json()) as {
       organization_id: string;
+      entity_id: string;
       employee_email: string;
       contract_template_id: string;
       prefilled_fields: Record<string, unknown>;
-      // When true, skip the HR-fill gate + email dispatch. Used by the wizard's
-      // two-phase send flow: create invitation first (so invitation-scoped file
-      // uploads have a valid id), then PATCH prefilled_fields with resolved
-      // file_ids, then call `employee-onboarding_send-invitation-email` which
-      // runs the gate + fires the email.
       skip_email?: boolean;
     };
 
-    if (!organization_id || !employee_email || !contract_template_id) {
+    if (!organization_id || !entity_id || !employee_email || !contract_template_id) {
       return jsonResponse(
         {
           error:
-            "organization_id, employee_email, and contract_template_id are required",
+            "organization_id, entity_id, employee_email, and contract_template_id are required",
         },
         400
       );
@@ -115,6 +112,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: entity, error: entityError } = await supabaseAdmin
+      .from("entities")
+      .select("id")
+      .eq("id", entity_id)
+      .eq("organization_id", organization_id)
+      .single();
+
+    if (entityError || !entity) {
+      return jsonResponse({ error: "Entity not found or does not belong to this organization" }, 404);
+    }
+
     const normalizedEmail = employee_email.toLowerCase().trim();
 
     // Block duplicates: only block if this email belongs to a registered auth user who
@@ -135,7 +143,7 @@ Deno.serve(async (req) => {
       const { data: existingEmployeeByUser } = await supabaseAdmin
         .from("employees")
         .select("id")
-        .eq("organization_id", organization_id)
+        .eq("entity_id", entity_id)
         .eq("user_id", targetUserId)
         .maybeSingle();
 
@@ -143,7 +151,7 @@ Deno.serve(async (req) => {
         return jsonResponse(
           {
             error:
-              "An employee with this email already exists in this organization. You cannot onboard them again.",
+              "An employee with this email already exists in this entity. You cannot onboard them again.",
           },
           409
         );
@@ -155,7 +163,7 @@ Deno.serve(async (req) => {
     const { data: existingEmployeeByEmail } = await supabaseAdmin
       .from("employees")
       .select("id")
-      .eq("organization_id", organization_id)
+      .eq("entity_id", entity_id)
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
@@ -163,7 +171,7 @@ Deno.serve(async (req) => {
       return jsonResponse(
         {
           error:
-            "An employee with this email already exists in this organization. You cannot onboard them again.",
+            "An employee with this email already exists in this entity. You cannot onboard them again.",
         },
         409
       );
@@ -173,7 +181,7 @@ Deno.serve(async (req) => {
     const { data: ongoingInvitations } = await supabaseAdmin
       .from("onboarding_invitations")
       .select("id, status")
-      .eq("organization_id", organization_id)
+      .eq("entity_id", entity_id)
       .ilike("employee_email", normalizedEmail)
       .in("status", ["sent", "accepted"]);
 
@@ -232,11 +240,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Insert onboarding invitation — entity + departments decided at placement (AHR-1178)
     const { data: invitation, error: insertError } = await supabaseAdmin
       .from("onboarding_invitations")
       .insert({
         organization_id,
+        entity_id,
         employee_email: employee_email.toLowerCase().trim(),
         contract_template_id,
         contract_template_version_id: version.id,

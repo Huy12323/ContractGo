@@ -109,16 +109,17 @@ interface Props {
     open: boolean
     onClose: () => void
     organizationId: string
+    entityId: string
     formId: string | null
 }
 
-export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: Props) => {
+export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, formId }: Props) => {
     const { token } = theme.useToken()
     const { modal } = App.useApp()
     const queryClient = useQueryClient()
-    const qTemplates = useQ_Tables_ContractTemplates({ organizationId })
-    const qColumns = useQ_Tables_EmployeeColumns({ organizationId })
-    const qChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
+    const qTemplates = useQ_Tables_ContractTemplates({ entityId })
+    const qColumns = useQ_Tables_EmployeeColumns({ entityId })
+    const qChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
     const mCreate = useM_ContractTemplate_Create()
     const mUpdate = useM_ContractTemplate_Update({ templateId: formId ?? '' })
     const mFileUpload = useM_Files_Upload()
@@ -692,7 +693,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             let templateIdForUpload = formId
             if (!templateIdForUpload) {
                 const stub = await mCreate.mutation.mutateAsync({
-                    organization_id: organizationId,
+                    entity_id: entityId,
                     name: formName.trim(),
                     layout: [] as unknown as Json,
                     type: 'pdf',
@@ -739,7 +740,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             })
         } else {
             await mCreate.mutation.mutateAsync({
-                organization_id: organizationId,
+                entity_id: entityId,
                 name: formName.trim(),
                 layout,
                 type: kind,
@@ -769,7 +770,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         // re-uploaded for the new template under its own R2 path — no shared object.
         if (kind === 'pdf' && pendingPdfFile) {
             const stub = await mCreate.mutation.mutateAsync({
-                organization_id: organizationId,
+                entity_id: entityId,
                 name: saveAsName.trim(),
                 layout: [] as unknown as Json,
                 type: 'pdf',
@@ -803,7 +804,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
         // no FK; the source PDF is logically content-addressable across templates until
         // one of them re-uploads).
         await mCreate.mutation.mutateAsync({
-            organization_id: organizationId,
+            entity_id: entityId,
             name: saveAsName.trim(),
             layout,
             type: kind,
@@ -1483,7 +1484,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, formId }: 
             <App_EmployeeFieldComposerModal
                 open={fieldManagerOpen}
                 onClose={() => setFieldManagerOpen(false)}
-                organizationId={organizationId}
+                entityId={entityId}
             />
 
             <App_ContractTemplateVersionsModal

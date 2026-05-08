@@ -10,7 +10,7 @@ import type {
 import type { Json } from "@/types/database.types";
 
 export type UseM_EmployeeView_Create_Params = {
-    organization_id: string;
+    entity_id: string;
     name: string;
     sort_order?: number;
     // Optional initial per-column values (falls through to column DB defaults when omitted)

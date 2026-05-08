@@ -13,6 +13,7 @@ type Props = {
   employee: EmployeeRow
   fields: EmployeeDataTable_TableField[]
   choicesByField: Record<string, Choice[]>
+  entityId: string
   organizationId: string
   onFilePreview?: (ctx: { file_id: string; column_id: string }) => void
 }
@@ -21,6 +22,7 @@ export const AppEmployeeDetailModal_DetailsTab = ({
   employee,
   fields,
   choicesByField,
+  entityId: _entityId,
   organizationId,
   onFilePreview,
 }: Props) => {

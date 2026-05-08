@@ -631,11 +631,8 @@ const PdfFieldOverlay = ({ field, fieldLabel, value, onChange, mode, columnType,
         top: `${field.y_pct * 100}%`,
         width: `${field.w_pct * 100}%`,
         height: `${field.h_pct * 100}%`,
-        // pointer-events: auto so the overlay child (input/select/text) receives clicks;
-        // the parent overlay layer is `none` so empty page space passes through.
         pointerEvents: 'auto',
         boxSizing: 'border-box',
-        overflow: 'hidden',
     }
 
     // Signature — image when filled, italic placeholder when empty

@@ -224,16 +224,16 @@ const ConditionRow = ({ condition, fields, choicesByField, onChange, onRemove }:
 }
 
 // --- Main list-view component ---
-type Props = { organizationId: string }
+type Props = { entityId: string; organizationId: string }
 
-export const PageEmployees_ListView = ({ organizationId }: Props) => {
+export const PageEmployees_ListView = ({ entityId, organizationId }: Props) => {
   const { token } = theme.useToken()
   const search = useSearch({ from: '/_protected/$organizationId/employees/' })
   const navigate = useNavigate()
 
-  const qEmployeeColumns = useQ_Tables_EmployeeColumns({ organizationId })
-  const qEmployeeColumnChoices = useQ_Tables_EmployeeColumnChoices({ organizationId })
-  const qViews = useQ_Tables_OrgEmployeeViews({ organizationId })
+  const qEmployeeColumns = useQ_Tables_EmployeeColumns({ entityId })
+  const qEmployeeColumnChoices = useQ_Tables_EmployeeColumnChoices({ entityId })
+  const qViews = useQ_Tables_OrgEmployeeViews({ entityId })
 
   const mCreateView = useM_EmployeeView_Create()
   const mUpdateView = useM_EmployeeView_Update()
@@ -518,7 +518,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
       submitLabel: 'Create',
       onSubmit: async (name) => {
         const created = await mCreateView.mutation.mutateAsync({
-          organization_id: organizationId,
+          entity_id: entityId,
           name,
           sort_order: computeTopSortOrder(),
         })
@@ -542,7 +542,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
 
   const handleDuplicateView = useCallback(async (view: EmployeeViewRow) => {
     const created = await mCreateView.mutation.mutateAsync({
-      organization_id: organizationId,
+      entity_id: entityId,
       name: `Copy of ${view.name}`,
       sort_order: computeAfterSortOrder(view.id),
       filter: view.filter,
@@ -556,8 +556,8 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
   }, [mCreateView.mutation, organizationId, navigate, computeAfterSortOrder])
 
   const handleReorderViews = useCallback((orderedIds: string[]) => {
-    mReorderViews.mutation.mutate({ organizationId, orderedIds })
-  }, [mReorderViews.mutation, organizationId])
+    mReorderViews.mutation.mutate({ entityId, orderedIds })
+  }, [mReorderViews.mutation, entityId])
 
   const handleDeleteView = useCallback((view: EmployeeViewRow) => {
     modal.confirm({
@@ -942,7 +942,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {!sidebarCollapsed && (
           <PageEmployees_ViewsSidebar
-            organizationId={organizationId}
+            entityId={entityId}
             onCreateView={handleCreateView}
             onRenameView={handleRenameView}
             onDuplicateView={handleDuplicateView}
@@ -953,6 +953,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
         <div style={{ flex: 1, overflow: 'hidden', background: token.colorBgContainer }}>
           {activeView ? (
             <App_EmployeeDataGrid
+              entityId={entityId}
               organizationId={organizationId}
               hiddenKeys={hiddenKeys}
               fieldOrder={fieldOrder}
@@ -993,7 +994,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
       <App_EmployeeFieldComposerModal
         open={composerOpen}
         onClose={() => { setComposerOpen(false); setComposerColumnId(null) }}
-        organizationId={organizationId}
+        entityId={entityId}
         columnId={composerColumnId}
       />
 
@@ -1001,6 +1002,7 @@ export const PageEmployees_ListView = ({ organizationId }: Props) => {
       <App_EmployeeDetailModal
         open={modalEmployeeId !== null}
         employeeId={modalEmployeeId}
+        entityId={entityId}
         organizationId={organizationId}
         onClose={() => setModalEmployeeId(null)}
         fields={listViewFields}

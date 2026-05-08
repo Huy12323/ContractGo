@@ -219,6 +219,7 @@ export type Database = {
         Row: {
           attachment_field_keys: Json
           created_at: string | null
+          entity_id: string
           hr_field_keys: Json
           id: string
           is_archived: boolean
@@ -233,13 +234,14 @@ export type Database = {
         Insert: {
           attachment_field_keys?: Json
           created_at?: string | null
+          entity_id: string
           hr_field_keys?: Json
           id?: string
           is_archived?: boolean
           layout?: Json
           mandatory_field_keys?: Json
           name: string
-          organization_id: string
+          organization_id?: string
           pdf_file_path?: string | null
           type?: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at?: string | null
@@ -247,6 +249,7 @@ export type Database = {
         Update: {
           attachment_field_keys?: Json
           created_at?: string | null
+          entity_id?: string
           hr_field_keys?: Json
           id?: string
           is_archived?: boolean
@@ -259,6 +262,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contract_templates_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "onboarding_forms_organization_id_fkey"
             columns: ["organization_id"]
@@ -487,6 +497,7 @@ export type Database = {
         Row: {
           created_at: string | null
           employee_column_id: string
+          entity_id: string
           id: string
           label: string
           organization_id: string
@@ -497,6 +508,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           employee_column_id: string
+          entity_id: string
           id?: string
           label: string
           organization_id?: string
@@ -507,6 +519,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           employee_column_id?: string
+          entity_id?: string
           id?: string
           label?: string
           organization_id?: string
@@ -523,6 +536,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employee_column_choices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employee_column_choices_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -535,6 +555,7 @@ export type Database = {
         Row: {
           config: Json
           created_at: string | null
+          entity_id: string
           id: string
           label: string
           organization_id: string
@@ -544,15 +565,17 @@ export type Database = {
         Insert: {
           config?: Json
           created_at?: string | null
+          entity_id: string
           id?: string
           label: string
-          organization_id: string
+          organization_id?: string
           type: Database["public"]["Enums"]["employee_column_type"]
           updated_at?: string | null
         }
         Update: {
           config?: Json
           created_at?: string | null
+          entity_id?: string
           id?: string
           label?: string
           organization_id?: string
@@ -560,6 +583,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_columns_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_columns_organization_id_fkey"
             columns: ["organization_id"]
@@ -573,6 +603,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          entity_id: string
           field_order: Json
           field_widths: Json
           filter: Json
@@ -589,6 +620,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          entity_id: string
           field_order?: Json
           field_widths?: Json
           filter?: Json
@@ -597,7 +629,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
-          organization_id: string
+          organization_id?: string
           sort?: Json
           sort_order?: number
           updated_at?: string | null
@@ -605,6 +637,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          entity_id?: string
           field_order?: Json
           field_widths?: Json
           filter?: Json
@@ -627,6 +660,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employee_views_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employee_views_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -641,6 +681,7 @@ export type Database = {
           birthday: string
           created_at: string
           email: string
+          entity_id: string
           first_name: string
           id: string
           last_name: string
@@ -653,10 +694,11 @@ export type Database = {
           birthday?: string
           created_at?: string
           email?: string
+          entity_id: string
           first_name?: string
           id?: string
           last_name?: string
-          organization_id: string
+          organization_id?: string
           updated_at?: string | null
           user_id: string
         }
@@ -665,6 +707,7 @@ export type Database = {
           birthday?: string
           created_at?: string
           email?: string
+          entity_id?: string
           first_name?: string
           id?: string
           last_name?: string
@@ -673,6 +716,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employees_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "org_employees_organization_id_fkey"
             columns: ["organization_id"]
@@ -685,6 +735,46 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ent_mZ7hjGvUOQW8sszD__employees: {
+        Row: {
+          employee_id: string
+        }
+        Insert: {
+          employee_id: string
+        }
+        Update: {
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ent_mZ7hjGvUOQW8sszD__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ent_pcpUpoPjlcKdJICb__employees: {
+        Row: {
+          employee_id: string
+        }
+        Insert: {
+          employee_id: string
+        }
+        Update: {
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ent_pcpUpoPjlcKdJICb__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -787,7 +877,7 @@ export type Database = {
           contract_template_version_id: string | null
           created_at: string | null
           employee_email: string
-          entity_id: string | null
+          entity_id: string
           hr_comments: Json
           id: string
           invitation_token: string
@@ -803,7 +893,7 @@ export type Database = {
           contract_template_version_id?: string | null
           created_at?: string | null
           employee_email: string
-          entity_id?: string | null
+          entity_id: string
           hr_comments?: Json
           id?: string
           invitation_token?: string
@@ -819,7 +909,7 @@ export type Database = {
           contract_template_version_id?: string | null
           created_at?: string | null
           employee_email?: string
-          entity_id?: string | null
+          entity_id?: string
           hr_comments?: Json
           id?: string
           invitation_token?: string
@@ -864,53 +954,6 @@ export type Database = {
             columns: ["sent_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      org_eNQs8MLXx8TaCqAm__employees: {
-        Row: {
-          col_1l4l5L8NCW1uZCd9: string | null
-          col_34rTppCGsFaxRD1i: string | null
-          col_4jeyfUv4BsJGoO7K: string | null
-          col_BbrubylYdfQPBzbv: string | null
-          col_DUmkBaLXAekq86zj: string | null
-          col_iuv6rrRF50FtJ6bn: string | null
-          col_JFUZPqizQPBqxrxb: string | null
-          col_ROstCxqFP6M5d8cI: string | null
-          col_X6MDhHHD5onD1ePT: string | null
-          employee_id: string
-        }
-        Insert: {
-          col_1l4l5L8NCW1uZCd9?: string | null
-          col_34rTppCGsFaxRD1i?: string | null
-          col_4jeyfUv4BsJGoO7K?: string | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_DUmkBaLXAekq86zj?: string | null
-          col_iuv6rrRF50FtJ6bn?: string | null
-          col_JFUZPqizQPBqxrxb?: string | null
-          col_ROstCxqFP6M5d8cI?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
-          employee_id: string
-        }
-        Update: {
-          col_1l4l5L8NCW1uZCd9?: string | null
-          col_34rTppCGsFaxRD1i?: string | null
-          col_4jeyfUv4BsJGoO7K?: string | null
-          col_BbrubylYdfQPBzbv?: string | null
-          col_DUmkBaLXAekq86zj?: string | null
-          col_iuv6rrRF50FtJ6bn?: string | null
-          col_JFUZPqizQPBqxrxb?: string | null
-          col_ROstCxqFP6M5d8cI?: string | null
-          col_X6MDhHHD5onD1ePT?: string | null
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "org_eNQs8MLXx8TaCqAm__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -1113,6 +1156,125 @@ export type Database = {
           },
         ]
       }
+      timeclock_events: {
+        Row: {
+          created_at: string
+          employee_id: string
+          entity_id: string
+          event_type: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          id: string
+          organization_id: string
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          entity_id: string
+          event_type: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          id?: string
+          organization_id?: string
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          entity_id?: string
+          event_type?: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          id?: string
+          organization_id?: string
+          timezone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeclock_events_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_events_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeclock_sessions: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          employee_id: string
+          end_at: string | null
+          end_by: Database["public"]["Enums"]["timeclock_actor_enum"] | null
+          entity_id: string
+          id: string
+          organization_id: string
+          start_at: string
+          start_by: Database["public"]["Enums"]["timeclock_actor_enum"]
+          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          employee_id: string
+          end_at?: string | null
+          end_by?: Database["public"]["Enums"]["timeclock_actor_enum"] | null
+          entity_id: string
+          id?: string
+          organization_id?: string
+          start_at: string
+          start_by?: Database["public"]["Enums"]["timeclock_actor_enum"]
+          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          employee_id?: string
+          end_at?: string | null
+          end_by?: Database["public"]["Enums"]["timeclock_actor_enum"] | null
+          entity_id?: string
+          id?: string
+          organization_id?: string
+          start_at?: string
+          start_by?: Database["public"]["Enums"]["timeclock_actor_enum"]
+          type?: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeclock_sessions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_sessions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1120,11 +1282,7 @@ export type Database = {
     Functions: {
       accept_invitation: { Args: { invitation_token: string }; Returns: Json }
       add_employee_column: {
-        Args: {
-          p_col_name: string
-          p_col_type: string
-          p_organization_id: string
-        }
+        Args: { p_col_name: string; p_col_type: string; p_entity_id: string }
         Returns: undefined
       }
       audit_employee_diff: {
@@ -1172,6 +1330,20 @@ export type Database = {
         Returns: string
       }
       get_organization_role: { Args: { org_id: string }; Returns: string }
+      get_timesheet_grid: {
+        Args: {
+          p_end_utc: string
+          p_entity_id: string
+          p_start_utc: string
+          p_timezone: string
+        }
+        Returns: {
+          break_ms: number
+          employee_id: string
+          work_date: string
+          worked_ms: number
+        }[]
+      }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_invitation_recipient: {
@@ -1179,12 +1351,13 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
-      provision_org_employees_table: {
-        Args: { p_organization_id: string }
+      provision_entity_employees_table: {
+        Args: { p_entity_id: string }
         Returns: undefined
       }
       reorder_employee_views: { Args: { p_ids: string[] }; Returns: undefined }
       seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
+      timeclock_process_midnight: { Args: never; Returns: undefined }
     }
     Enums: {
       app_permission:
@@ -1770,6 +1943,13 @@ export type Database = {
         | "approved"
         | "pending_placement"
       realtime_table_events_event_type_enum: "INSERT" | "UPDATE" | "DELETE"
+      timeclock_actor_enum: "employee" | "system"
+      timeclock_event_type_enum:
+        | "clock_in"
+        | "clock_out"
+        | "lunch_start"
+        | "lunch_end"
+      timeclock_session_type_enum: "work" | "break"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2487,6 +2667,14 @@ export const Constants = {
         "pending_placement",
       ],
       realtime_table_events_event_type_enum: ["INSERT", "UPDATE", "DELETE"],
+      timeclock_actor_enum: ["employee", "system"],
+      timeclock_event_type_enum: [
+        "clock_in",
+        "clock_out",
+        "lunch_start",
+        "lunch_end",
+      ],
+      timeclock_session_type_enum: ["work", "break"],
     },
   },
 } as const

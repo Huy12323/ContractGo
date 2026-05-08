@@ -16,7 +16,7 @@ import { useQ_Tables_OrgEmployeeViews, type Tables_OrgEmployeeViews_QueryData } 
 type EmployeeViewRow = Tables_OrgEmployeeViews_QueryData[number]
 
 type Props = {
-    organizationId: string
+    entityId: string
     onCreateView: () => void
     onRenameView: (view: EmployeeViewRow) => void
     onDuplicateView: (view: EmployeeViewRow) => void
@@ -25,7 +25,7 @@ type Props = {
 }
 
 export const PageEmployees_ViewsSidebar = ({
-    organizationId,
+    entityId,
     onCreateView,
     onRenameView,
     onDuplicateView,
@@ -35,7 +35,7 @@ export const PageEmployees_ViewsSidebar = ({
     const { token } = theme.useToken()
     const search = useSearch({ from: '/_protected/$organizationId/employees/' })
     const navigate = useNavigate()
-    const qViews = useQ_Tables_OrgEmployeeViews({ organizationId })
+    const qViews = useQ_Tables_OrgEmployeeViews({ entityId })
 
     const [filter, setFilter] = useState<string>('')
     const [dragOver, setDragOver] = useState<{ id: string; position: 'before' | 'after' } | null>(null)
@@ -105,8 +105,8 @@ export const PageEmployees_ViewsSidebar = ({
     }
 
     const activeRowStyle: React.CSSProperties = {
-        background: token.colorPrimaryBg,
-        color: token.colorPrimary,
+        background: 'rgba(0, 0, 0, 0.06)',
+        color: token.colorText,
     }
 
     const sidebarShell: React.CSSProperties = {
@@ -215,7 +215,7 @@ export const PageEmployees_ViewsSidebar = ({
                             <TableOutlined style={{ fontSize: 14, flexShrink: 0 }} />
                             <Typography.Text
                                 ellipsis
-                                style={{ flex: 1, fontSize: token.fontSizeSM, color: isActive ? token.colorPrimary : undefined }}
+                                style={{ flex: 1, fontSize: token.fontSizeSM, color: isActive ? token.colorText : undefined }}
                                 title={view.name}
                             >
                                 {view.name}

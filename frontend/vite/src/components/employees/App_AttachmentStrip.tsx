@@ -384,8 +384,11 @@ const Card_Attachment = ({
                     )}
                 </div>
 
-                {/* Right column — filename on top, state tag + actions below */}
+                {/* Right column — label, filename, state tag + actions */}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: token.marginXXS }}>
+                    <Typography.Text strong ellipsis style={{ fontSize: 11, minWidth: 0 }}>
+                        {field.fieldLabel}
+                    </Typography.Text>
                     <div style={{ display: 'flex', alignItems: 'center', gap: token.marginXS, minWidth: 0 }}>
                         <Typography.Text
                             ellipsis

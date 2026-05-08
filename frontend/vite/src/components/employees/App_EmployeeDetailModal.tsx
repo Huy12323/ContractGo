@@ -46,6 +46,7 @@ export const useProvider_App_EmployeeDetailModal = () => useContext(Context)
 type Props = {
     open: boolean
     employeeId: string | null
+    entityId: string
     organizationId: string
     onClose: () => void
     fields: EmployeeDataTable_TableField[]
@@ -61,18 +62,18 @@ export const App_EmployeeDetailModal = (props: Props) => (
     </Provider_App_EmployeeDetailModal>
 )
 
-const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClose, fields, choicesByField, onFilePreview }: Props) => {
+const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organizationId, onClose, fields, choicesByField, onFilePreview }: Props) => {
     const { token } = theme.useToken()
     const { message, modal } = App.useApp()
     const pModal = useProvider_App_EmployeeDetailModal()
     const { editMode, patch } = pModal.state
     const isDirty = Object.keys(patch).length > 0
-    const mUpdateEmployee = useM_Employee_Update({ organizationId })
+    const mUpdateEmployee = useM_Employee_Update({ entityId })
     const mFilesUpload = useM_Files_Upload()
 
     // Subscribe to the employees query (shared cache with the grid) so the modal
     // re-renders with fresh data when the mutation's invalidation fires.
-    const qEmployees = useQ_Tables_OrgEmployees({ organizationId })
+    const qEmployees = useQ_Tables_OrgEmployees({ entityId })
     const employee = useMemo(
         () => (employeeId ? qEmployees.employees.find((e) => e.id === employeeId) ?? null : null),
         [qEmployees.employees, employeeId],
@@ -279,6 +280,7 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, organizationId, onClos
                                 employee={employee}
                                 fields={fields}
                                 choicesByField={choicesByField}
+                                entityId={entityId}
                                 organizationId={organizationId}
                                 onFilePreview={(ctx) =>
                                     onFilePreview?.({
