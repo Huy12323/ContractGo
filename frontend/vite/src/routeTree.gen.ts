@@ -21,7 +21,9 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-pa
 import { Route as ProtectedOrganizationIdRouteRouteImport } from './routes/_protected/$organizationId/route'
 import { Route as ProtectedOrganizationIdIndexRouteImport } from './routes/_protected/$organizationId/index'
 import { Route as ProtectedOnboardingInvitationTokenRouteImport } from './routes/_protected/onboarding/$invitationToken'
+import { Route as ProtectedOrganizationIdTimesheetsIndexRouteImport } from './routes/_protected/$organizationId/timesheets/index'
 import { Route as ProtectedOrganizationIdOrgChartIndexRouteImport } from './routes/_protected/$organizationId/org-chart/index'
+import { Route as ProtectedOrganizationIdMyTimeclockIndexRouteImport } from './routes/_protected/$organizationId/my-timeclock/index'
 import { Route as ProtectedOrganizationIdEmployeesIndexRouteImport } from './routes/_protected/$organizationId/employees/index'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
@@ -85,10 +87,22 @@ const ProtectedOnboardingInvitationTokenRoute =
     path: '/onboarding/$invitationToken',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
+const ProtectedOrganizationIdTimesheetsIndexRoute =
+  ProtectedOrganizationIdTimesheetsIndexRouteImport.update({
+    id: '/timesheets/',
+    path: '/timesheets/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
 const ProtectedOrganizationIdOrgChartIndexRoute =
   ProtectedOrganizationIdOrgChartIndexRouteImport.update({
     id: '/org-chart/',
     path: '/org-chart/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedOrganizationIdMyTimeclockIndexRoute =
+  ProtectedOrganizationIdMyTimeclockIndexRouteImport.update({
+    id: '/my-timeclock/',
+    path: '/my-timeclock/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
 const ProtectedOrganizationIdEmployeesIndexRoute =
@@ -110,7 +124,9 @@ export interface FileRoutesByFullPath {
   '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
   '/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
+  '/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
+  '/$organizationId/timesheets/': typeof ProtectedOrganizationIdTimesheetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ProtectedIndexRoute
@@ -123,7 +139,9 @@ export interface FileRoutesByTo {
   '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
   '/$organizationId/employees': typeof ProtectedOrganizationIdEmployeesIndexRoute
+  '/$organizationId/my-timeclock': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/$organizationId/org-chart': typeof ProtectedOrganizationIdOrgChartIndexRoute
+  '/$organizationId/timesheets': typeof ProtectedOrganizationIdTimesheetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,7 +158,9 @@ export interface FileRoutesById {
   '/_protected/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
   '/_protected/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
+  '/_protected/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/_protected/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
+  '/_protected/$organizationId/timesheets/': typeof ProtectedOrganizationIdTimesheetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,7 +176,9 @@ export interface FileRouteTypes {
     | '/onboarding/$invitationToken'
     | '/$organizationId/'
     | '/$organizationId/employees/'
+    | '/$organizationId/my-timeclock/'
     | '/$organizationId/org-chart/'
+    | '/$organizationId/timesheets/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -169,7 +191,9 @@ export interface FileRouteTypes {
     | '/onboarding/$invitationToken'
     | '/$organizationId'
     | '/$organizationId/employees'
+    | '/$organizationId/my-timeclock'
     | '/$organizationId/org-chart'
+    | '/$organizationId/timesheets'
   id:
     | '__root__'
     | '/_auth'
@@ -185,7 +209,9 @@ export interface FileRouteTypes {
     | '/_protected/onboarding/$invitationToken'
     | '/_protected/$organizationId/'
     | '/_protected/$organizationId/employees/'
+    | '/_protected/$organizationId/my-timeclock/'
     | '/_protected/$organizationId/org-chart/'
+    | '/_protected/$organizationId/timesheets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -279,11 +305,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOnboardingInvitationTokenRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/$organizationId/timesheets/': {
+      id: '/_protected/$organizationId/timesheets/'
+      path: '/timesheets'
+      fullPath: '/$organizationId/timesheets/'
+      preLoaderRoute: typeof ProtectedOrganizationIdTimesheetsIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
     '/_protected/$organizationId/org-chart/': {
       id: '/_protected/$organizationId/org-chart/'
       path: '/org-chart'
       fullPath: '/$organizationId/org-chart/'
       preLoaderRoute: typeof ProtectedOrganizationIdOrgChartIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/$organizationId/my-timeclock/': {
+      id: '/_protected/$organizationId/my-timeclock/'
+      path: '/my-timeclock'
+      fullPath: '/$organizationId/my-timeclock/'
+      preLoaderRoute: typeof ProtectedOrganizationIdMyTimeclockIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
     '/_protected/$organizationId/employees/': {
@@ -321,7 +361,9 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 interface ProtectedOrganizationIdRouteRouteChildren {
   ProtectedOrganizationIdIndexRoute: typeof ProtectedOrganizationIdIndexRoute
   ProtectedOrganizationIdEmployeesIndexRoute: typeof ProtectedOrganizationIdEmployeesIndexRoute
+  ProtectedOrganizationIdMyTimeclockIndexRoute: typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   ProtectedOrganizationIdOrgChartIndexRoute: typeof ProtectedOrganizationIdOrgChartIndexRoute
+  ProtectedOrganizationIdTimesheetsIndexRoute: typeof ProtectedOrganizationIdTimesheetsIndexRoute
 }
 
 const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRouteChildren =
@@ -329,8 +371,12 @@ const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRou
     ProtectedOrganizationIdIndexRoute: ProtectedOrganizationIdIndexRoute,
     ProtectedOrganizationIdEmployeesIndexRoute:
       ProtectedOrganizationIdEmployeesIndexRoute,
+    ProtectedOrganizationIdMyTimeclockIndexRoute:
+      ProtectedOrganizationIdMyTimeclockIndexRoute,
     ProtectedOrganizationIdOrgChartIndexRoute:
       ProtectedOrganizationIdOrgChartIndexRoute,
+    ProtectedOrganizationIdTimesheetsIndexRoute:
+      ProtectedOrganizationIdTimesheetsIndexRoute,
   }
 
 const ProtectedOrganizationIdRouteRouteWithChildren =

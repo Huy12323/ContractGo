@@ -6,6 +6,7 @@ import { MenuOutlined, LogoutOutlined } from '@ant-design/icons'
 import { Store_VerticalNav_Actions } from '@/stores/Store_VerticalNav'
 import { Store_Auth_Actions } from '@/stores/Store_Auth'
 import { const_AppShell_HorizontalNavHeight } from '@/components/app-shell/const_AppShell_Dimensions'
+import { App_ClockStrip } from '@/components/app-shell/App_ClockStrip'
 
 const { Header } = Layout
 
@@ -25,7 +26,7 @@ export const App_HorizontalNav = () => {
   return (
     <Header
       style={{
-        background: `linear-gradient(90deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
+        background: token.colorFillQuaternary,
         padding: '0 16px',
         height: const_AppShell_HorizontalNavHeight,
         lineHeight: `${const_AppShell_HorizontalNavHeight}px`,
@@ -43,17 +44,19 @@ export const App_HorizontalNav = () => {
             type="text"
             icon={<MenuOutlined />}
             onClick={Store_VerticalNav_Actions.toggle}
-            style={{ fontSize: 16, color: token.colorTextLightSolid }}
+            style={{ fontSize: 16, color: token.colorText }}
           />
         )}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: token.colorTextLightSolid }}>
+          <span style={{ fontWeight: 900, fontSize: 16, color: token.colorText }}>
             AIUR-HR
           </span>
         </Link>
       </div>
 
-      <Dropdown
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {isOrgRoute && <App_ClockStrip />}
+        <Dropdown
         menu={{
           items: [
             {
@@ -77,7 +80,7 @@ export const App_HorizontalNav = () => {
         <Avatar
           size={28}
           style={{
-            backgroundColor: token.colorBgContainer,
+            backgroundColor: token.colorPrimaryBg,
             color: token.colorPrimary,
             cursor: 'pointer',
             fontSize: 12,
@@ -87,6 +90,7 @@ export const App_HorizontalNav = () => {
           {initials}
         </Avatar>
       </Dropdown>
+      </div>
     </Header>
   )
 }

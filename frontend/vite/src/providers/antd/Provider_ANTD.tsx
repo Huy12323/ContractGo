@@ -8,24 +8,18 @@ const themeConfig = {
         // so they read as one cohesive palette. ANTD auto-derives the full 10-step
         // Bg/Border/Hover/Active/Text palettes from each seed, so these five values
         // cascade across the entire app.
-        colorPrimary: "#136a7b", // deep teal / petrol — brand
+        colorPrimary: "#6366f1", // indigo — brand
         colorSuccess: "#2d7a4f", // forest green
         colorWarning: "#c48a3c", // ochre / mustard
         colorError: "#a73939",   // deep rose / burgundy
-        colorInfo: "#3a6ea5",    // steel blue (distinct from teal primary)
-        // Cool-neutral border + tinted alt fill — shared across the app so
-        // tables, cards, dividers, and banded rows have a consistent look.
-        colorBorder: "#B1B4B6",
+        colorInfo: "#818cf8",    // soft indigo — secondary accent
+        colorBorder: "#E5E5E5",
         colorFillAlter: "#F6F8FC",
-        // Override ANTD's auto-derived step-1/step-2 tints of colorPrimary —
-        // the seed is dark/low-sat, so the defaults come out muddy-beige.
-        // These flow to every consumer of token.colorPrimaryBg (Menu selected
-        // row, active toolbar buttons, sidebar views, etc.).
-        colorPrimaryBg: "#d0ebef",
-        colorPrimaryBgHover: "#b9dfe5",
+        colorPrimaryBg: "#eef2ff",
+        colorPrimaryBgHover: "#e0e7ff",
         borderRadius: 8,
         fontSize: 14,
-        fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "'Nunito', -apple-system, BlinkMacSystemFont, sans-serif",
     },
     components: {
         Button: {
@@ -42,6 +36,10 @@ const themeConfig = {
         },
         Checkbox: {
             borderRadiusSM: 4,
+        },
+        Menu: {
+            itemSelectedBg: "rgba(0, 0, 0, 0.06)",
+            itemSelectedColor: "rgba(0, 0, 0, 0.88)",
         },
         Table: {
             // Spreadsheet-style tables — no rounded corners.

@@ -27,6 +27,7 @@ export const Page_Home = () => {
   }
 
   return (
+    <div style={{ minHeight: '100%', background: token.colorBgContainer }}>
     <div style={{ maxWidth: 800, margin: '0 auto', padding: `${token.paddingLG}px ${token.paddingMD}px` }}>
       {/* Header row: [title] ... [search] ... [create] */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -83,6 +84,7 @@ export const Page_Home = () => {
         open={createOrgOpen}
         onClose={() => setCreateOrgOpen(false)}
       />
+    </div>
     </div>
   )
 }
