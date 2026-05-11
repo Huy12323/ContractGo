@@ -22,7 +22,7 @@ const template = {
     mcpServers: {
         "plane-aiur-hr": {
             command: "uvx",
-            args: ["plane-mcp-server", "stdio"],
+            args: ["--from", "git+https://github.com/goto-software/plane-mcp-server.git", "plane-mcp-server", "stdio"],
             env: {
                 PLANE_API_KEY: "${PLANE_API_KEY}",
                 PLANE_WORKSPACE_SLUG: "${PLANE_WORKSPACE_SLUG}",
