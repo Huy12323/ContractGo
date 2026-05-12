@@ -35,10 +35,12 @@ export const useM_ContractTemplate_Update = ({ templateId }: UseM_ContractTempla
         onSuccess: () => {
             message.success("Template updated");
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() });
         },
-        onError: (err) => {
+        onError: (err: any) => {
             console.error(err);
-            message.error("Failed to update template");
+            if (err?.code === "23505") message.error("A template with this name already exists. Please choose a different name.");
+            else message.error("Failed to update template");
         },
     });
 

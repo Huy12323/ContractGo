@@ -1,6 +1,7 @@
 import { createClient } from "supabase";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 
 function requireEnv(name: string): string {
   const value = Deno.env.get(name);
@@ -22,6 +23,8 @@ const s3Client = new S3Client({
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 const corsHeaders = {
@@ -67,6 +70,27 @@ async function fetchR2Object(key: string): Promise<Uint8Array> {
 }
 
 // ---------------------------------------------------------------------------
+// PNG sanitiser — pdf-lib 1.17.1 reads PNG chunk CRCs via getInt32; CRCs
+// >= 2^31 become negative and blow up setUint32.  Zero them out before embed.
+// ---------------------------------------------------------------------------
+
+function sanitizePngForPdfLib(png: Uint8Array): Uint8Array {
+  const buf = new Uint8Array(png);
+  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let offset = 8;
+  while (offset + 12 <= buf.length) {
+    const len = view.getUint32(offset);
+    const crcPos = offset + 8 + len;
+    if (crcPos + 4 > buf.length) break;
+    if (view.getUint32(crcPos) > 0x7FFFFFFF) {
+      view.setUint32(crcPos, 0);
+    }
+    offset = crcPos + 4;
+  }
+  return buf;
+}
+
+// ---------------------------------------------------------------------------
 // PDF burn — overlays field values + signature onto the source PDF
 // ---------------------------------------------------------------------------
 
@@ -80,23 +104,28 @@ type PositionedField = {
   type: string;
 };
 
+const FONT_R2_KEY = "_system/fonts/NotoSerif-Regular.ttf";
+
 async function burnPdfContract({
   sourcePdfBytes,
   signatureBytes,
+  fontBytes,
   layout,
   fieldValues,
   choiceLabels,
 }: {
   sourcePdfBytes: Uint8Array;
   signatureBytes: Uint8Array | null;
+  fontBytes: Uint8Array;
   layout: PositionedField[];
   fieldValues: Record<string, unknown>;
   choiceLabels: Record<string, Record<string, string>>;
 }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(sourcePdfBytes);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  pdfDoc.registerFontkit(fontkit);
+  const font = await pdfDoc.embedFont(fontBytes, { subset: false });
   const signatureImage =
-    signatureBytes ? await pdfDoc.embedPng(signatureBytes) : null;
+    signatureBytes ? await pdfDoc.embedPng(sanitizePngForPdfLib(signatureBytes)) : null;
 
   for (const field of layout) {
     const page = pdfDoc.getPage(field.page - 1);
@@ -381,7 +410,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        const sourcePdfBytes = await fetchR2Object(templateSnapshot.pdf_file_path);
+        const [sourcePdfBytes, fontBytes] = await Promise.all([
+          fetchR2Object(templateSnapshot.pdf_file_path),
+          fetchR2Object(FONT_R2_KEY),
+        ]);
 
         let signatureBytes: Uint8Array | null = null;
         if (contract.signature_path) {
@@ -391,6 +423,7 @@ Deno.serve(async (req) => {
         const burnedPdfBytes = await burnPdfContract({
           sourcePdfBytes,
           signatureBytes,
+          fontBytes,
           layout: templateSnapshot.layout,
           fieldValues: burnValues,
           choiceLabels,

@@ -274,11 +274,6 @@ export const Page_OrgChart = () => {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}><BranchesOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
             </div>
           )}
-          {node.type === 'entity' && node.children.length > 0 && (
-            <div style={{ padding: `6px ${token.paddingMD}px` }}>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
-            </div>
-          )}
           {isDept && (
             <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 4 }}>
               {people.managers.length > 0 ? people.managers.map((p) => (
