@@ -17,13 +17,9 @@ import dayjs from "dayjs";
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const VIEW_OPTIONS = ["Day", "Week", "Month", "Cycle", "Custom"] as const;
-const VIEW_MAP: Record<string, ViewMode> = { Day: "day", Week: "week", Month: "month", Cycle: "cycle", Custom: "custom" };
-const VIEW_REVERSE: Record<ViewMode, string> = { day: "Day", week: "Week", month: "Month", cycle: "Cycle", custom: "Custom" };
-
 type DisplayMode = "bar" | "table";
 
-type BarSession = {
+export type BarSession = {
     type: "work" | "lunch";
     startAt: string;
     endAt: string | null;
@@ -38,7 +34,7 @@ type TimelineEntry = {
     isActive: boolean;
 };
 
-type DaySummary = {
+export type DaySummary = {
     date: string;
     sessions: BarSession[];
     workedMs: number;
@@ -125,20 +121,25 @@ const ActiveIndicator = ({ summary }: { summary: DaySummary | undefined }) => {
 };
 
 // --- Props ---
+export type CorrectionTaskEntry = { status: string; message: string | null; proposedSessions?: BarSession[] };
+type CorrectionTaskMap = Map<string, CorrectionTaskEntry[]>;
+
 type Props = {
     employeeId: string;
     timezone: string;
     initialPeriod?: ViewMode;
     toolbarExtra?: React.ReactNode;
+    onDayClick?: (day: Date, summary: DaySummary | undefined) => void;
+    correctionTasksByDate?: CorrectionTaskMap;
 };
 
-export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", toolbarExtra }: Props) => {
+export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", toolbarExtra, onDayClick, correctionTasksByDate }: Props) => {
     const { token } = theme.useToken();
     const [displayMode, setDisplayMode] = useState<DisplayMode>("bar");
     const [period, setPeriod] = useState<ViewMode>(initialPeriod);
     const [refDate, setRefDate] = useState(new Date());
     const [customRange, setCustomRange] = useState<[Date, Date] | null>(null);
-
+    const [pickerOpen, setPickerOpen] = useState(false);
     const dateRange = useMemo(() => getDateRange(period, refDate, customRange?.[0], customRange?.[1]), [period, refDate, customRange]);
     const days = useMemo(() => getDaysInRange(dateRange.startDate, dateRange.endDate), [dateRange]);
 
@@ -156,79 +157,93 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
     const summaries = useMemo(() => sessionsToSummaries(qSessions.sessions, timezone), [qSessions.sessions, timezone]);
     const summaryMap = useMemo(() => { const m = new Map<string, DaySummary>(); for (const s of summaries) m.set(s.date, s); return m; }, [summaries]);
 
-    const today = fmtDate(new Date());
-    const periodClosed = dateRange.endDate < today;
+    const currentCycleRange = useMemo(() => getDateRange("cycle", new Date()), []);
+
+    const rangePresets: RangePickerProps["presets"] = [
+        { label: "Day", value: [dayjs(), dayjs()] },
+        { label: "Week", value: [dayjs().startOf("week"), dayjs().endOf("week")] },
+        { label: "Month", value: [dayjs().startOf("month"), dayjs().endOf("month")] },
+        { label: "Cycle", value: [dayjs(currentCycleRange.startDate), dayjs(currentCycleRange.endDate)] },
+    ];
 
     const handleRangeChange: RangePickerProps["onChange"] = (dates) => {
-        if (dates?.[0] && dates?.[1]) setCustomRange([dates[0].toDate(), dates[1].toDate()]);
+        if (!dates?.[0] || !dates?.[1]) return;
+        const start = dates[0];
+        const end = dates[1];
+        const diffDays = end.diff(start, "day");
+        if (diffDays === 0) { setPeriod("day"); setCustomRange(null); }
+        else if (diffDays === 6) { setPeriod("week"); setCustomRange(null); }
+        else if (start.date() === 1 && end.date() === end.daysInMonth()) { setPeriod("month"); setCustomRange(null); }
+        else { setPeriod("custom"); setCustomRange([start.toDate(), end.toDate()]); }
+        setRefDate(start.toDate());
     };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             {/* Sticky toolbar */}
             <div style={{
-                display: "flex", alignItems: "center", gap: 8, padding: `${token.paddingSM}px ${token.paddingLG}px`,
+                display: "flex", alignItems: "center", padding: `${token.paddingSM}px ${token.paddingLG}px`,
                 borderBottom: `1px solid ${token.colorBorderSecondary}`, position: "sticky", top: 0, background: token.colorBgContainer, zIndex: 1,
-                flexWrap: "wrap",
             }}>
-                {toolbarExtra}
-                <Segmented
-                    size="small"
-                    options={[{ value: "bar", icon: <BarChartOutlined /> }, { value: "table", icon: <UnorderedListOutlined /> }]}
-                    value={displayMode}
-                    onChange={(v) => setDisplayMode(v as DisplayMode)}
-                />
-                <div style={{ width: 1, height: 20, background: token.colorBorderSecondary }} />
-                <Segmented
-                    size="small"
-                    options={VIEW_OPTIONS as unknown as string[]}
-                    value={VIEW_REVERSE[period]}
-                    onChange={(v) => setPeriod(VIEW_MAP[v as string]!)}
-                />
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                    {period === "custom" ? (
-                        <RangePicker size="small" value={customRange ? [dayjs(customRange[0]), dayjs(customRange[1])] : undefined} onChange={handleRangeChange} />
-                    ) : (
-                        <>
-                            <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "prev"))} />
-                            <Text strong style={{ minWidth: 160, textAlign: "center", fontSize: 12 }}>{dateRange.label}</Text>
-                            <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "next"))} />
-                            <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
-                        </>
-                    )}
-                    <Tag color={periodClosed ? "default" : "processing"}>{periodClosed ? "Closed" : "In Progress"}</Tag>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
+                    {toolbarExtra}
+                    <Segmented
+                        size="small"
+                        options={[{ value: "bar", icon: <BarChartOutlined /> }, { value: "table", icon: <UnorderedListOutlined /> }]}
+                        value={displayMode}
+                        onChange={(v) => setDisplayMode(v as DisplayMode)}
+                    />
+                </div>
+                <div style={{ position: "absolute", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, pointerEvents: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+                        <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "prev"))} />
+                        <Button size="small" onClick={() => setPickerOpen(true)}>
+                            {period.charAt(0).toUpperCase() + period.slice(1)}
+                        </Button>
+                        <RangePicker
+                            size="small"
+                            open={pickerOpen}
+                            onOpenChange={setPickerOpen}
+                            value={[dayjs(dateRange.startDate), dayjs(dateRange.endDate)]}
+                            onChange={(dates, dateStrings) => { handleRangeChange(dates, dateStrings); setPickerOpen(false); }}
+                            presets={rangePresets}
+                            allowClear={false}
+                            separator="–"
+                            format="DD/MM/YYYY"
+                        />
+                        <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "next"))} />
+                        <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
+                    </div>
                 </div>
             </div>
 
             {/* Content */}
             <div style={{ padding: token.paddingLG, position: "relative", zIndex: 0, flex: 1 }}>
-                {/* Day bar view */}
-                {displayMode === "bar" && period === "day" && (
-                    <DayBarView day={days[0]!} summary={summaryMap.get(dateRange.startDate)} timezone={timezone} />
-                )}
-
-                {/* Week bar view */}
-                {displayMode === "bar" && period === "week" && (
+                {/* Bar views — unified DayRow for all periods */}
+                {displayMode === "bar" && (
                     <div>
                         <App_TimeclockLegend />
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {days.map((d) => <DayBarRow key={fmtDate(d)} day={d} summary={summaryMap.get(fmtDate(d))} timezone={timezone} />)}
-                        </div>
-                    </div>
-                )}
-
-                {/* Month/Cycle/Custom bar view */}
-                {displayMode === "bar" && (period === "month" || period === "cycle" || period === "custom") && (
-                    <div>
-                        <App_TimeclockLegend />
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 16px" }}>
-                                <div style={{ width: 100, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Day</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 14px" }}>
+                                <div style={{ width: 80, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Day</div>
                                 <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Timeline</div>
                                 <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Worked</div>
                                 <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>Breaks</div>
                             </div>
-                            {days.map((d) => <DayCompactRow key={fmtDate(d)} day={d} summary={summaryMap.get(fmtDate(d))} timezone={timezone} />)}
+                            {days.map((d) => {
+                                const dateStr = fmtDate(d);
+                                return (
+                                    <DayRow
+                                        key={dateStr}
+                                        day={d}
+                                        summary={summaryMap.get(dateStr)}
+                                        timezone={timezone}
+                                        onDayClick={onDayClick}
+                                        correctionEntries={correctionTasksByDate?.get(dateStr)}
+                                        timelineMode={period === "day" ? "expanded" : "collapsible"}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -246,49 +261,23 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
 
 // --- Sub-components ---
 
-const DayBarView = ({ day, summary, timezone }: { day: Date; summary?: DaySummary; timezone: string }) => {
-    const { token } = theme.useToken();
-    const td = isToday(day);
-    const sessions = summary?.sessions ?? [];
+const CORRECTION_LABELS: Record<string, { color: string; text: string }> = {
+    pending: { color: "#fa8c16", text: "Pending Correction" },
+    approved: { color: "#52c41a", text: "Approved Correction" },
+    rejected: { color: "#ff4d4f", text: "Rejected Correction" },
+    cancelled: { color: "#8c8c8c", text: "Cancelled Correction" },
+};
+
+const CorrectionBanner = ({ entries }: { entries: CorrectionTaskEntry[] }) => {
+    const visible = entries.filter((e) => e.status !== "cancelled");
+    const top = visible.find((e) => e.status === "pending") ?? visible[0];
+    if (!top) return null;
+    const info = CORRECTION_LABELS[top.status] ?? CORRECTION_LABELS.pending!;
+    const count = visible.length;
     return (
-        <div>
-            <App_TimeclockLegend />
-            <div style={{ background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, padding: token.paddingLG, marginBottom: token.marginMD }}>
-                <div style={{ paddingTop: 14, paddingBottom: 14 }}>
-                    <App_TimeclockBar24 sessions={sessions} timezone={timezone} showNow={td} showHourLabels />
-                </div>
-                <div style={{ display: "flex", gap: 24, marginTop: token.marginMD }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: TIMECLOCK_COLORS.work.solid }} />
-                        Worked <strong style={{ fontSize: 15, marginLeft: 2 }}>{summary ? formatDuration(summary.workedMs) : "0.00h"}</strong>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: TIMECLOCK_COLORS.lunch.text }} />
-                        Break <strong style={{ fontSize: 15, marginLeft: 2 }}>{summary ? formatDuration(summary.breakMs) : "0.00h"}</strong>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: token.colorFillAlter, border: `1px solid ${token.colorBorder}` }} />
-                        To 8h <strong style={{ fontSize: 15, marginLeft: 2 }}>{summary ? formatDuration(Math.max(0, 8 * 3600000 - summary.workedMs)) : "8.00h"}</strong>
-                    </div>
-                    <ActiveIndicator summary={summary} />
-                </div>
-            </div>
-            {(summary?.timeline ?? []).length > 0 && (
-                <div style={{ background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: "hidden" }}>
-                    {(summary?.timeline ?? []).map((entry, i, arr) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${token.colorFillAlter}` : undefined }}>
-                            <App_TimeclockEventDot eventType={entry.eventType} pulse={entry.isActive} />
-                            <div style={{ fontWeight: 600, width: 46, fontSize: 14, color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorText }}>{entry.time}</div>
-                            <div style={{ flex: 1, color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorTextSecondary, fontSize: 13, fontWeight: entry.isActive ? 600 : 400 }}>
-                                {entry.label}
-                            </div>
-                            {entry.elapsed !== null && entry.elapsed > 0 && (
-                                <div style={{ fontSize: 12, color: token.colorTextTertiary }}>{formatDuration(entry.elapsed)}</div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
+        <div style={{ fontSize: 10, fontWeight: 600, color: info.color, display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: info.color, flexShrink: 0 }} />
+            {info.text}{count > 1 ? ` (+${count - 1})` : ""}
         </div>
     );
 };
@@ -310,7 +299,12 @@ const TimelineDetail = ({ timeline, token }: { timeline: TimelineEntry[]; token:
     </div>
 );
 
-const DayBarRow = ({ day, summary, timezone }: { day: Date; summary?: DaySummary; timezone: string }) => {
+const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelineMode = "collapsible" }: {
+    day: Date; summary?: DaySummary; timezone: string;
+    onDayClick?: (day: Date, summary: DaySummary | undefined) => void;
+    correctionEntries?: CorrectionTaskEntry[];
+    timelineMode?: "expanded" | "collapsible";
+}) => {
     const { token } = theme.useToken();
     const [expanded, setExpanded] = useState(false);
     const td = isToday(day);
@@ -318,12 +312,20 @@ const DayBarRow = ({ day, summary, timezone }: { day: Date; summary?: DaySummary
     const wknd = isWeekend(day);
     const timeline = summary?.timeline ?? [];
     const canExpand = !wknd && !future && timeline.length > 0;
+    const pending = correctionEntries?.find((e) => e.status === "pending");
+    const nonPending = correctionEntries?.filter((e) => e.status !== "pending");
+    const showTimeline = timelineMode === "expanded" ? canExpand : expanded;
+
     return (
-        <div style={{
-            background: td ? "#eef2ff" : token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: token.borderRadiusSM, borderLeft: td ? "3px solid #6366f1" : undefined,
-            opacity: future ? 0.35 : wknd ? 0.3 : 1, overflow: "hidden",
-        }}>
+        <div
+            onClick={() => !wknd && !future && onDayClick?.(day, summary)}
+            style={{
+                background: td ? "#eef2ff" : token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`,
+                borderRadius: token.borderRadiusSM, borderLeft: td ? "3px solid #6366f1" : undefined,
+                opacity: future ? 0.35 : wknd ? 0.3 : 1, overflow: "hidden",
+                cursor: !wknd && !future && onDayClick ? "pointer" : undefined,
+            }}
+        >
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 14px" }}>
                 <div style={{ width: 80, flexShrink: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 12 }}>
@@ -332,55 +334,25 @@ const DayBarRow = ({ day, summary, timezone }: { day: Date; summary?: DaySummary
                     </div>
                     <div style={{ fontSize: 10, color: token.colorTextQuaternary }}>{formatDayLabel(day).split(", ")[1]}</div>
                 </div>
-                <div style={{ flex: 1, paddingTop: 14, paddingBottom: 14 }}>
-                    {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
-                        : <App_TimeclockBar24 sessions={summary?.sessions ?? []} timezone={timezone} showNow={td} showHourLabels />}
-                </div>
-                <div style={{ width: 90, textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: summary && summary.workedMs > 0 ? TIMECLOCK_COLORS.work.solid : token.colorTextQuaternary }}>
-                        {wknd || !summary || summary.workedMs === 0 ? "—" : formatDuration(summary.workedMs)}
-                    </span>
-                    <ActiveIndicator summary={summary} />
-                </div>
-            </div>
-            {canExpand && (
-                <div style={{ display: "flex", justifyContent: "center", padding: "0 0 4px" }}>
-                    <Button type="text" size="small" icon={expanded ? <UpOutlined /> : <DownOutlined />}
-                        onClick={() => setExpanded(!expanded)}
-                        style={{ fontSize: 10, color: token.colorTextQuaternary, height: 18, width: 36 }}
-                    />
-                </div>
-            )}
-            {expanded && <TimelineDetail timeline={timeline} token={token} />}
-        </div>
-    );
-};
-
-const DayCompactRow = ({ day, summary, timezone }: { day: Date; summary?: DaySummary; timezone: string }) => {
-    const { token } = theme.useToken();
-    const [expanded, setExpanded] = useState(false);
-    const td = isToday(day);
-    const future = isFuture(day);
-    const wknd = isWeekend(day);
-    const timeline = summary?.timeline ?? [];
-    const canExpand = !wknd && !future && timeline.length > 0;
-    return (
-        <div style={{
-            background: td ? "#eef2ff" : token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: token.borderRadiusSM, borderLeft: td ? "3px solid #6366f1" : undefined,
-            opacity: future ? 0.35 : wknd ? 0.3 : 1, overflow: "hidden",
-        }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px" }}>
-                <div style={{ width: 100, flexShrink: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 12 }}>
-                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day.getDay()]}
-                        {td && <Tag color="processing" style={{ marginLeft: 4, fontSize: 9 }}>Today</Tag>}
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: pending ? 4 : 0 }}>
+                    <div style={{ paddingTop: 14, paddingBottom: pending ? 4 : 14 }}>
+                        {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
+                            : <App_TimeclockBar24 sessions={summary?.sessions ?? []} timezone={timezone} showNow={td} showHourLabels />}
                     </div>
-                    <div style={{ fontSize: 11, color: token.colorTextQuaternary }}>{formatDayLabel(day).split(", ")[1]}</div>
-                </div>
-                <div style={{ flex: 1, paddingTop: 14, paddingBottom: 14 }}>
-                    {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
-                        : <App_TimeclockBar24 sessions={summary?.sessions ?? []} timezone={timezone} showNow={td} showHourLabels />}
+                    {pending?.proposedSessions && (
+                        <div style={{
+                            marginTop: 8, marginLeft: -6, marginRight: -6,
+                            border: "1px dashed #fa8c16", borderRadius: token.borderRadiusSM,
+                            padding: "4px 6px 14px",
+                            background: "rgba(250, 140, 22, 0.04)",
+                        }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fa8c16" }} />
+                                <span style={{ fontSize: 9, color: "#fa8c16", fontWeight: 600 }}>Pending Correction</span>
+                            </div>
+                            <App_TimeclockBar24 sessions={pending.proposedSessions} timezone={timezone} />
+                        </div>
+                    )}
                 </div>
                 <div style={{ width: 70, textAlign: "right", fontWeight: 600, fontSize: 13, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
                     <span style={{ color: summary && summary.workedMs > 0 ? TIMECLOCK_COLORS.work.solid : token.colorTextQuaternary }}>
@@ -391,16 +363,17 @@ const DayCompactRow = ({ day, summary, timezone }: { day: Date; summary?: DaySum
                 <div style={{ width: 70, textAlign: "right", fontSize: 13, flexShrink: 0, color: token.colorTextSecondary }}>
                     {wknd || !summary || summary.breakMs === 0 ? "—" : formatDuration(summary.breakMs)}
                 </div>
+                {nonPending && nonPending.length > 0 && <CorrectionBanner entries={nonPending} />}
             </div>
-            {canExpand && (
+            {timelineMode === "collapsible" && canExpand && (
                 <div style={{ display: "flex", justifyContent: "center", padding: "0 0 4px" }}>
                     <Button type="text" size="small" icon={expanded ? <UpOutlined /> : <DownOutlined />}
-                        onClick={() => setExpanded(!expanded)}
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
                         style={{ fontSize: 10, color: token.colorTextQuaternary, height: 18, width: 36 }}
                     />
                 </div>
             )}
-            {expanded && <TimelineDetail timeline={timeline} token={token} />}
+            {showTimeline && <TimelineDetail timeline={timeline} token={token} />}
         </div>
     );
 };

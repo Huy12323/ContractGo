@@ -19,7 +19,8 @@ Typically this is your frontend app root (e.g., `frontend/vite/`). Check your pr
 2. **Use `--local` flag** for local development to prevent accidental production changes
 3. **Regenerate types after schema changes**
 4. **Prefer live DB over guessing** — when debugging, inspect the actual database
-5. **NEVER run `supabase db reset` without explicit user approval** — reset destroys all local data and rebuilds from scratch. Use `supabase db push --local` instead (applies only pending migrations, preserves existing data). Migrations must be proven against existing data to give confidence they'll work on staging/production.
+5. **NEVER run `supabase db reset`** — dropping the database is forbidden, even in dev. Seed data is precious and must be preserved unconditionally. Use `supabase db push --local` instead (applies only pending migrations, preserves existing data).
+6. **ALWAYS back up before migrations** — run `/backup` before any `db push` command. See the backup skill for the full procedure.
 
 ## Quick Reference
 

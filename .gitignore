@@ -41,6 +41,9 @@ Thumbs.db
 tmp/
 temp/
 
+# Database backups (contain seed data, never commit)
+backups/
+
 # Logs
 *.log
 .bible/

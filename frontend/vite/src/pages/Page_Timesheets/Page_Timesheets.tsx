@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useMatch } from "@tanstack/react-router";
-import { Segmented, Button, Input, Typography, Spin, DatePicker, theme } from "antd";
+import { Button, Input, Typography, Spin, DatePicker, theme } from "antd";
 import { LeftOutlined, RightOutlined, SearchOutlined } from "@ant-design/icons";
 import { App_PageToolbar } from "@/components/app-shell/App_PageToolbar";
 import { useQ_Tables_OrgEntities } from "@/hooks/useQ_Tables_OrgEntities";
@@ -21,9 +21,6 @@ import dayjs from "dayjs";
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const HR_VIEWS = ["Week", "Month", "Cycle", "Custom"] as const;
-const VIEW_MAP: Record<string, ViewMode> = { Week: "week", Month: "month", Cycle: "cycle", Custom: "custom" };
-const VIEW_REVERSE: Record<string, string> = { week: "Week", month: "Month", cycle: "Cycle", custom: "Custom" };
 
 const SAFE_ROW_LIMIT = 900;
 
@@ -37,6 +34,7 @@ export const Page_Timesheets = () => {
     const [refDate, setRefDate] = useState(new Date());
     const [searchText, setSearchText] = useState("");
     const [customRange, setCustomRange] = useState<[Date, Date] | null>(null);
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<GridEmployee | null>(null);
 
     const activeEntityId = entityId || qEntities.entities[0]?.id || "";
@@ -167,8 +165,23 @@ export const Page_Timesheets = () => {
         });
     }, [employeeBase, summaryIndex, qLiveStatus.statusMap, days]);
 
+    const currentCycleRange = useMemo(() => getDateRange("cycle", new Date()), []);
+
+    const rangePresets: RangePickerProps["presets"] = [
+        { label: "Week", value: [dayjs().startOf("week"), dayjs().endOf("week")] },
+        { label: "Month", value: [dayjs().startOf("month"), dayjs().endOf("month")] },
+        { label: "Cycle", value: [dayjs(currentCycleRange.startDate), dayjs(currentCycleRange.endDate)] },
+    ];
+
     const handleRangeChange: RangePickerProps["onChange"] = (dates) => {
-        if (dates?.[0] && dates?.[1]) setCustomRange([dates[0].toDate(), dates[1].toDate()]);
+        if (!dates?.[0] || !dates?.[1]) return;
+        const start = dates[0];
+        const end = dates[1];
+        const diffDays = end.diff(start, "day");
+        if (diffDays === 6) { setViewMode("week"); setCustomRange(null); }
+        else if (start.date() === 1 && end.date() === end.daysInMonth()) { setViewMode("month"); setCustomRange(null); }
+        else { setViewMode("custom"); setCustomRange([start.toDate(), end.toDate()]); }
+        setRefDate(start.toDate());
     };
 
     if (qEntities.entities.length === 0) {
@@ -195,41 +208,43 @@ export const Page_Timesheets = () => {
             {/* Inner toolbar — search + view toggle + date nav */}
             <div style={{
                 height: 40, minHeight: 40, display: "flex", alignItems: "center",
-                padding: `0 ${token.paddingLG}px`, gap: token.marginXS,
+                padding: `0 ${token.paddingLG}px`,
                 borderBottom: `1px solid ${token.colorBorderSecondary}`,
                 background: token.colorBgContainer,
+                position: "relative",
             }}>
-                <Segmented
-                    size="small"
-                    options={HR_VIEWS as unknown as string[]}
-                    value={VIEW_REVERSE[viewMode]}
-                    onChange={(v) => setViewMode(VIEW_MAP[v as string]!)}
-                />
-                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    {viewMode === "custom" ? (
+                <div style={{ position: "absolute", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, pointerEvents: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
+                        <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "prev"))} />
+                        <Button size="small" onClick={() => setPickerOpen(true)}>
+                            {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
+                        </Button>
                         <RangePicker
                             size="small"
-                            value={customRange ? [dayjs(customRange[0]), dayjs(customRange[1])] : undefined}
-                            onChange={handleRangeChange}
+                            open={pickerOpen}
+                            onOpenChange={setPickerOpen}
+                            value={[dayjs(dateRange.startDate), dayjs(dateRange.endDate)]}
+                            onChange={(dates, dateStrings) => { handleRangeChange(dates, dateStrings); setPickerOpen(false); }}
+                            presets={rangePresets}
+                            allowClear={false}
+                            separator="–"
+                            format="DD/MM/YYYY"
                         />
-                    ) : (
-                        <>
-                            <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "prev"))} />
-                            <Text strong style={{ minWidth: 180, textAlign: "center", fontSize: token.fontSizeSM }}>{dateRange.label}</Text>
-                            <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "next"))} />
-                            <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
-                        </>
-                    )}
+                        <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "next"))} />
+                        <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
+                    </div>
                 </div>
-                <Input
-                    size="small"
-                    placeholder="Search employee..."
-                    prefix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    allowClear
-                    style={{ width: 220 }}
-                />
+                <div style={{ marginLeft: "auto", position: "relative", zIndex: 1 }}>
+                    <Input
+                        size="small"
+                        placeholder="Search employee..."
+                        prefix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        allowClear
+                        style={{ width: 220 }}
+                    />
+                </div>
             </div>
 
             {/* Grid area */}

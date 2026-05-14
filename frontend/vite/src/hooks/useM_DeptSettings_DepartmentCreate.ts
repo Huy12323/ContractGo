@@ -7,6 +7,7 @@ export type UseM_DeptSettings_DepartmentCreate_Params = {
     name: string;
     entity_id: string;
     parent_id?: string;
+    is_default?: boolean;
 };
 
 export const useM_DeptSettings_DepartmentCreate = () => {

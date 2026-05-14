@@ -9,6 +9,7 @@ export type UseM_EntitySettings_EntityUpdate_Body = Partial<{
     name: string;
     timezone: Database["public"]["Enums"]["iana_timezone"] | null;
     locale: string;
+    correction_approval_mode: Database["public"]["Enums"]["entities_correction_approval_mode_enum"];
 }>;
 
 export const useM_EntitySettings_EntityUpdate = ({ entityId }: UseM_EntitySettings_EntityUpdate_Params) => {

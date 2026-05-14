@@ -400,11 +400,133 @@ export type Database = {
           },
         ]
       }
+      correction_tasks: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          day_id: string
+          employee_id: string
+          entity_id: string
+          id: string
+          message: string | null
+          organization_id: string
+          rejected_at: string | null
+          rejected_by: string | null
+          status: Database["public"]["Enums"]["correction_task_status_enum"]
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          day_id: string
+          employee_id: string
+          entity_id: string
+          id?: string
+          message?: string | null
+          organization_id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          status?: Database["public"]["Enums"]["correction_task_status_enum"]
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          day_id?: string
+          employee_id?: string
+          entity_id?: string
+          id?: string
+          message?: string | null
+          organization_id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          status?: Database["public"]["Enums"]["correction_task_status_enum"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correction_tasks_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_tasks_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_tasks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_tasks_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correction_tasks_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      days: {
+        Row: {
+          created_at: string | null
+          date: string
+          day: number | null
+          id: string
+          month: number | null
+          timezone: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          day?: number | null
+          id?: string
+          month?: number | null
+          timezone: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          day?: number | null
+          id?: string
+          month?: number | null
+          timezone?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           created_at: string | null
           entity_id: string
           id: string
+          is_default: boolean
           name: string
           organization_id: string
           parent_id: string | null
@@ -414,6 +536,7 @@ export type Database = {
           created_at?: string | null
           entity_id: string
           id?: string
+          is_default?: boolean
           name: string
           organization_id?: string
           parent_id?: string | null
@@ -423,6 +546,7 @@ export type Database = {
           created_at?: string | null
           entity_id?: string
           id?: string
+          is_default?: boolean
           name?: string
           organization_id?: string
           parent_id?: string | null
@@ -739,7 +863,7 @@ export type Database = {
           },
         ]
       }
-      ent_mZ7hjGvUOQW8sszD__employees: {
+      ent_HkG0u5u0Kxf6Mk9E__employees: {
         Row: {
           employee_id: string
         }
@@ -751,7 +875,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ent_mZ7hjGvUOQW8sszD__employees_employee_id_fkey"
+            foreignKeyName: "ent_HkG0u5u0Kxf6Mk9E__employees_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: true
             referencedRelation: "employees"
@@ -759,7 +883,7 @@ export type Database = {
           },
         ]
       }
-      ent_pcpUpoPjlcKdJICb__employees: {
+      ent_ldvQLdiB32b0FahS__employees: {
         Row: {
           employee_id: string
         }
@@ -771,7 +895,47 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ent_pcpUpoPjlcKdJICb__employees_employee_id_fkey"
+            foreignKeyName: "ent_ldvQLdiB32b0FahS__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ent_lFbGc7iTn3khLY48__employees: {
+        Row: {
+          employee_id: string
+        }
+        Insert: {
+          employee_id: string
+        }
+        Update: {
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ent_lFbGc7iTn3khLY48__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ent_LUKzZoIsU0Gwd7sA__employees: {
+        Row: {
+          employee_id: string
+        }
+        Insert: {
+          employee_id: string
+        }
+        Update: {
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ent_LUKzZoIsU0Gwd7sA__employees_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: true
             referencedRelation: "employees"
@@ -781,6 +945,7 @@ export type Database = {
       }
       entities: {
         Row: {
+          correction_approval_mode: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at: string | null
           id: string
           locale: string | null
@@ -790,6 +955,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          correction_approval_mode?: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at?: string | null
           id?: string
           locale?: string | null
@@ -799,6 +965,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          correction_approval_mode?: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at?: string | null
           id?: string
           locale?: string | null
@@ -1156,6 +1323,77 @@ export type Database = {
           },
         ]
       }
+      timeclock_corrections: {
+        Row: {
+          correction_task_id: string
+          created_at: string | null
+          day_id: string
+          duration_ms: number
+          end_at: string
+          id: string
+          organization_id: string
+          session_id: string | null
+          start_at: string
+          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at: string | null
+        }
+        Insert: {
+          correction_task_id: string
+          created_at?: string | null
+          day_id: string
+          duration_ms: number
+          end_at: string
+          id?: string
+          organization_id?: string
+          session_id?: string | null
+          start_at: string
+          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at?: string | null
+        }
+        Update: {
+          correction_task_id?: string
+          created_at?: string | null
+          day_id?: string
+          duration_ms?: number
+          end_at?: string
+          id?: string
+          organization_id?: string
+          session_id?: string | null
+          start_at?: string
+          type?: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeclock_corrections_correction_task_id_fkey"
+            columns: ["correction_task_id"]
+            isOneToOne: false
+            referencedRelation: "correction_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_corrections_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_corrections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeclock_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "timeclock_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timeclock_events: {
         Row: {
           created_at: string
@@ -1211,6 +1449,7 @@ export type Database = {
       timeclock_sessions: {
         Row: {
           created_at: string
+          day_id: string
           duration_ms: number | null
           employee_id: string
           end_at: string | null
@@ -1225,6 +1464,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          day_id?: string
           duration_ms?: number | null
           employee_id: string
           end_at?: string | null
@@ -1239,6 +1479,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          day_id?: string
           duration_ms?: number | null
           employee_id?: string
           end_at?: string | null
@@ -1252,6 +1493,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "timeclock_sessions_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "days"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "timeclock_sessions_employee_id_fkey"
             columns: ["employee_id"]
@@ -1325,25 +1573,45 @@ export type Database = {
           name: string
         }[]
       }
+      get_or_create_day: {
+        Args: { p_date: string; p_tz: string }
+        Returns: string
+      }
       get_organization_id_for_change: {
         Args: { p_record_data: Json; p_table_name: string }
         Returns: string
       }
       get_organization_role: { Args: { org_id: string }; Returns: string }
-      get_timesheet_grid: {
-        Args: {
-          p_end_utc: string
-          p_entity_id: string
-          p_start_utc: string
-          p_timezone: string
-        }
-        Returns: {
-          break_ms: number
-          employee_id: string
-          work_date: string
-          worked_ms: number
-        }[]
-      }
+      get_timesheet_grid:
+        | {
+            Args: {
+              p_end_utc: string
+              p_entity_id: string
+              p_start_utc: string
+              p_timezone: string
+            }
+            Returns: {
+              break_ms: number
+              employee_id: string
+              work_date: string
+              worked_ms: number
+            }[]
+          }
+        | {
+            Args: {
+              p_employee_ids?: string[]
+              p_end_utc: string
+              p_entity_id: string
+              p_start_utc: string
+              p_timezone: string
+            }
+            Returns: {
+              break_ms: number
+              employee_id: string
+              work_date: string
+              worked_ms: number
+            }[]
+          }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
       is_invitation_recipient: {
@@ -1372,6 +1640,11 @@ export type Database = {
         | "edit_own_profile"
       contract_template_type_enum: "tiptap" | "pdf"
       contracts_status_enum: "draft" | "sent" | "filled" | "active" | "voided"
+      correction_task_status_enum:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "cancelled"
       employee_column_type:
         | "text"
         | "number"
@@ -1380,6 +1653,10 @@ export type Database = {
         | "multi_select"
         | "single_select"
         | "file"
+      entities_correction_approval_mode_enum:
+        | "hr_only"
+        | "manager_only"
+        | "both"
       iana_timezone:
         | "Africa/Abidjan"
         | "Africa/Accra"
@@ -2093,6 +2370,12 @@ export const Constants = {
       ],
       contract_template_type_enum: ["tiptap", "pdf"],
       contracts_status_enum: ["draft", "sent", "filled", "active", "voided"],
+      correction_task_status_enum: [
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled",
+      ],
       employee_column_type: [
         "text",
         "number",
@@ -2101,6 +2384,11 @@ export const Constants = {
         "multi_select",
         "single_select",
         "file",
+      ],
+      entities_correction_approval_mode_enum: [
+        "hr_only",
+        "manager_only",
+        "both",
       ],
       iana_timezone: [
         "Africa/Abidjan",

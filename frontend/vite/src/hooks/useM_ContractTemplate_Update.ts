@@ -33,7 +33,6 @@ export const useM_ContractTemplate_Update = ({ templateId }: UseM_ContractTempla
             return sb_FromContractTemplates_Update.data;
         },
         onSuccess: () => {
-            message.success("Template updated");
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() });
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() });
         },

@@ -12,7 +12,8 @@ Guidelines for creating migrations, common database recipes, type generation, an
 1. **NEVER manually edit `database.types.ts`** — auto-generated
 2. **ALWAYS regenerate types** after ANY schema change
 3. **ALWAYS test locally** before production
-4. **NEVER run `supabase db reset` without explicit user approval** — existing data must survive migrations. Use `supabase db push --local` (applies only pending migrations, preserves data). A migration that only passes on a clean reset gives false confidence — it proves nothing about staging/production where real data exists. The whole point is to verify data migrates correctly, not that it can be rebuilt from scratch.
+4. **NEVER run `supabase db reset`** — dropping the database is forbidden, even in dev. Seed data is precious and must be preserved unconditionally. Use `supabase db push --local` (applies only pending migrations, preserves data).
+5. **ALWAYS back up before migrations** — run `/backup` (or `/backup production`) before any `db push`. This is non-negotiable. See the backup skill for the procedure.
 
 ## Migration Naming
 
@@ -227,7 +228,8 @@ supabase db lint --local
 | Wrong | Correct |
 |---|---|
 | Manually editing `database.types.ts` | Regenerate with CLI |
-| Running `db reset` without user approval | Use `db push --local` to apply pending migrations (preserves data) |
+| Running `db reset` ever | Forbidden — use `db push --local` to apply pending migrations (preserves data) |
+| Pushing migrations without backup | Always `/backup` first — seed data is precious |
 | Pushing to production without local verification | Always `db push --local` + test first |
 | Skipping type generation after migration | Always regenerate types |
 | TEXT + CHECK for fixed values | ENUM (see your schema design skill) |

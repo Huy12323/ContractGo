@@ -95,7 +95,6 @@ export const App_PdfFieldEditor = ({
     pendingFieldDrop,
     onPendingFieldDropConsumed,
     onArmFieldDrop,
-    pendingPdfFile,
     onPendingPdfFileChange,
     hrSet,
     mandatorySet,
@@ -394,15 +393,7 @@ export const App_PdfFieldEditor = ({
                         ? `Click on a page to drop "${pendingFieldDrop.label}"`
                         : `${pdfLayout.length} field${pdfLayout.length === 1 ? '' : 's'} placed`}
                 </Typography.Text>
-                {pendingPdfFile && (
-                    <Typography.Text
-                        type="warning"
-                        style={{ fontSize: token.fontSizeSM, marginLeft: token.marginSM }}
-                    >
-                        New PDF pending — upload happens on Save
-                    </Typography.Text>
-                )}
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: token.marginXS }}>
+<div style={{ marginLeft: 'auto', display: 'flex', gap: token.marginXS }}>
                     <Button
                         size="small"
                         type="text"
@@ -416,6 +407,7 @@ export const App_PdfFieldEditor = ({
                         beforeUpload={handleUpload}
                         showUploadList={false}
                         id={'pdf-replace-input'}
+                        openFileDialogOnClick={false}
                     >
                         <Button size="small" type="text" icon={<UploadOutlined />} onClick={handleReplaceClick}>
                             Replace PDF

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { Typography, Button, Tooltip, Modal, Input, Form, theme } from 'antd'
+import { Typography, Button, Tooltip, Modal, Input, Form, theme, Steps, Select } from 'antd'
 import {
   ZoomInOutlined,
   ZoomOutOutlined,
@@ -18,6 +18,8 @@ import { useQ_Tables_OrgDepartments } from '@/hooks/useQ_Tables_OrgDepartments'
 import { useM_EntitySettings_EntityCreate } from '@/hooks/useM_EntitySettings_EntityCreate'
 import { useM_DeptSettings_DepartmentCreate } from '@/hooks/useM_DeptSettings_DepartmentCreate'
 import { App_EntitySettingsModal } from '@/components/organization/App_EntitySettingsModal'
+import { const_TimezoneOptions } from '@/hooks/const_TimezoneOptions'
+import type { Database } from '@/types/database.types'
 import { App_DepartmentSettingsModal } from '@/components/organization/App_DepartmentSettingsModal'
 import { Utils_OrgTree_BuildTree, type OrgTreeNode } from '@/utils/Utils_OrgTree_BuildTree'
 import { QueryKeys } from '@/utils/query/queryKeys'
@@ -108,7 +110,8 @@ export const Page_OrgChart = () => {
 
   const mEntityCreate = useM_EntitySettings_EntityCreate()
   const mDeptCreate = useM_DeptSettings_DepartmentCreate()
-  const [createEntityForm] = Form.useForm<{ name: string }>()
+  const [createEntityForm] = Form.useForm<{ name: string; timezone: Database["public"]["Enums"]["iana_timezone"] | null; locale: string; departmentName: string }>()
+  const [createEntityStep, setCreateEntityStep] = useState(0)
   const [createDeptForm] = Form.useForm<{ name: string }>()
 
   useEffect(() => {
@@ -274,6 +277,11 @@ export const Page_OrgChart = () => {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}><BranchesOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
             </div>
           )}
+          {node.type === 'entity' && node.children.length > 0 && (
+            <div style={{ padding: `6px ${token.paddingMD}px` }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
+            </div>
+          )}
           {isDept && (
             <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 4 }}>
               {people.managers.length > 0 ? people.managers.map((p) => (
@@ -358,10 +366,75 @@ export const Page_OrgChart = () => {
         </div>
       </div>
 
-      <Modal open={createEntityOpen} onCancel={() => { setCreateEntityOpen(false); createEntityForm.resetFields() }} title="Create Entity" onOk={() => createEntityForm.submit()} confirmLoading={mEntityCreate.mutation.isPending} destroyOnHidden>
-        <Form form={createEntityForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => { mEntityCreate.mutation.mutate({ organization_id: organizationId, name: values.name }, { onSuccess: () => { setCreateEntityOpen(false); createEntityForm.resetFields(); setExpandedIds((prev) => new Set(prev).add('org-root')) } }) }}>
-          <Form.Item name="name" label="Entity Name" rules={[{ required: true, message: 'Name is required' }]}><Input placeholder="e.g. VN Branch" /></Form.Item>
-          <button type="submit" hidden />
+      <Modal
+        open={createEntityOpen}
+        onCancel={() => { setCreateEntityOpen(false); createEntityForm.resetFields(); setCreateEntityStep(0) }}
+        title="Create Entity"
+        footer={null}
+        destroyOnHidden
+      >
+        <Steps current={createEntityStep} size="small" style={{ marginTop: 16, marginBottom: 24 }}
+          items={[{ title: 'Entity Info' }, { title: 'Department', description: '(Optional)' }]}
+        />
+        <Form form={createEntityForm} layout="vertical"
+          onFinish={(values) => {
+            mEntityCreate.mutation.mutate(
+              { organization_id: organizationId, name: values.name, timezone: values.timezone || undefined, locale: values.locale || undefined },
+              {
+                onSuccess: (entity) => {
+                  const deptName = values.departmentName?.trim()
+                  if (deptName) {
+                    mDeptCreate.mutation.mutate(
+                      { name: deptName, entity_id: entity.id, is_default: true },
+                      { onSuccess: () => { setCreateEntityOpen(false); createEntityForm.resetFields(); setCreateEntityStep(0); setExpandedIds((prev) => new Set(prev).add('org-root')) } },
+                    )
+                  } else {
+                    setCreateEntityOpen(false); createEntityForm.resetFields(); setCreateEntityStep(0); setExpandedIds((prev) => new Set(prev).add('org-root'))
+                  }
+                },
+              },
+            )
+          }}
+        >
+          <div style={{ display: createEntityStep === 0 ? undefined : 'none' }}>
+            <Form.Item name="name" label="Entity Name" rules={[{ required: true, message: 'Name is required' }]}>
+              <Input placeholder="e.g. VN Branch" />
+            </Form.Item>
+            <Form.Item name="timezone" label="Timezone">
+              <Select showSearch optionFilterProp="label" options={[...const_TimezoneOptions]} placeholder="Search timezone..." style={{ width: '100%' }} allowClear />
+            </Form.Item>
+            <Form.Item name="locale" label="Locale">
+              <Input placeholder="e.g. vi-VN" />
+            </Form.Item>
+          </div>
+          <div style={{ display: createEntityStep === 1 ? undefined : 'none' }}>
+            <Form.Item name="departmentName" label="Department Name">
+              <Input placeholder="e.g. Engineering" />
+            </Form.Item>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              You can skip this and add departments later from the org chart.
+            </Typography.Text>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            {createEntityStep === 0 && (
+              <Button type="primary" onClick={() => createEntityForm.validateFields(['name']).then(() => setCreateEntityStep(1))}>
+                Next
+              </Button>
+            )}
+            {createEntityStep === 1 && (
+              <>
+                <Button onClick={() => setCreateEntityStep(0)}>Back</Button>
+                <Button onClick={() => { createEntityForm.setFieldValue('departmentName', ''); createEntityForm.submit() }}
+                  loading={mEntityCreate.mutation.isPending}>
+                  Skip
+                </Button>
+                <Button type="primary" onClick={() => createEntityForm.submit()}
+                  loading={mEntityCreate.mutation.isPending || mDeptCreate.mutation.isPending}>
+                  Create
+                </Button>
+              </>
+            )}
+          </div>
         </Form>
       </Modal>
 

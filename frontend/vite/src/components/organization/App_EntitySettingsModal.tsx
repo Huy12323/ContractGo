@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
-import { Modal, Tabs, Input, Button, Form, Typography, Alert, Select } from "antd";
+import { useState, useEffect, useMemo } from "react";
+import { Modal, Tabs, Input, Button, Form, Typography, Alert, Select, Radio } from "antd";
 import { const_TimezoneOptions } from "@/hooks/const_TimezoneOptions";
-import { ExclamationCircleOutlined } from "@ant-design/icons";
+import { const_EntitiesCorrectionApprovalModeOptions } from "@/hooks/const_EntitiesCorrectionApprovalModeOptions";
+import { ExclamationCircleOutlined, WarningOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 import { useQ_Tables_EntityDepartments } from "@/hooks/useQ_Tables_EntityDepartments";
 import { useM_EntitySettings_EntityUpdate } from "@/hooks/useM_EntitySettings_EntityUpdate";
 import { useM_EntitySettings_EntityDelete } from "@/hooks/useM_EntitySettings_EntityDelete";
+import type { Enums } from "@/types";
 
 interface EntitySettingsModalProps {
     open: boolean;
@@ -18,17 +20,17 @@ interface EntitySettingsModalProps {
 }
 
 export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName }: EntitySettingsModalProps) => {
-    const [form] = Form.useForm<{ name: string; timezone: string | null; locale: string }>();
+    const [form] = Form.useForm<{ name: string; timezone: string | null; locale: string; correction_approval_mode: Enums<"entities_correction_approval_mode_enum"> }>();
     const [deleteConfirm, setDeleteConfirm] = useState("");
+    const approvalMode = Form.useWatch("correction_approval_mode", form);
 
-    // Fetch the entity's current data so the form shows actual values
     const qEntity = useQuery({
         enabled: !!entityId && open,
         queryKey: [...QueryKeys.entities.record(entityId)],
         queryFn: async () => {
             const sb_FromEntities_Select = await supabase
                 .from("entities")
-                .select("id, name, timezone, locale")
+                .select("id, name, timezone, locale, correction_approval_mode")
                 .eq("id", entityId)
                 .single();
             if (sb_FromEntities_Select.error) throw sb_FromEntities_Select.error;
@@ -40,12 +42,31 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName }:
     const mEntityUpdate = useM_EntitySettings_EntityUpdate({ entityId });
     const mEntityDelete = useM_EntitySettings_EntityDelete({ entityId, onSuccess: onClose });
 
+    const qManagers = useQuery({
+        enabled: !!entityId && open,
+        queryKey: [...QueryKeys.rel__department__employee.list(), { entityId, managersOnly: true }],
+        queryFn: async () => {
+            const sb_FromRelDepartmentEmployee_Select = await supabase
+                .from("rel__department__employee")
+                .select("department_id, departments!inner(entity_id)")
+                .eq("is_manager", true)
+                .eq("departments.entity_id", entityId)
+                .limit(1);
+            if (sb_FromRelDepartmentEmployee_Select.error) throw sb_FromRelDepartmentEmployee_Select.error;
+            return sb_FromRelDepartmentEmployee_Select.data;
+        },
+    });
+
+    const hasManagers = useMemo(() => (qManagers.data?.length ?? 0) > 0, [qManagers.data]);
+    const needsManager = approvalMode === "manager_only" || approvalMode === "both";
+
     useEffect(() => {
         if (open && qEntity.data) {
             form.setFieldsValue({
                 name: qEntity.data.name,
                 timezone: qEntity.data.timezone || null,
                 locale: qEntity.data.locale || "",
+                correction_approval_mode: qEntity.data.correction_approval_mode,
             });
             setDeleteConfirm("");
         }
@@ -92,6 +113,26 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName }:
                                 <Form.Item name="locale" label="Locale">
                                     <Input placeholder="e.g. vi-VN" />
                                 </Form.Item>
+                                <Form.Item name="correction_approval_mode" label="Correction Approval">
+                                    <Radio.Group>
+                                        {const_EntitiesCorrectionApprovalModeOptions.options.map((opt) => (
+                                            <Radio key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                                <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 4 }}>— {opt.description}</Typography.Text>
+                                            </Radio>
+                                        ))}
+                                    </Radio.Group>
+                                </Form.Item>
+                                {needsManager && !hasManagers && (
+                                    <Alert
+                                        type="warning"
+                                        showIcon
+                                        icon={<WarningOutlined />}
+                                        message="No managers assigned"
+                                        description="No department in this entity has a manager. Assign at least one manager in the org chart for manager-based approval to work."
+                                        style={{ marginBottom: 16 }}
+                                    />
+                                )}
                                 <Button type="primary" htmlType="submit" loading={mEntityUpdate.mutation.isPending}>
                                     Save
                                 </Button>

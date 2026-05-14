@@ -21,6 +21,8 @@ export const QueryKeys = {
     contract_template_versions: createTableFactory("contract_template_versions"),
     contract_templates: createTableFactory("contract_templates"),
     contracts: createTableFactory("contracts"),
+    correction_tasks: createTableFactory("correction_tasks"),
+    days: createTableFactory("days"),
     departments: createTableFactory("departments"),
     employee_audit_log: createTableFactory("employee_audit_log"),
     employee_column_choices: createTableFactory("employee_column_choices"),
@@ -36,6 +38,7 @@ export const QueryKeys = {
     realtime_table_events: createTableFactory("realtime_table_events"),
     rel__department__employee: createTableFactory("rel__department__employee"),
     rel__department__invitation: createTableFactory("rel__department__invitation"),
+    timeclock_corrections: createTableFactory("timeclock_corrections"),
     timeclock_events: createTableFactory("timeclock_events"),
     timeclock_sessions: createTableFactory("timeclock_sessions"),
 } satisfies Record<StaticTableName, ReturnType<typeof createTableFactory<StaticTableName>>>;

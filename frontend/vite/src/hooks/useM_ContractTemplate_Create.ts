@@ -31,7 +31,6 @@ export const useM_ContractTemplate_Create = () => {
             return sb_FromContractTemplates_Insert.data;
         },
         onSuccess: () => {
-            message.success("Template created");
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_templates.all() });
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() });
         },

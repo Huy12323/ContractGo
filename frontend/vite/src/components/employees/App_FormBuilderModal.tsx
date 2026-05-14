@@ -115,7 +115,7 @@ interface Props {
 
 export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, formId }: Props) => {
     const { token } = theme.useToken()
-    const { modal } = App.useApp()
+    const { modal, message } = App.useApp()
     const queryClient = useQueryClient()
     const qTemplates = useQ_Tables_ContractTemplates({ entityId })
     const qColumns = useQ_Tables_EmployeeColumns({ entityId })
@@ -676,7 +676,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, 
     }
 
     const handleSave = async () => {
-        if (!formName.trim() || !editor) return
+        if (!formName.trim() || !editor || isSaving) return
+        setSaving(true)
+        try {
         // Layout shape per kind: TipTap doc for tiptap, PdfLayout array for pdf.
         const layout: Json = (kind === 'pdf' ? pdfLayout : editor.getJSON()) as Json
         const mandatory_field_keys = Array.from(mandatorySet)
@@ -723,6 +725,7 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, 
             queryClient.invalidateQueries({ queryKey: QueryKeys.contract_template_versions.all() })
             setPendingPdfFile(null)
             setPdfFilePath(uploadResult.r2_key)
+            message.success(formId ? "Template updated" : "Template created")
             onClose()
             return
         }
@@ -750,7 +753,9 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, 
                 attachment_field_keys,
             })
         }
+        message.success(formId ? "Template updated" : "Template created")
         onClose()
+        } finally { setSaving(false) }
     }
 
     const openSaveAs = () => {
@@ -927,7 +932,8 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, 
         setColIndicator(null)
     }, [editor])
 
-    const isSaving = mCreate.mutation.isPending || mUpdate.mutation.isPending
+    const [saving, setSaving] = useState(false)
+    const isSaving = saving || mCreate.mutation.isPending || mUpdate.mutation.isPending
 
     const headingValue = editor?.isActive('heading', { level: 1 }) ? 'h1'
         : editor?.isActive('heading', { level: 2 }) ? 'h2'
@@ -948,10 +954,12 @@ export const App_FormBuilderModal = ({ open, onClose, organizationId, entityId, 
             open={open}
             onCancel={handleClose}
             title={formId ? 'Edit Form' : 'Create Form'}
+            maskClosable={!isSaving}
+            closable={!isSaving}
             footer={
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: token.marginXS }}>
-                    <Button onClick={handleClose}>Cancel</Button>
-                    {formId && isDirty && <Button onClick={openSaveAs}>Save as new</Button>}
+                    <Button onClick={handleClose} disabled={isSaving}>Cancel</Button>
+                    {formId && isDirty && <Button onClick={openSaveAs} disabled={isSaving}>Save as new</Button>}
                     <Button type="primary" loading={isSaving} disabled={!formName.trim() || (!isDirty && !!formId)} onClick={handleSave}>
                         {formId ? 'Save' : 'Create'}
                     </Button>
