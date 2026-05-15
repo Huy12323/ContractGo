@@ -1,29 +1,120 @@
-import { useState, useEffect, useMemo } from "react";
-import { Modal, Tabs, Input, Button, Form, Typography, Alert, Tag, Empty, List, Dropdown, Select, Avatar, theme } from "antd";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Modal, Tabs, Input, Button, Form, Typography, Alert, Tag, Empty, Dropdown, Select, Avatar, theme } from "antd";
 import { ExclamationCircleOutlined, MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import { useM_DeptSettings_DepartmentUpdate } from "@/hooks/useM_DeptSettings_DepartmentUpdate";
 import { useM_DeptSettings_DepartmentDelete } from "@/hooks/useM_DeptSettings_DepartmentDelete";
 import { useM_DeptSettings_$DeptEmployee$ManagerToggle } from "@/hooks/useM_DeptSettings_$DeptEmployee$ManagerToggle";
 import { useM_DeptSettings_$Department$Employee$RelationCreate } from "@/hooks/useM_DeptSettings_$Department$Employee$RelationCreate";
 import { useM_DeptSettings_$Department$Employee$RelationDelete } from "@/hooks/useM_DeptSettings_$Department$Employee$RelationDelete";
-import { useOrganization } from "@/hooks/useOrganization";
 import { useQ_Tables_OrgEmployeesWithDepartments } from "@/hooks/useQ_Tables_OrgEmployeesWithDepartments";
+
+const ROW_HEIGHT = 62;
+const OVERSCAN = 5;
+const MAX_HEIGHT = 400;
+
+type EmpRecord = { id: string; first_name: string; last_name: string; email: string };
+
+const VirtualEmployeeList = ({ employees, managerIds, token, onToggleManager, onRemove, toggleLoading, removeLoading }: {
+    employees: EmpRecord[];
+    managerIds: Set<string>;
+    token: Record<string, any>;
+    onToggleManager: (id: string, current: boolean) => void;
+    onRemove: (id: string) => void;
+    toggleLoading?: string;
+    removeLoading?: string;
+}) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+
+    const handleScroll = useCallback(() => {
+        if (containerRef.current) setScrollTop(containerRef.current.scrollTop);
+    }, []);
+
+    const totalHeight = employees.length * ROW_HEIGHT;
+    const containerHeight = Math.min(MAX_HEIGHT, totalHeight);
+    const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const endIdx = Math.min(employees.length, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + OVERSCAN);
+    const visibleItems = employees.slice(startIdx, endIdx);
+
+    return (
+        <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            style={{ height: containerHeight, overflowY: "auto", position: "relative" }}
+        >
+            <div style={{ height: totalHeight, position: "relative" }}>
+                {visibleItems.map((emp, i) => {
+                    const isManager = managerIds.has(emp.id);
+                    const initial = (emp.first_name?.[0] ?? emp.email[0] ?? "?").toUpperCase();
+                    const top = (startIdx + i) * ROW_HEIGHT;
+                    return (
+                        <div
+                            key={emp.id}
+                            style={{
+                                position: "absolute", top, left: 0, right: 0, height: ROW_HEIGHT,
+                                display: "flex", alignItems: "center", gap: token.marginSM,
+                                padding: `0 ${token.paddingMD}px`,
+                                borderRadius: token.borderRadiusLG,
+                                border: `1px solid ${token.colorBorderSecondary}`,
+                                background: token.colorBgContainer,
+                                marginBottom: 2,
+                                boxSizing: "border-box",
+                            }}
+                        >
+                            <Avatar
+                                style={{
+                                    backgroundColor: isManager ? token.colorPrimary : token.colorFillSecondary,
+                                    color: isManager ? token.colorWhite : token.colorText,
+                                    fontWeight: 600, flexShrink: 0,
+                                }}
+                            >
+                                {initial}
+                            </Avatar>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: token.marginXS }}>
+                                    <Typography.Text strong style={{ fontSize: 14 }}>{emp.first_name} {emp.last_name}</Typography.Text>
+                                    {isManager && <Tag color="blue" bordered={false} style={{ fontWeight: 500, margin: 0 }}>Manager</Tag>}
+                                </div>
+                                <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{emp.email}</Typography.Text>
+                            </div>
+                            <Dropdown
+                                trigger={["click"]}
+                                menu={{
+                                    items: [
+                                        { key: "toggle", label: isManager ? "Remove Manager" : "Make Manager", onClick: () => onToggleManager(emp.id, isManager) },
+                                        { type: "divider" },
+                                        { key: "remove", label: "Remove from department", danger: true, onClick: () => onRemove(emp.id) },
+                                    ],
+                                }}
+                            >
+                                <Button
+                                    type="text" shape="circle" icon={<MoreOutlined />}
+                                    loading={toggleLoading === emp.id || removeLoading === emp.id}
+                                />
+                            </Dropdown>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 interface DepartmentSettingsModalProps {
     open: boolean;
     onClose: () => void;
     departmentId: string;
     departmentName: string;
+    entityId: string;
 }
 
-export const App_DepartmentSettingsModal = ({ open, onClose, departmentId, departmentName }: DepartmentSettingsModalProps) => {
+export const App_DepartmentSettingsModal = ({ open, onClose, departmentId, departmentName, entityId }: DepartmentSettingsModalProps) => {
     const { token } = theme.useToken();
     const [form] = Form.useForm<{ name: string }>();
     const [deleteConfirm, setDeleteConfirm] = useState("");
     const [employeeSearch, setEmployeeSearch] = useState("");
 
-    const { organizationId } = useOrganization();
-    const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ entityId: organizationId });
+    const qEmployees = useQ_Tables_OrgEmployeesWithDepartments({ entityId });
 
     const mDeptUpdate = useM_DeptSettings_DepartmentUpdate({ departmentId });
     const mDeptDelete = useM_DeptSettings_DepartmentDelete({ departmentId, onSuccess: onClose });
@@ -34,7 +125,9 @@ export const App_DepartmentSettingsModal = ({ open, onClose, departmentId, depar
     const deptEmployees = useMemo(() => {
         const people = qEmployees.peopleByDeptId[departmentId];
         if (!people) return [];
-        return [...people.managers, ...people.employees].sort((a, b) => a.first_name.localeCompare(b.first_name));
+        const mgrs = [...people.managers].sort((a, b) => a.first_name.localeCompare(b.first_name));
+        const emps = [...people.employees].sort((a, b) => a.first_name.localeCompare(b.first_name));
+        return [...mgrs, ...emps];
     }, [qEmployees.peopleByDeptId, departmentId]);
 
     const filteredEmployees = useMemo(() => {
@@ -137,100 +230,16 @@ export const App_DepartmentSettingsModal = ({ open, onClose, departmentId, depar
                                 ) : filteredEmployees.length === 0 ? (
                                     <Empty description="No employees match your search" />
                                 ) : (
-                                    <List
-                                        dataSource={filteredEmployees}
-                                        split={false}
-                                        renderItem={(emp) => {
-                                            const isManager = managerIds.has(emp.id);
-                                            const initial = (emp.first_name?.[0] ?? emp.email[0] ?? "?").toUpperCase();
-                                            return (
-                                                <List.Item
-                                                    key={emp.id}
-                                                    className="dept-emp-row"
-                                                    style={{
-                                                        padding: `${token.paddingSM}px ${token.paddingMD}px`,
-                                                        borderRadius: token.borderRadiusLG,
-                                                        marginBottom: token.marginXXS,
-                                                        border: `1px solid ${token.colorBorderSecondary}`,
-                                                        background: token.colorBgContainer,
-                                                        transition: "background-color 0.15s, border-color 0.15s",
-                                                    }}
-                                                    actions={[
-                                                        <Dropdown
-                                                            key="actions"
-                                                            trigger={["click"]}
-                                                            menu={{
-                                                                items: [
-                                                                    {
-                                                                        key: "toggle",
-                                                                        label: isManager ? "Remove Manager" : "Make Manager",
-                                                                        onClick: () => mManagerToggle.mutation.mutate({ employeeId: emp.id, is_manager: !isManager }),
-                                                                    },
-                                                                    { type: "divider" },
-                                                                    {
-                                                                        key: "remove",
-                                                                        label: "Remove from department",
-                                                                        danger: true,
-                                                                        onClick: () => mEmployeeRemove.mutation.mutate({ employee_id: emp.id }),
-                                                                    },
-                                                                ],
-                                                            }}
-                                                        >
-                                                            <Button
-                                                                type="text"
-                                                                shape="circle"
-                                                                icon={<MoreOutlined />}
-                                                                loading={
-                                                                    (mManagerToggle.mutation.isPending && mManagerToggle.mutation.variables?.employeeId === emp.id) ||
-                                                                    (mEmployeeRemove.mutation.isPending && mEmployeeRemove.mutation.variables?.employee_id === emp.id)
-                                                                }
-                                                            />
-                                                        </Dropdown>,
-                                                    ]}
-                                                >
-                                                    <List.Item.Meta
-                                                        avatar={
-                                                            <Avatar
-                                                                style={{
-                                                                    backgroundColor: isManager ? token.colorPrimary : token.colorFillSecondary,
-                                                                    color: isManager ? token.colorWhite : token.colorText,
-                                                                    fontWeight: 600,
-                                                                }}
-                                                            >
-                                                                {initial}
-                                                            </Avatar>
-                                                        }
-                                                        title={
-                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: token.marginXS }}>
-                                                                <Typography.Text strong>{emp.first_name} {emp.last_name}</Typography.Text>
-                                                                {isManager && (
-                                                                    <Tag
-                                                                        color="blue"
-                                                                        bordered={false}
-                                                                        style={{ fontWeight: 500, margin: 0 }}
-                                                                    >
-                                                                        Manager
-                                                                    </Tag>
-                                                                )}
-                                                            </span>
-                                                        }
-                                                        description={
-                                                            <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-                                                                {emp.email}
-                                                            </Typography.Text>
-                                                        }
-                                                    />
-                                                </List.Item>
-                                            );
-                                        }}
+                                    <VirtualEmployeeList
+                                        employees={filteredEmployees}
+                                        managerIds={managerIds}
+                                        token={token}
+                                        onToggleManager={(empId, current) => mManagerToggle.mutation.mutate({ employeeId: empId, is_manager: !current })}
+                                        onRemove={(empId) => mEmployeeRemove.mutation.mutate({ employee_id: empId })}
+                                        toggleLoading={mManagerToggle.mutation.isPending ? mManagerToggle.mutation.variables?.employeeId : undefined}
+                                        removeLoading={mEmployeeRemove.mutation.isPending ? mEmployeeRemove.mutation.variables?.employee_id : undefined}
                                     />
                                 )}
-                                <style>{`
-                                    .dept-emp-row:hover {
-                                        background-color: ${token.colorFillTertiary} !important;
-                                        border-color: ${token.colorBorder} !important;
-                                    }
-                                `}</style>
                             </div>
                         ),
                     },

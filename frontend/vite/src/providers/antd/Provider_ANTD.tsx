@@ -10,8 +10,12 @@ const themeConfig = {
         // cascade across the entire app.
         colorPrimary: "#6366f1", // indigo — brand
         colorSuccess: "#2d7a4f", // forest green
+        colorSuccessBg: "#ecfdf5",
+        colorSuccessText: "#166534",
         colorWarning: "#c48a3c", // ochre / mustard
         colorError: "#a73939",   // deep rose / burgundy
+        colorErrorBg: "#fef2f2",
+        colorErrorText: "#991b1b",
         colorInfo: "#818cf8",    // soft indigo — secondary accent
         colorBorder: "#E5E5E5",
         colorFillAlter: "#F6F8FC",

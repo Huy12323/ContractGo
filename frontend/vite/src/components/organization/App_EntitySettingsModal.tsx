@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Modal, Tabs, Input, Button, Form, Typography, Alert, Select, Radio } from "antd";
+import { Modal, Tabs, Input, Button, Form, Typography, Alert, Select, Radio, Tooltip } from "antd";
 import { const_TimezoneOptions } from "@/hooks/const_TimezoneOptions";
 import { const_EntitiesCorrectionApprovalModeOptions } from "@/hooks/const_EntitiesCorrectionApprovalModeOptions";
 import { ExclamationCircleOutlined, WarningOutlined } from "@ant-design/icons";
@@ -116,10 +116,9 @@ export const App_EntitySettingsModal = ({ open, onClose, entityId, entityName }:
                                 <Form.Item name="correction_approval_mode" label="Correction Approval">
                                     <Radio.Group>
                                         {const_EntitiesCorrectionApprovalModeOptions.options.map((opt) => (
-                                            <Radio key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                                <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 4 }}>— {opt.description}</Typography.Text>
-                                            </Radio>
+                                            <Tooltip key={opt.value} title={opt.description} color="white" overlayInnerStyle={{ color: "rgba(0,0,0,0.88)" }}>
+                                                <Radio value={opt.value}>{opt.label}</Radio>
+                                            </Tooltip>
                                         ))}
                                     </Radio.Group>
                                 </Form.Item>

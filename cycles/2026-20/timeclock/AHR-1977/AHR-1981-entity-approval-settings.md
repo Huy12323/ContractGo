@@ -72,10 +72,10 @@ Convert the Create Entity modal in Page_OrgChart from single-field to Steps-base
 ### Phase E — Verification
 
 - [x] Verify frontend compiles (npx tsc --noEmit)
-- [ ] Verify entity settings modal shows approval mode Radio and saves correctly
-- [ ] Verify inline warning appears when selecting manager_only/both with no managers
-- [ ] Verify entity creation 2-step flow works: create with and without optional department
-- [ ] Verify backfilled employees appear in their default department on org chart
+- [x] Verify entity settings modal shows approval mode Radio and saves correctly
+- [x] Verify inline warning appears when selecting manager_only/both with no managers
+- [x] Verify entity creation 2-step flow works: create with and without optional department
+- [x] Verify backfilled employees appear in their default department on org chart
 
 ## Context
 

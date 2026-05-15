@@ -104,7 +104,7 @@ export const Page_OrgChart = () => {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEntity, setSelectedEntity] = useState<{ id: string; name: string } | null>(null)
-  const [selectedDept, setSelectedDept] = useState<{ id: string; name: string } | null>(null)
+  const [selectedDept, setSelectedDept] = useState<{ id: string; name: string; entityId: string } | null>(null)
   const [createEntityOpen, setCreateEntityOpen] = useState(false)
   const [createDeptContext, setCreateDeptContext] = useState<{ entityId: string; parentId?: string } | null>(null)
 
@@ -244,7 +244,7 @@ export const Page_OrgChart = () => {
     if (didDrag.current) return
     setSelectedNodeId(node.id)
     if (node.type === 'entity') setSelectedEntity({ id: node.sourceId!, name: node.name })
-    if (node.type === 'department') setSelectedDept({ id: node.sourceId!, name: node.name })
+    if (node.type === 'department') setSelectedDept({ id: node.sourceId!, name: node.name, entityId: node.entityId! })
   }, [])
 
   const connectorColor = token.colorBorder
@@ -446,7 +446,7 @@ export const Page_OrgChart = () => {
       </Modal>
 
       {selectedEntity && <App_EntitySettingsModal open={!!selectedEntity} onClose={() => { setSelectedEntity(null); setSelectedNodeId(null) }} entityId={selectedEntity.id} entityName={selectedEntity.name} organizationId={organizationId} />}
-      {selectedDept && <App_DepartmentSettingsModal open={!!selectedDept} onClose={() => { setSelectedDept(null); setSelectedNodeId(null) }} departmentId={selectedDept.id} departmentName={selectedDept.name} />}
+      {selectedDept && <App_DepartmentSettingsModal open={!!selectedDept} onClose={() => { setSelectedDept(null); setSelectedNodeId(null) }} departmentId={selectedDept.id} departmentName={selectedDept.name} entityId={selectedDept.entityId} />}
 
       <style>{`@keyframes fadeScaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }`}</style>
     </div>

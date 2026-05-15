@@ -8,9 +8,10 @@ type Props = {
     entityId: string;
     onEntityChange: (entityId: string) => void;
     actions?: React.ReactNode;
+    entityScope?: "organization" | "employee";
 };
 
-export const App_PageToolbar = ({ organizationId, entityId, onEntityChange, actions }: Props) => {
+export const App_PageToolbar = ({ organizationId, entityId, onEntityChange, actions, entityScope }: Props) => {
     const { token } = theme.useToken();
 
     return (
@@ -28,6 +29,7 @@ export const App_PageToolbar = ({ organizationId, entityId, onEntityChange, acti
                 organizationId={organizationId}
                 value={entityId}
                 onChange={onEntityChange}
+                scope={entityScope}
             />
             {actions && (
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>

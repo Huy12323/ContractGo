@@ -2,29 +2,40 @@ import { useMemo } from "react";
 import { Select, theme } from "antd";
 import { BankOutlined } from "@ant-design/icons";
 import { useQ_Tables_OrgEntities } from "@/hooks/useQ_Tables_OrgEntities";
+import { useQ_Tables_MyEmployeeEntities } from "@/hooks/useQ_Tables_MyEmployeeEntities";
 
 type Props = {
     organizationId: string;
     value: string;
     onChange: (entityId: string) => void;
+    scope?: "organization" | "employee";
 };
 
-export const App_EntitySelector = ({ organizationId, value, onChange }: Props) => {
+export const App_EntitySelector = ({ organizationId, value, onChange, scope = "organization" }: Props) => {
     const { token } = theme.useToken();
-    const qEntities = useQ_Tables_OrgEntities({ organizationId });
+    const qOrgEntities = useQ_Tables_OrgEntities({ organizationId });
+    const qMyEntities = useQ_Tables_MyEmployeeEntities({ organizationId });
+
+    const entities = useMemo(() => {
+        if (scope === "employee") {
+            return qMyEntities.employeeEntities.map((ee) => {
+                const ent = ee.entities as { id: string; name: string; timezone: string } | null;
+                return { id: ent?.id ?? ee.entity_id, name: ent?.name ?? "Entity", timezone: ent?.timezone ?? "" };
+            });
+        }
+        return qOrgEntities.entities.map((e) => ({ id: e.id, name: e.name, timezone: e.timezone }));
+    }, [scope, qOrgEntities.entities, qMyEntities.employeeEntities]);
+
+    const isLoading = scope === "employee" ? qMyEntities.query.isLoading : qOrgEntities.query.isLoading;
 
     const options = useMemo(
-        () =>
-            qEntities.entities.map((e) => ({
-                value: e.id,
-                label: `${e.name}${e.timezone ? ` · ${e.timezone}` : ""}`,
-            })),
-        [qEntities.entities],
+        () => entities.map((e) => ({ value: e.id, label: `${e.name}${e.timezone ? ` · ${e.timezone}` : ""}` })),
+        [entities],
     );
 
-    const activeEntity = qEntities.entities.find((e) => e.id === value);
+    const activeEntity = entities.find((e) => e.id === value);
 
-    if (qEntities.entities.length <= 1 && activeEntity) {
+    if (entities.length <= 1 && activeEntity) {
         return (
             <div
                 style={{
@@ -53,7 +64,7 @@ export const App_EntitySelector = ({ organizationId, value, onChange }: Props) =
         <Select
             value={value || undefined}
             onChange={onChange}
-            loading={qEntities.query.isLoading}
+            loading={isLoading}
             options={options}
             placeholder="Select entity..."
             popupMatchSelectWidth={false}
