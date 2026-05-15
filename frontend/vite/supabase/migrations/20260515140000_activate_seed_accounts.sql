@@ -2,6 +2,9 @@
 -- Only affects accounts with email LIKE 'seed-%'
 
 -- Step 1: Update auth.users — set password to 123456789, confirm email, set metadata
+-- GoTrue (Go) scans string columns with database/sql string (not *string),
+-- so NULL token columns crash with "converting NULL to string is unsupported".
+-- All string token/change columns must be '' not NULL.
 UPDATE auth.users
 SET
   encrypted_password = crypt('123456789', gen_salt('bf', 10)),
@@ -13,6 +16,14 @@ SET
     'email_verified', true,
     'phone_verified', false
   ),
+  confirmation_token = COALESCE(confirmation_token, ''),
+  recovery_token = COALESCE(recovery_token, ''),
+  email_change_token_new = COALESCE(email_change_token_new, ''),
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  reauthentication_token = COALESCE(reauthentication_token, ''),
+  phone_change_token = COALESCE(phone_change_token, ''),
+  email_change = COALESCE(email_change, ''),
+  phone_change = COALESCE(phone_change, ''),
   updated_at = now()
 WHERE email LIKE 'seed-%';
 
