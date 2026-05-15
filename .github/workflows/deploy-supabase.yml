@@ -34,6 +34,8 @@ jobs:
           version: 2.90.0
       - name: Run migration push
         working-directory: frontend/vite
+        env:
+          PGSSLMODE: disable
         run: supabase db push --db-url "${{ secrets.DB_URL }}"
 
       - name: Copy edge functions to server
