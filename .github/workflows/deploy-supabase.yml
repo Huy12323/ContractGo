@@ -1,0 +1,55 @@
+name: Deploy Supabase (Hetzner)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/vite/supabase/migrations/**'
+      - 'frontend/vite/supabase/functions/**'
+
+concurrency:
+  group: deploy-supabase
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Backup database
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            docker exec aiur--hr-db pg_dump -U supabase_admin postgres \
+              | gzip > /supabases/aiur--hr/backups/pre-deploy-$(date +%Y%m%d_%H%M%S).sql.gz
+
+      - name: Push migrations
+        uses: supabase/setup-cli@v1
+      - name: Run migration push
+        working-directory: frontend/vite
+        run: supabase db push --db-url "${{ secrets.DB_URL }}"
+
+      - name: Copy edge functions to server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          source: "frontend/vite/supabase/functions/"
+          target: "/supabases/aiur--hr/volumes/functions/"
+          strip_components: 4
+          overwrite: true
+
+      - name: Restart edge functions
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /supabases/aiur--hr
+            docker compose restart edge-functions --no-deps
