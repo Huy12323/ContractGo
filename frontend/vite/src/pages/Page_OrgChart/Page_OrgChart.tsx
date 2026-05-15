@@ -61,7 +61,7 @@ export const Page_OrgChart = () => {
 
   const qManagers = useQuery({
     enabled: !!organizationId,
-    queryKey: [...QueryKeys.departments.list(), { organizationId }, 'orgchart-managers'],
+    queryKey: [...QueryKeys.rel__department__employee.list(), { organizationId }, 'orgchart-managers'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('rel__department__employee')
