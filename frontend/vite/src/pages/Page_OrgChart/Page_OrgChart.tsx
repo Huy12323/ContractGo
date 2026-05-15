@@ -24,6 +24,9 @@ import { App_DepartmentSettingsModal } from '@/components/organization/App_Depar
 import { Utils_OrgTree_BuildTree, type OrgTreeNode } from '@/utils/Utils_OrgTree_BuildTree'
 import { QueryKeys } from '@/utils/query/queryKeys'
 
+const countAllDepartments = (node: OrgTreeNode): number =>
+  node.children.reduce((sum, child) => sum + 1 + countAllDepartments(child), 0)
+
 const CARD_WIDTH = 300
 const GAP_X = 40
 const CONNECTOR_HEIGHT = 32
@@ -47,8 +50,8 @@ const applyZoomAnchored = ({ prevPan, prevZoom, newZoom, anchor }: { prevPan: { 
   y: anchor.y - (anchor.y - prevPan.y) * (newZoom / prevZoom),
 })
 
-type EmpWithDepts = { id: string; first_name: string; last_name: string; email: string; entity_id: string; rel__department__employee: { department_id: string; is_manager: boolean }[] }
-type DeptPeople = { managers: EmpWithDepts[]; employees: EmpWithDepts[] }
+type ManagerRow = { department_id: string; employees: { id: string; first_name: string; last_name: string } }
+type DeptPeople = { managers: ManagerRow['employees'][] }
 
 export const Page_OrgChart = () => {
   const { token } = theme.useToken()
@@ -56,33 +59,28 @@ export const Page_OrgChart = () => {
   const qEntities = useQ_Tables_OrgEntities({ organizationId })
   const qDepartments = useQ_Tables_OrgDepartments({ organizationId })
 
-  const qEmployees = useQuery({
+  const qManagers = useQuery({
     enabled: !!organizationId,
-    queryKey: [...QueryKeys.employees.list(), ...QueryKeys.departments.list(), { organizationId }, 'orgchart'],
+    queryKey: [...QueryKeys.departments.list(), { organizationId }, 'orgchart-managers'],
     queryFn: async () => {
-      const sb_FromEmployees_Select = await supabase
-        .from('employees')
-        .select('id, first_name, last_name, email, entity_id, rel__department__employee(department_id, is_manager)')
-        .eq('organization_id', organizationId)
-        .order('first_name', { ascending: true })
-      if (sb_FromEmployees_Select.error) throw sb_FromEmployees_Select.error
-      return sb_FromEmployees_Select.data as EmpWithDepts[]
+      const { data, error } = await supabase
+        .from('rel__department__employee')
+        .select('department_id, employees!inner(id, first_name, last_name)')
+        .eq('is_manager', true)
+        .eq('employees.organization_id', organizationId)
+      if (error) throw error
+      return data as ManagerRow[]
     },
   })
 
-  const employees = useMemo(() => qEmployees.data || [], [qEmployees.data])
-
   const peopleByDeptId = useMemo(() => {
     const map: Record<string, DeptPeople> = {}
-    for (const emp of employees) {
-      for (const link of emp.rel__department__employee ?? []) {
-        if (!map[link.department_id]) map[link.department_id] = { managers: [], employees: [] }
-        if (link.is_manager) map[link.department_id]!.managers.push(emp)
-        else map[link.department_id]!.employees.push(emp)
-      }
+    for (const row of qManagers.data ?? []) {
+      if (!map[row.department_id]) map[row.department_id] = { managers: [] }
+      map[row.department_id]!.managers.push(row.employees)
     }
     return map
-  }, [employees])
+  }, [qManagers.data])
 
   const tree = useMemo(
     () => Utils_OrgTree_BuildTree(organization?.name ?? 'Organization', 'org-root', qEntities.entities, qDepartments.departments),
@@ -258,8 +256,8 @@ export const Page_OrgChart = () => {
     const isExpanded = expandedIds.has(node.id)
     const hasChildren = node.children.length > 0
     const isDept = node.type === 'department'
-    const people = isDept ? (peopleByDeptId[node.id] || { managers: [], employees: [] }) : { managers: [], employees: [] }
-    const typeLabel = node.type === 'org' ? 'Organization' : node.type === 'entity' ? 'Entity' : depth >= 3 ? 'Sub-department' : 'Department'
+    const people = isDept ? (peopleByDeptId[node.id] || { managers: [] }) : { managers: [] }
+    const typeLabel = node.type === 'org' ? 'Organization' : node.type === 'entity' ? 'Entity' : 'Department'
     const LevelIcon = node.type === 'org' ? BankOutlined : node.type === 'entity' ? BranchesOutlined : ApartmentOutlined
     return (
       <div key={node.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -277,11 +275,11 @@ export const Page_OrgChart = () => {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}><BranchesOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'entity' : 'entities'}</Typography.Text>
             </div>
           )}
-          {node.type === 'entity' && node.children.length > 0 && (
+          {node.type === 'entity' && node.children.length > 0 && (() => { const total = countAllDepartments(node); return (
             <div style={{ padding: `6px ${token.paddingMD}px` }}>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 4 }} />{node.children.length} {node.children.length === 1 ? 'department' : 'departments'}</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 4 }} />{total} {total === 1 ? 'department' : 'departments'}</Typography.Text>
             </div>
-          )}
+          ) })()}
           {isDept && (
             <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 4 }}>
               {people.managers.length > 0 ? people.managers.map((p) => (
