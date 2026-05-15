@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BG_GRADIENT } from '@/providers/antd/Provider_ANTD'
 import { useNavigate } from '@tanstack/react-router'
 import { Button, Card, Descriptions, Spin, Steps, Typography, theme, App, Space, Tag } from 'antd'
 import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, MessageOutlined, SwapOutlined } from '@ant-design/icons'
@@ -25,7 +26,7 @@ const CenteredMessage = ({ children }: { children: React.ReactNode }) => {
             alignItems: 'center',
             justifyContent: 'center',
             padding: token.paddingLG,
-            background: 'linear-gradient(160deg, #d6e4ff 0%, #f0f5ff 30%, #fff1f0 70%, #e6f7ff 100%)',
+            background: BG_GRADIENT,
         }}>
             <div
                 style={{

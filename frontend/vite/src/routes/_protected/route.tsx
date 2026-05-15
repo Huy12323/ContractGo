@@ -3,6 +3,7 @@ import { Layout, theme } from 'antd'
 import { App_VerticalNav } from '@/components/app-shell/App_VerticalNav'
 import { App_HorizontalNav } from '@/components/app-shell/App_HorizontalNav/App_HorizontalNav'
 import { supabase } from '@/configs/supabase/config'
+import { BG_GRADIENT } from '@/providers/antd/Provider_ANTD'
 
 const { Content } = Layout
 
@@ -35,13 +36,13 @@ function ProtectedLayout() {
   const { token } = theme.useToken()
 
   return (
-    <Layout style={{ height: '100vh', background: token.colorFillQuaternary }}>
+    <Layout style={{ height: '100vh', background: BG_GRADIENT }}>
       <App_HorizontalNav />
 
       <div style={{
         flex: 1,
         padding: `0 ${token.paddingXS}px ${token.paddingXS}px`,
-        background: token.colorFillQuaternary,
+        background: BG_GRADIENT,
         overflow: 'hidden',
       }}>
         <Layout style={{

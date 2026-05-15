@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { supabase } from '@/configs/supabase/config'
+import { BG_GRADIENT } from '@/providers/antd/Provider_ANTD'
 import { theme } from 'antd'
 
 export const Route = createFileRoute('/_auth')({
@@ -27,7 +28,7 @@ function AuthLayout() {
         justifyContent: 'center',
         padding: token.paddingLG,
         overflow: 'auto',
-        background: 'linear-gradient(160deg, #d6e4ff 0%, #f0f5ff 30%, #fff1f0 70%, #e6f7ff 100%)',
+        background: BG_GRADIENT,
       }}
     >
       <div

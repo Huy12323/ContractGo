@@ -1,5 +1,7 @@
 import { App, ConfigProvider, theme as antdTheme } from "antd";
 
+export const BG_GRADIENT = 'linear-gradient(160deg, #e2e8f3 0%, #f0f5ff 30%, #fff1f0 70%, #e6f7ff 100%)';
+
 const themeConfig = {
     algorithm: antdTheme.defaultAlgorithm,
     token: {
