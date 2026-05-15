@@ -17,7 +17,8 @@ SET
 WHERE email LIKE 'seed-%';
 
 -- Step 2: Insert missing auth.identities rows (skip if already exists)
-INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, email, last_sign_in_at, created_at, updated_at)
+-- Note: email column is generated on production, omit it from INSERT
+INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
 SELECT
   gen_random_uuid(),
   u.id,
@@ -29,7 +30,6 @@ SELECT
     'email_verified', true,
     'phone_verified', false
   ),
-  u.email,
   now(),
   u.created_at,
   now()
