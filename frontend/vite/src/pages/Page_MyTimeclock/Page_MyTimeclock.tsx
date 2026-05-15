@@ -1,8 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import { useMatch } from "@tanstack/react-router";
 import { Typography, theme } from "antd";
+import { App_PageToolbar } from "@/components/app-shell/App_PageToolbar";
 import { useQ_Tables_MyEmployeeEntities } from "@/hooks/useQ_Tables_MyEmployeeEntities";
+import { useQ_Tables_OrgEntities } from "@/hooks/useQ_Tables_OrgEntities";
 import { useQ_PageMyTimeclock_MyCorrectionTasks } from "@/hooks/useQ_PageMyTimeclock_MyCorrectionTasks";
+import { useQ_PageMyTimeclock_MyDepartments } from "@/hooks/useQ_PageMyTimeclock_MyDepartments";
 import { App_TimeclockDetailView } from "@/components/timeclock/App_TimeclockDetailView";
 import type { DaySummary, CorrectionTaskEntry, BarSession } from "@/components/timeclock/App_TimeclockDetailView";
 import { PageMyTimeclock_DayModal } from "./PageMyTimeclock_DayModal";
@@ -16,23 +19,28 @@ export const Page_MyTimeclock = () => {
     const organizationId = useMatch({ from: "/_protected/$organizationId", shouldThrow: false, select: (m) => m.params.organizationId }) ?? "";
     const qEntities = useQ_Tables_MyEmployeeEntities({ organizationId });
 
-    const [selectedEntityIdx, setSelectedEntityIdx] = useState(0);
+    const [entityId, setEntityId] = useState("");
     const [modalState, setModalState] = useState<ModalMode | null>(null);
 
-    const selectedEntity = qEntities.employeeEntities[selectedEntityIdx];
-    const entity = selectedEntity?.entities as { id: string; name: string; timezone: string } | null;
+    const activeEntityId = entityId || qEntities.employeeEntities[0]?.entity_id || "";
+    const selectedEntity = qEntities.employeeEntities.find((e) => e.entity_id === activeEntityId);
     const employeeId = selectedEntity?.id ?? "";
-    const entityId = entity?.id ?? "";
-    const timezone = entity?.timezone ?? "UTC";
+    const timezone = (selectedEntity?.entities as { id: string; name: string; timezone: string } | null)?.timezone ?? "UTC";
 
+    const qOrgEntities = useQ_Tables_OrgEntities({ organizationId });
+    const approvalMode = qOrgEntities.entities.find((e) => e.id === activeEntityId)?.correction_approval_mode ?? "hr_only";
     const qCorrections = useQ_PageMyTimeclock_MyCorrectionTasks({ employeeId });
+    const qMyDepts = useQ_PageMyTimeclock_MyDepartments({ employeeId });
+    const employeeDepartments = useMemo(() =>
+        qMyDepts.departments.map((d) => ({ id: d.department_id, name: (d.departments as { id: string; name: string })?.name ?? "Dept" })),
+        [qMyDepts.departments]);
 
     const correctionTasksByDate = useMemo(() => {
         const map = new Map<string, CorrectionTaskEntry[]>();
         for (const [date, cts] of qCorrections.correctionTasksByDate) {
             map.set(date, cts.map((ct) => {
                 const entry: CorrectionTaskEntry = { status: ct.status, message: ct.message };
-                if (ct.status === "pending" && ct.timeclock_corrections) {
+                if ((ct.status === "pending" || ct.status === "approved") && ct.timeclock_corrections) {
                     const corrections = ct.timeclock_corrections as { type: string; start_at: string; end_at: string; duration_ms: number; session_id: string | null }[];
                     entry.proposedSessions = corrections
                         .filter((c) => c.session_id === null && c.duration_ms > 0)
@@ -67,29 +75,17 @@ export const Page_MyTimeclock = () => {
         );
     }
 
-    const entitySelector = qEntities.employeeEntities.length > 1 ? (
-        <select
-            value={selectedEntityIdx}
-            onChange={(e) => setSelectedEntityIdx(Number(e.target.value))}
-            style={{ padding: "4px 8px", border: `1px solid ${token.colorBorder}`, borderRadius: token.borderRadiusSM, fontSize: token.fontSizeSM, background: token.colorBgContainer }}
-        >
-            {qEntities.employeeEntities.map((ee, i) => {
-                const ent = ee.entities as { name: string; timezone: string } | null;
-                return <option key={i} value={i}>{ent?.name ?? "Entity"} · {ent?.timezone ?? ""}</option>;
-            })}
-        </select>
-    ) : null;
-
     return (
-        <div style={{ height: "100%", overflow: "auto", background: token.colorBgContainer }}>
-            <App_TimeclockDetailView
-                employeeId={employeeId}
-                timezone={timezone}
-                initialPeriod="week"
-                toolbarExtra={entitySelector}
-                onDayClick={handleDayClick}
-                correctionTasksByDate={correctionTasksByDate}
-            />
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: token.colorBgContainer }}>
+            <App_PageToolbar organizationId={organizationId} entityId={activeEntityId} onEntityChange={setEntityId} entityScope="employee" />
+            <div style={{ flex: 1, overflow: "auto" }}>
+                <App_TimeclockDetailView
+                    employeeId={employeeId}
+                    timezone={timezone}
+                    initialPeriod="week"
+                    onDayClick={handleDayClick}
+                    correctionTasksByDate={correctionTasksByDate}
+                />
             {modalState && (
                 <PageMyTimeclock_DayModal
                     open
@@ -103,9 +99,12 @@ export const Page_MyTimeclock = () => {
                     timeline={modalState.summary?.timeline ?? []}
                     correctionTasks={modalCorrectionTasks}
                     employeeId={employeeId}
-                    entityId={entityId}
+                    entityId={activeEntityId}
+                    approvalMode={approvalMode}
+                    employeeDepartments={employeeDepartments}
                 />
             )}
+            </div>
         </div>
     );
 };

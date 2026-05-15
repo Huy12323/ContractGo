@@ -32,6 +32,9 @@ export const useSupabaseRealtimeSync = () => {
             { event: "INSERT", schema: "public", table: "realtime_table_events" },
             (payload) => {
                 const event = payload.new as RealtimeTableEvent;
+                if (ENABLE_LOGGING) {
+                    console.log(`[Realtime] event received:`, { table: event.table_name, record_id: event.record_id, event_type: event.event_type, org: event.organization_id });
+                }
                 handleTableChange(event.table_name, event.record_id);
             },
         );
@@ -51,6 +54,7 @@ export const useSupabaseRealtimeSync = () => {
     function handleTableChange(tableName: string, recordId: string | null) {
         let invalidatedCount = 0;
         let skippedCount = 0;
+        const matchedKeys: string[] = [];
 
         queryClient.invalidateQueries({
             predicate: (query) => {
@@ -61,18 +65,18 @@ export const useSupabaseRealtimeSync = () => {
                 const marker = key[tableIdx + 1];
                 if (marker === "list") {
                     invalidatedCount++;
+                    if (ENABLE_LOGGING) matchedKeys.push(JSON.stringify(key));
                     return true;
                 }
                 if (marker === "record") {
-                    // For token-keyed tables, the record key is not the row UUID,
-                    // so id comparison is meaningless — invalidate broadly.
                     if (TOKEN_KEYED_TABLES.has(tableName)) {
                         invalidatedCount++;
+                        if (ENABLE_LOGGING) matchedKeys.push(JSON.stringify(key));
                         return true;
                     }
                     const keyRecordId = key[tableIdx + 2];
                     const shouldInvalidate = recordId === null || keyRecordId === recordId;
-                    if (shouldInvalidate) invalidatedCount++;
+                    if (shouldInvalidate) { invalidatedCount++; if (ENABLE_LOGGING) matchedKeys.push(JSON.stringify(key)); }
                     else skippedCount++;
                     return shouldInvalidate;
                 }
@@ -84,6 +88,7 @@ export const useSupabaseRealtimeSync = () => {
             const scope = recordId ? `record:${recordId}` : "table-wide";
             console.log(
                 `[Realtime] ${tableName} (${scope}) → invalidated:${invalidatedCount} skipped:${skippedCount}`,
+                matchedKeys.length > 0 ? matchedKeys : "(no active queries matched)",
             );
         }
     }

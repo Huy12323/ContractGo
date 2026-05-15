@@ -25,6 +25,7 @@ import { Route as ProtectedOrganizationIdTimesheetsIndexRouteImport } from './ro
 import { Route as ProtectedOrganizationIdOrgChartIndexRouteImport } from './routes/_protected/$organizationId/org-chart/index'
 import { Route as ProtectedOrganizationIdMyTimeclockIndexRouteImport } from './routes/_protected/$organizationId/my-timeclock/index'
 import { Route as ProtectedOrganizationIdEmployeesIndexRouteImport } from './routes/_protected/$organizationId/employees/index'
+import { Route as ProtectedOrganizationIdAppsTasksRouteImport } from './routes/_protected/$organizationId/apps/tasks'
 
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
@@ -111,6 +112,12 @@ const ProtectedOrganizationIdEmployeesIndexRoute =
     path: '/employees/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
+const ProtectedOrganizationIdAppsTasksRoute =
+  ProtectedOrganizationIdAppsTasksRouteImport.update({
+    id: '/apps/tasks',
+    path: '/apps/tasks',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
+  '/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
   '/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
+  '/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
   '/$organizationId/employees': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/$organizationId/my-timeclock': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/$organizationId/org-chart': typeof ProtectedOrganizationIdOrgChartIndexRoute
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
   '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
+  '/_protected/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
   '/_protected/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
   '/_protected/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   '/_protected/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/onboarding/$invitationToken'
     | '/$organizationId/'
+    | '/$organizationId/apps/tasks'
     | '/$organizationId/employees/'
     | '/$organizationId/my-timeclock/'
     | '/$organizationId/org-chart/'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/onboarding/$invitationToken'
     | '/$organizationId'
+    | '/$organizationId/apps/tasks'
     | '/$organizationId/employees'
     | '/$organizationId/my-timeclock'
     | '/$organizationId/org-chart'
@@ -208,6 +220,7 @@ export interface FileRouteTypes {
     | '/_protected/'
     | '/_protected/onboarding/$invitationToken'
     | '/_protected/$organizationId/'
+    | '/_protected/$organizationId/apps/tasks'
     | '/_protected/$organizationId/employees/'
     | '/_protected/$organizationId/my-timeclock/'
     | '/_protected/$organizationId/org-chart/'
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrganizationIdEmployeesIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
+    '/_protected/$organizationId/apps/tasks': {
+      id: '/_protected/$organizationId/apps/tasks'
+      path: '/apps/tasks'
+      fullPath: '/$organizationId/apps/tasks'
+      preLoaderRoute: typeof ProtectedOrganizationIdAppsTasksRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
   }
 }
 
@@ -360,6 +380,7 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface ProtectedOrganizationIdRouteRouteChildren {
   ProtectedOrganizationIdIndexRoute: typeof ProtectedOrganizationIdIndexRoute
+  ProtectedOrganizationIdAppsTasksRoute: typeof ProtectedOrganizationIdAppsTasksRoute
   ProtectedOrganizationIdEmployeesIndexRoute: typeof ProtectedOrganizationIdEmployeesIndexRoute
   ProtectedOrganizationIdMyTimeclockIndexRoute: typeof ProtectedOrganizationIdMyTimeclockIndexRoute
   ProtectedOrganizationIdOrgChartIndexRoute: typeof ProtectedOrganizationIdOrgChartIndexRoute
@@ -369,6 +390,8 @@ interface ProtectedOrganizationIdRouteRouteChildren {
 const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRouteChildren =
   {
     ProtectedOrganizationIdIndexRoute: ProtectedOrganizationIdIndexRoute,
+    ProtectedOrganizationIdAppsTasksRoute:
+      ProtectedOrganizationIdAppsTasksRoute,
     ProtectedOrganizationIdEmployeesIndexRoute:
       ProtectedOrganizationIdEmployeesIndexRoute,
     ProtectedOrganizationIdMyTimeclockIndexRoute:

@@ -128,12 +128,11 @@ type Props = {
     employeeId: string;
     timezone: string;
     initialPeriod?: ViewMode;
-    toolbarExtra?: React.ReactNode;
     onDayClick?: (day: Date, summary: DaySummary | undefined) => void;
     correctionTasksByDate?: CorrectionTaskMap;
 };
 
-export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", toolbarExtra, onDayClick, correctionTasksByDate }: Props) => {
+export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", onDayClick, correctionTasksByDate }: Props) => {
     const { token } = theme.useToken();
     const [displayMode, setDisplayMode] = useState<DisplayMode>("bar");
     const [period, setPeriod] = useState<ViewMode>(initialPeriod);
@@ -186,7 +185,6 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
                 borderBottom: `1px solid ${token.colorBorderSecondary}`, position: "sticky", top: 0, background: token.colorBgContainer, zIndex: 1,
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
-                    {toolbarExtra}
                     <Segmented
                         size="small"
                         options={[{ value: "bar", icon: <BarChartOutlined /> }, { value: "table", icon: <UnorderedListOutlined /> }]}
@@ -251,7 +249,10 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
                 {/* Table view */}
                 {displayMode === "table" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {days.map((d) => <DayTableCard key={fmtDate(d)} day={d} summary={summaryMap.get(fmtDate(d))} />)}
+                        {days.map((d) => {
+                            const dateStr = fmtDate(d);
+                            return <DayTableCard key={dateStr} day={d} summary={summaryMap.get(dateStr)} correctionEntries={correctionTasksByDate?.get(dateStr)} timezone={timezone} />;
+                        })}
                     </div>
                 )}
             </div>
@@ -261,26 +262,22 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
 
 // --- Sub-components ---
 
-const CORRECTION_LABELS: Record<string, { color: string; text: string }> = {
-    pending: { color: "#fa8c16", text: "Pending Correction" },
-    approved: { color: "#52c41a", text: "Approved Correction" },
-    rejected: { color: "#ff4d4f", text: "Rejected Correction" },
-    cancelled: { color: "#8c8c8c", text: "Cancelled Correction" },
-};
 
-const CorrectionBanner = ({ entries }: { entries: CorrectionTaskEntry[] }) => {
-    const visible = entries.filter((e) => e.status !== "cancelled");
-    const top = visible.find((e) => e.status === "pending") ?? visible[0];
-    if (!top) return null;
-    const info = CORRECTION_LABELS[top.status] ?? CORRECTION_LABELS.pending!;
-    const count = visible.length;
-    return (
-        <div style={{ fontSize: 10, fontWeight: 600, color: info.color, display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: info.color, flexShrink: 0 }} />
-            {info.text}{count > 1 ? ` (+${count - 1})` : ""}
+const TimelineColumn = ({ label, entries, token }: { label: string; entries: { time: string; label: string; eventType: string; isActive?: boolean; elapsed?: number | null }[]; token: any }) => (
+    <div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: token.colorTextSecondary, padding: "0 12px 4px" }}>{label}</div>
+        <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusSM, overflow: "hidden" }}>
+            {entries.length === 0 && <div style={{ padding: "8px 12px", color: token.colorTextQuaternary, fontSize: 12 }}>No sessions</div>}
+            {entries.map((entry, i, arr) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", borderBottom: i < arr.length - 1 ? `1px solid ${token.colorFillAlter}` : undefined }}>
+                    <App_TimeclockEventDot eventType={entry.eventType} pulse={entry.isActive} />
+                    <span style={{ fontWeight: 600, width: 40, fontSize: 12, fontVariantNumeric: "tabular-nums", color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorText }}>{entry.time}</span>
+                    <span style={{ fontSize: 12, color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorTextSecondary, fontWeight: entry.isActive ? 600 : 400 }}>{entry.label}</span>
+                </div>
+            ))}
         </div>
-    );
-};
+    </div>
+);
 
 const TimelineDetail = ({ timeline, token }: { timeline: TimelineEntry[]; token: any }) => (
     <div style={{ borderTop: `1px solid ${token.colorFillAlter}`, padding: "4px 0" }}>
@@ -299,6 +296,24 @@ const TimelineDetail = ({ timeline, token }: { timeline: TimelineEntry[]; token:
     </div>
 );
 
+const barSessionsToTimeline = (sessions: BarSession[], timezone: string): { time: string; label: string; eventType: string }[] => {
+    const entries: { time: string; label: string; eventType: string }[] = [];
+    for (const s of sessions) {
+        const startMin = (() => { try { const p = new Date(s.startAt).toLocaleTimeString("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).split(":"); return parseInt(p[0]!) * 60 + parseInt(p[1]!); } catch { const d = new Date(s.startAt); return d.getHours() * 60 + d.getMinutes(); } })();
+        const endMin = s.endAt ? (() => { try { const p = new Date(s.endAt!).toLocaleTimeString("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).split(":"); return parseInt(p[0]!) * 60 + parseInt(p[1]!); } catch { const d = new Date(s.endAt!); return d.getHours() * 60 + d.getMinutes(); } })() : null;
+        const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        if (s.type === "work") {
+            entries.push({ time: fmt(startMin), label: "Clock In", eventType: "clock_in" });
+            if (endMin !== null) entries.push({ time: fmt(endMin), label: "Clock Out", eventType: "clock_out" });
+        } else {
+            entries.push({ time: fmt(startMin), label: "Break", eventType: "lunch_start" });
+            if (endMin !== null) entries.push({ time: fmt(endMin), label: "Back to Work", eventType: "lunch_end" });
+        }
+    }
+    entries.sort((a, b) => a.time.localeCompare(b.time));
+    return entries;
+};
+
 const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelineMode = "collapsible" }: {
     day: Date; summary?: DaySummary; timezone: string;
     onDayClick?: (day: Date, summary: DaySummary | undefined) => void;
@@ -313,8 +328,9 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
     const timeline = summary?.timeline ?? [];
     const canExpand = !wknd && !future && timeline.length > 0;
     const pending = correctionEntries?.find((e) => e.status === "pending");
-    const nonPending = correctionEntries?.filter((e) => e.status !== "pending");
+    const approved = correctionEntries?.find((e) => e.status === "approved");
     const showTimeline = timelineMode === "expanded" ? canExpand : expanded;
+    const displaySessions = approved?.proposedSessions ?? summary?.sessions ?? [];
 
     return (
         <div
@@ -335,10 +351,25 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                     <div style={{ fontSize: 10, color: token.colorTextQuaternary }}>{formatDayLabel(day).split(", ")[1]}</div>
                 </div>
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: pending ? 4 : 0 }}>
-                    <div style={{ paddingTop: 14, paddingBottom: pending ? 4 : 14 }}>
-                        {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
-                            : <App_TimeclockBar24 sessions={summary?.sessions ?? []} timezone={timezone} showNow={td} showHourLabels />}
-                    </div>
+                    {approved ? (
+                        <div style={{
+                            marginLeft: -6, marginRight: -6,
+                            border: "1px solid #52c41a", borderRadius: token.borderRadiusSM,
+                            padding: "4px 6px 14px",
+                            background: "rgba(82, 196, 26, 0.04)",
+                        }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#52c41a" }} />
+                                <span style={{ fontSize: 9, color: "#52c41a", fontWeight: 600 }}>Corrected</span>
+                            </div>
+                            <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />
+                        </div>
+                    ) : (
+                        <div style={{ paddingTop: 14, paddingBottom: pending ? 4 : 14 }}>
+                            {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
+                                : <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />}
+                        </div>
+                    )}
                     {pending?.proposedSessions && (
                         <div style={{
                             marginTop: 8, marginLeft: -6, marginRight: -6,
@@ -354,16 +385,27 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                         </div>
                     )}
                 </div>
-                <div style={{ width: 70, textAlign: "right", fontWeight: 600, fontSize: 13, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                    <span style={{ color: summary && summary.workedMs > 0 ? TIMECLOCK_COLORS.work.solid : token.colorTextQuaternary }}>
-                        {wknd || !summary || summary.workedMs === 0 ? "—" : formatDuration(summary.workedMs)}
-                    </span>
-                    <ActiveIndicator summary={summary} />
-                </div>
-                <div style={{ width: 70, textAlign: "right", fontSize: 13, flexShrink: 0, color: token.colorTextSecondary }}>
-                    {wknd || !summary || summary.breakMs === 0 ? "—" : formatDuration(summary.breakMs)}
-                </div>
-                {nonPending && nonPending.length > 0 && <CorrectionBanner entries={nonPending} />}
+                {(() => {
+                    const workedMs = approved?.proposedSessions
+                        ? approved.proposedSessions.filter((s) => s.type === "work").reduce((a, s) => a + s.durationMs, 0) - approved.proposedSessions.filter((s) => s.type === "lunch").reduce((a, s) => a + s.durationMs, 0)
+                        : summary?.workedMs ?? 0;
+                    const bMs = approved?.proposedSessions
+                        ? approved.proposedSessions.filter((s) => s.type === "lunch").reduce((a, s) => a + s.durationMs, 0)
+                        : summary?.breakMs ?? 0;
+                    return (
+                        <>
+                            <div style={{ width: 70, textAlign: "right", fontWeight: 600, fontSize: 13, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                                <span style={{ color: workedMs > 0 ? TIMECLOCK_COLORS.work.solid : token.colorTextQuaternary }}>
+                                    {wknd || workedMs === 0 ? "—" : formatDuration(Math.max(workedMs, 0))}
+                                </span>
+                                <ActiveIndicator summary={summary} />
+                            </div>
+                            <div style={{ width: 70, textAlign: "right", fontSize: 13, flexShrink: 0, color: token.colorTextSecondary }}>
+                                {wknd || bMs === 0 ? "—" : formatDuration(bMs)}
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
             {timelineMode === "collapsible" && canExpand && (
                 <div style={{ display: "flex", justifyContent: "center", padding: "0 0 4px" }}>
@@ -373,17 +415,28 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                     />
                 </div>
             )}
-            {showTimeline && <TimelineDetail timeline={timeline} token={token} />}
+            {showTimeline && approved?.proposedSessions ? (
+                <div style={{ borderTop: `1px solid ${token.colorFillAlter}`, padding: "8px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <TimelineColumn label="Original" entries={timeline} token={token} />
+                    <TimelineColumn label="Corrected" entries={barSessionsToTimeline(approved.proposedSessions, timezone)} token={token} />
+                </div>
+            ) : showTimeline ? (
+                <TimelineDetail timeline={timeline} token={token} />
+            ) : null}
         </div>
     );
 };
 
-const DayTableCard = ({ day, summary }: { day: Date; summary?: DaySummary }) => {
+const DayTableCard = ({ day, summary, correctionEntries, timezone }: { day: Date; summary?: DaySummary; correctionEntries?: CorrectionTaskEntry[]; timezone?: string }) => {
     const { token } = theme.useToken();
     const td = isToday(day);
     const future = isFuture(day);
     const wknd = isWeekend(day);
     const timeline = summary?.timeline ?? [];
+    const approved = correctionEntries?.find((e) => e.status === "approved");
+    const correctedTimeline = approved?.proposedSessions && timezone ? barSessionsToTimeline(approved.proposedSessions, timezone) : null;
+    const correctedWorkedMs = approved?.proposedSessions?.filter((s) => s.type === "work").reduce((a, s) => a + s.durationMs, 0) ?? 0;
+    const correctedBreakMs = approved?.proposedSessions?.filter((s) => s.type === "lunch").reduce((a, s) => a + s.durationMs, 0) ?? 0;
 
     if (wknd) {
         return (
@@ -392,7 +445,7 @@ const DayTableCard = ({ day, summary }: { day: Date; summary?: DaySummary }) => 
             </div>
         );
     }
-    if (future || timeline.length === 0) {
+    if (future || (timeline.length === 0 && !correctedTimeline)) {
         return (
             <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", opacity: future ? 0.3 : 0.6, fontSize: 12, color: token.colorTextQuaternary }}>
                 <span style={{ width: 120, fontWeight: 600 }}>{formatDayLabel(day)}</span><span>—</span>
@@ -411,20 +464,35 @@ const DayTableCard = ({ day, summary }: { day: Date; summary?: DaySummary }) => 
                     {td && <Tag color="processing" style={{ fontSize: 9 }}>Today</Tag>}
                 </div>
                 <div style={{ display: "flex", gap: 12, fontSize: 12 }}>
-                    {summary && summary.workedMs > 0 && <span style={{ color: TIMECLOCK_COLORS.work.solid, fontWeight: 600 }}>Worked: {formatDuration(summary.workedMs)}</span>}
-                    {summary && summary.breakMs > 0 && <span style={{ color: TIMECLOCK_COLORS.lunch.text, fontWeight: 600 }}>Break: {formatDuration(summary.breakMs)}</span>}
+                    {(() => {
+                        const w = correctedTimeline ? correctedWorkedMs : (summary?.workedMs ?? 0);
+                        const b = correctedTimeline ? correctedBreakMs : (summary?.breakMs ?? 0);
+                        return (
+                            <>
+                                {w > 0 && <span style={{ color: TIMECLOCK_COLORS.work.solid, fontWeight: 600 }}>Worked: {formatDuration(w)}</span>}
+                                {b > 0 && <span style={{ color: TIMECLOCK_COLORS.lunch.text, fontWeight: 600 }}>Break: {formatDuration(b)}</span>}
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
-            <div style={{ padding: "4px 0" }}>
-                {timeline.map((entry, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 14px", fontSize: 13 }}>
-                        <App_TimeclockEventDot eventType={entry.eventType} pulse={entry.isActive} />
-                        <span style={{ fontWeight: 600, width: 45, fontVariantNumeric: "tabular-nums", color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorText }}>{entry.time}</span>
-                        <span style={{ color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorTextSecondary, fontWeight: entry.isActive ? 600 : 400, flex: 1 }}>{entry.label}</span>
-                        {entry.elapsed !== null && entry.elapsed > 0 && <span style={{ fontSize: 11, color: token.colorTextQuaternary }}>{formatDuration(entry.elapsed)}</span>}
-                    </div>
-                ))}
-            </div>
+            {correctedTimeline ? (
+                <div style={{ padding: "8px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <TimelineColumn label="Original" entries={timeline} token={token} />
+                    <TimelineColumn label="Corrected" entries={correctedTimeline} token={token} />
+                </div>
+            ) : (
+                <div style={{ padding: "4px 0" }}>
+                    {timeline.map((entry, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 14px", fontSize: 13 }}>
+                            <App_TimeclockEventDot eventType={entry.eventType} pulse={entry.isActive} />
+                            <span style={{ fontWeight: 600, width: 45, fontVariantNumeric: "tabular-nums", color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorText }}>{entry.time}</span>
+                            <span style={{ color: entry.isActive ? TIMECLOCK_COLORS.work.solid : token.colorTextSecondary, fontWeight: entry.isActive ? 600 : 400, flex: 1 }}>{entry.label}</span>
+                            {entry.elapsed !== null && entry.elapsed > 0 && <span style={{ fontSize: 11, color: token.colorTextQuaternary }}>{formatDuration(entry.elapsed)}</span>}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

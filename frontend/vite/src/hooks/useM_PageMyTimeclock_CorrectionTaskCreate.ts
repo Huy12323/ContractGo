@@ -18,6 +18,7 @@ export type UseM_PageMyTimeclock_CorrectionTaskCreate_Params = {
     timezone: string;
     message: string;
     entries: CorrectionEntry[];
+    department_ids?: string[];
 };
 
 export const useM_PageMyTimeclock_CorrectionTaskCreate = () => {
@@ -74,11 +75,23 @@ export const useM_PageMyTimeclock_CorrectionTaskCreate = () => {
                 if (sb_FromTimeclockCorrections_Insert.error) throw sb_FromTimeclockCorrections_Insert.error;
             }
 
+            if (body.department_ids && body.department_ids.length > 0) {
+                const deptRows = body.department_ids.map((deptId) => ({
+                    correction_task_id: task.id,
+                    department_id: deptId,
+                }));
+                const sb_FromRelCorrectionTaskDepartment_Insert = await supabase
+                    .from("rel__correction_task__department")
+                    .insert(deptRows);
+                if (sb_FromRelCorrectionTaskDepartment_Insert.error) throw sb_FromRelCorrectionTaskDepartment_Insert.error;
+            }
+
             return task;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QueryKeys.correction_tasks.list() });
             queryClient.invalidateQueries({ queryKey: QueryKeys.timeclock_corrections.list() });
+            queryClient.invalidateQueries({ queryKey: QueryKeys.rel__correction_task__department.list() });
             message.success("Correction request submitted");
         },
         onError: (error) => {

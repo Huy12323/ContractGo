@@ -7,9 +7,11 @@ import {
   ApartmentOutlined,
   ScheduleOutlined,
   ClockCircleOutlined,
+  CheckSquareOutlined,
 } from '@ant-design/icons'
 import { useStore_VerticalNav_Collapsed } from '@/stores/Store_VerticalNav'
 import { useQ_Tables_MyRole } from '@/hooks/useQ_Tables_MyRole'
+import { useQ_Tables_MyEmployeeEntities } from '@/hooks/useQ_Tables_MyEmployeeEntities'
 import { App_OrgSwitcher } from '@/components/organization/App_OrgSwitcher'
 import {
   const_AppShell_VerticalNavWidth,
@@ -31,6 +33,8 @@ export const App_VerticalNav = () => {
 
   const qRole = useQ_Tables_MyRole({ organizationId: organizationId ?? '' })
   const role = qRole.role
+  const qMyEntities = useQ_Tables_MyEmployeeEntities({ organizationId: organizationId ?? '' })
+  const hasEmployeeRecord = qMyEntities.employeeEntities.length > 0
 
   if (!organizationId) return null
 
@@ -44,9 +48,11 @@ export const App_VerticalNav = () => {
         ? [`/${organizationId}/timesheets`]
         : location.pathname.includes('/my-timeclock')
           ? [`/${organizationId}/my-timeclock`]
-          : location.pathname === `/${organizationId}`
-            ? [`/${organizationId}`]
-            : []
+          : location.pathname.includes('/apps/tasks')
+            ? [`/${organizationId}/apps/tasks`]
+            : location.pathname === `/${organizationId}`
+              ? [`/${organizationId}`]
+              : []
 
   const hrItems: ItemType[] = [
     {
@@ -79,11 +85,22 @@ export const App_VerticalNav = () => {
     },
   ]
 
+  const appsItems: ItemType[] = [
+    {
+      key: `/${organizationId}/apps/tasks`,
+      icon: <CheckSquareOutlined />,
+      label: <Link to="/$organizationId/apps/tasks" params={{ organizationId }}>Tasks</Link>,
+    },
+  ]
+
   const menuItems: ItemType[] = [
     ...(isHR
       ? [{ type: 'group' as const, label: collapsed ? null : 'HR', children: hrItems }]
       : []),
-    { type: 'group' as const, label: collapsed ? null : 'Employee', children: employeeItems },
+    ...(hasEmployeeRecord
+      ? [{ type: 'group' as const, label: collapsed ? null : 'Employee', children: employeeItems }]
+      : []),
+    { type: 'group' as const, label: collapsed ? null : 'Apps', children: appsItems },
   ]
 
   return (

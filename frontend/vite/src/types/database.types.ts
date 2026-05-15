@@ -402,8 +402,11 @@ export type Database = {
       }
       correction_tasks: {
         Row: {
-          approved_at: string | null
-          approved_by: string | null
+          admin_decided_at: string | null
+          admin_decided_by: string | null
+          admin_decision:
+            | Database["public"]["Enums"]["correction_admin_decision_enum"]
+            | null
           created_at: string | null
           day_id: string
           employee_id: string
@@ -411,14 +414,15 @@ export type Database = {
           id: string
           message: string | null
           organization_id: string
-          rejected_at: string | null
-          rejected_by: string | null
           status: Database["public"]["Enums"]["correction_task_status_enum"]
           updated_at: string | null
         }
         Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
+          admin_decided_at?: string | null
+          admin_decided_by?: string | null
+          admin_decision?:
+            | Database["public"]["Enums"]["correction_admin_decision_enum"]
+            | null
           created_at?: string | null
           day_id: string
           employee_id: string
@@ -426,14 +430,15 @@ export type Database = {
           id?: string
           message?: string | null
           organization_id?: string
-          rejected_at?: string | null
-          rejected_by?: string | null
           status?: Database["public"]["Enums"]["correction_task_status_enum"]
           updated_at?: string | null
         }
         Update: {
-          approved_at?: string | null
-          approved_by?: string | null
+          admin_decided_at?: string | null
+          admin_decided_by?: string | null
+          admin_decision?:
+            | Database["public"]["Enums"]["correction_admin_decision_enum"]
+            | null
           created_at?: string | null
           day_id?: string
           employee_id?: string
@@ -441,15 +446,13 @@ export type Database = {
           id?: string
           message?: string | null
           organization_id?: string
-          rejected_at?: string | null
-          rejected_by?: string | null
           status?: Database["public"]["Enums"]["correction_task_status_enum"]
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "correction_tasks_approved_by_fkey"
-            columns: ["approved_by"]
+            foreignKeyName: "correction_tasks_admin_decided_by_fkey"
+            columns: ["admin_decided_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -480,13 +483,6 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "correction_tasks_rejected_by_fkey"
-            columns: ["rejected_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -903,26 +899,6 @@ export type Database = {
           },
         ]
       }
-      ent_lFbGc7iTn3khLY48__employees: {
-        Row: {
-          employee_id: string
-        }
-        Insert: {
-          employee_id: string
-        }
-        Update: {
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ent_lFbGc7iTn3khLY48__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ent_LUKzZoIsU0Gwd7sA__employees: {
         Row: {
           employee_id: string
@@ -936,6 +912,26 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ent_LUKzZoIsU0Gwd7sA__employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ent_Z8dglT4JUM29FUFX__employees: {
+        Row: {
+          employee_id: string
+        }
+        Insert: {
+          employee_id: string
+        }
+        Update: {
+          employee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ent_Z8dglT4JUM29FUFX__employees_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: true
             referencedRelation: "employees"
@@ -1254,6 +1250,61 @@ export type Database = {
           },
         ]
       }
+      rel__correction_task__department: {
+        Row: {
+          correction_task_id: string
+          created_at: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision:
+            | Database["public"]["Enums"]["correction_dept_decision_enum"]
+            | null
+          department_id: string
+        }
+        Insert: {
+          correction_task_id: string
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?:
+            | Database["public"]["Enums"]["correction_dept_decision_enum"]
+            | null
+          department_id: string
+        }
+        Update: {
+          correction_task_id?: string
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?:
+            | Database["public"]["Enums"]["correction_dept_decision_enum"]
+            | null
+          department_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rel__correction_task__department_correction_task_id_fkey"
+            columns: ["correction_task_id"]
+            isOneToOne: false
+            referencedRelation: "correction_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rel__correction_task__department_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rel__correction_task__department_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rel__department__employee: {
         Row: {
           created_at: string
@@ -1533,6 +1584,10 @@ export type Database = {
         Args: { p_col_name: string; p_col_type: string; p_entity_id: string }
         Returns: undefined
       }
+      approve_correction_task: {
+        Args: { p_action: string; p_correction_task_id: string }
+        Returns: Json
+      }
       audit_employee_diff: {
         Args: {
           p_employee_id: string
@@ -1566,6 +1621,8 @@ export type Database = {
           status: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
         }[]
       }
+      get_managed_correction_task_ids: { Args: never; Returns: string[] }
+      get_my_department_ids: { Args: never; Returns: string[] }
       get_my_member_organizations: {
         Args: never
         Returns: {
@@ -1619,6 +1676,10 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
+      owns_correction_task: {
+        Args: { p_correction_task_id: string }
+        Returns: boolean
+      }
       provision_entity_employees_table: {
         Args: { p_entity_id: string }
         Returns: undefined
@@ -1640,8 +1701,11 @@ export type Database = {
         | "edit_own_profile"
       contract_template_type_enum: "tiptap" | "pdf"
       contracts_status_enum: "draft" | "sent" | "filled" | "active" | "voided"
+      correction_admin_decision_enum: "approved" | "rejected"
+      correction_dept_decision_enum: "approved" | "rejected"
       correction_task_status_enum:
         | "pending"
+        | "manager_approved"
         | "approved"
         | "rejected"
         | "cancelled"
@@ -2370,8 +2434,11 @@ export const Constants = {
       ],
       contract_template_type_enum: ["tiptap", "pdf"],
       contracts_status_enum: ["draft", "sent", "filled", "active", "voided"],
+      correction_admin_decision_enum: ["approved", "rejected"],
+      correction_dept_decision_enum: ["approved", "rejected"],
       correction_task_status_enum: [
         "pending",
+        "manager_approved",
         "approved",
         "rejected",
         "cancelled",

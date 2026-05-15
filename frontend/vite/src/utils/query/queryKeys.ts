@@ -36,6 +36,7 @@ export const QueryKeys = {
     organizations: createTableFactory("organizations"),
     profiles: createTableFactory("profiles"),
     realtime_table_events: createTableFactory("realtime_table_events"),
+    rel__correction_task__department: createTableFactory("rel__correction_task__department"),
     rel__department__employee: createTableFactory("rel__department__employee"),
     rel__department__invitation: createTableFactory("rel__department__invitation"),
     timeclock_corrections: createTableFactory("timeclock_corrections"),
