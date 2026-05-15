@@ -3,16 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
+type TodaySession = { employee_id: string; type: string; start_at: string; end_at: string | null; duration_ms: number | null };
+const PAGE_SIZE = 1000;
+
 const fetchEntityTodaySessions = async (entityId: string, todayStartUtc: string, todayEndUtc: string) => {
-    const sb_FromTimeclockSessions_Select = await supabase
-        .from("timeclock_sessions")
-        .select("employee_id, type, start_at, end_at, duration_ms")
-        .eq("entity_id", entityId)
-        .gte("start_at", todayStartUtc)
-        .lt("start_at", todayEndUtc)
-        .order("start_at", { ascending: true });
-    if (sb_FromTimeclockSessions_Select.error) throw sb_FromTimeclockSessions_Select.error;
-    return sb_FromTimeclockSessions_Select.data;
+    const all: TodaySession[] = [];
+    let offset = 0;
+    while (true) {
+        const { data, error } = await supabase
+            .from("timeclock_sessions")
+            .select("employee_id, type, start_at, end_at, duration_ms")
+            .eq("entity_id", entityId)
+            .gte("start_at", todayStartUtc)
+            .lt("start_at", todayEndUtc)
+            .order("start_at", { ascending: true })
+            .range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+        all.push(...(data ?? []));
+        if (!data || data.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+    }
+    return all;
 };
 
 export const useQ_Tables_EntityTimeclockEventsToday = ({
