@@ -2,7 +2,7 @@ name: Deploy Supabase (Hetzner)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'frontend/vite/supabase/migrations/**'
       - 'frontend/vite/supabase/functions/**'
