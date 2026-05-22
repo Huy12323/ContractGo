@@ -52,6 +52,8 @@ export const useQ_Tables_TimesheetGrid = ({
         })),
     });
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const dataKey = batchQueries.map((q) => q.dataUpdatedAt).join();
     const summaryIndex = useMemo(() => {
         const index = new Map<string, number>();
         for (const q of batchQueries) {
@@ -62,7 +64,8 @@ export const useQ_Tables_TimesheetGrid = ({
             }
         }
         return index;
-    }, [batchQueries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataKey]);
 
     const isAnyLoading = batchQueries.some((q) => q.isLoading && q.fetchStatus !== "idle");
 
