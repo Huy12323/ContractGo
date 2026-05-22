@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useMatch } from "@tanstack/react-router";
-import { Button, Input, Typography, Spin, DatePicker, theme } from "antd";
-import { LeftOutlined, RightOutlined, SearchOutlined } from "@ant-design/icons";
+import { Input, Typography, Spin, theme } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import { App_PageToolbar } from "@/components/app-shell/App_PageToolbar";
 import { useQ_Tables_OrgEntities } from "@/hooks/useQ_Tables_OrgEntities";
 import { useQ_Tables_OrgEmployees } from "@/hooks/useQ_Tables_OrgEmployees";
@@ -9,17 +9,17 @@ import { useQ_Tables_TimesheetGrid } from "@/hooks/useQ_Tables_EntityTimeclockEv
 import { useQ_Tables_EntityTimeclockLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
 import { useQ_Tables_EntityTimeclockEventsToday } from "@/hooks/useQ_Tables_EntityTimeclockEventsToday";
 import type { EmployeeLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
-import { getDateRange, navigateDate, getDaysInRange, isWeekend, fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
+import { getDateRange, navigateDate, getDaysInRange, fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import type { ViewMode } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import { Utils_String_GetInitials } from "@/utils/Utils_String_GetInitials";
+import { App_TimeclockDateNav } from "@/components/timeclock/App_TimeclockDateNav";
+import { App_EmployeeDetailModal } from "@/components/employees/App_EmployeeDetailModal";
 import { PageTimesheets_Grid } from "./PageTimesheets_Grid";
 import type { GridEmployee } from "./PageTimesheets_Grid";
-import { PageTimesheets_EmployeeModal } from "./PageTimesheets_EmployeeModal";
 import type { RangePickerProps } from "antd/es/date-picker";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
-const { RangePicker } = DatePicker;
 
 
 const SAFE_ROW_LIMIT = 900;
@@ -34,8 +34,7 @@ export const Page_Timesheets = () => {
     const [refDate, setRefDate] = useState(new Date());
     const [searchText, setSearchText] = useState("");
     const [customRange, setCustomRange] = useState<[Date, Date] | null>(null);
-    const [pickerOpen, setPickerOpen] = useState(false);
-    const [selectedEmployee, setSelectedEmployee] = useState<GridEmployee | null>(null);
+    const [modalState, setModalState] = useState<{ employee: GridEmployee; tab?: 'overview' | 'timeclock'; initialDate?: Date } | null>(null);
 
     const activeEntityId = entityId || qEntities.entities[0]?.id || "";
     const activeEntity = qEntities.entities.find((e) => e.id === activeEntityId);
@@ -151,7 +150,6 @@ export const Page_Timesheets = () => {
     const employeeGridData = useMemo((): GridEmployee[] => {
         return employeeBase.map((emp) => {
             const dailyHours: (number | null)[] = days.map((d) => {
-                if (isWeekend(d)) return null;
                 const ms = summaryIndex.get(`${emp.id}|${fmtDate(d)}`);
                 return ms && ms > 0 ? ms : null;
             });
@@ -214,25 +212,15 @@ export const Page_Timesheets = () => {
                 position: "relative",
             }}>
                 <div style={{ position: "absolute", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, pointerEvents: "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
-                        <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "prev"))} />
-                        <Button size="small" onClick={() => setPickerOpen(true)}>
-                            {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
-                        </Button>
-                        <RangePicker
-                            size="small"
-                            open={pickerOpen}
-                            onOpenChange={setPickerOpen}
-                            value={[dayjs(dateRange.startDate), dayjs(dateRange.endDate)]}
-                            onChange={(dates, dateStrings) => { handleRangeChange(dates, dateStrings); setPickerOpen(false); }}
-                            presets={rangePresets}
-                            allowClear={false}
-                            separator="–"
-                            format="DD/MM/YYYY"
-                        />
-                        <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(viewMode, refDate, "next"))} />
-                        <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
-                    </div>
+                    <App_TimeclockDateNav
+                        viewModeLabel={viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
+                        dateRange={dateRange}
+                        rangePresets={rangePresets}
+                        onPrev={() => setRefDate(navigateDate(viewMode, refDate, "prev"))}
+                        onNext={() => setRefDate(navigateDate(viewMode, refDate, "next"))}
+                        onToday={() => setRefDate(new Date())}
+                        onRangeChange={handleRangeChange}
+                    />
                 </div>
                 <div style={{ marginLeft: "auto", position: "relative", zIndex: 1 }}>
                     <Input
@@ -257,19 +245,22 @@ export const Page_Timesheets = () => {
                     <PageTimesheets_Grid
                         employees={employeeGridData}
                         days={days}
-                        onEmployeeClick={setSelectedEmployee}
+                        onEmployeeClick={(emp) => setModalState({ employee: emp })}
+                        onDayCellClick={(emp, day) => setModalState({ employee: emp, tab: 'timeclock', initialDate: day })}
                         onVisibleRegionChanged={handleVisibleRegionChanged}
                     />
                 )}
             </div>
 
-            {selectedEmployee && (
-                <PageTimesheets_EmployeeModal
-                    open={!!selectedEmployee}
-                    onClose={() => setSelectedEmployee(null)}
-                    employeeId={selectedEmployee.id}
-                    employeeName={selectedEmployee.name}
+            {modalState && (
+                <App_EmployeeDetailModal
+                    open
+                    employeeId={modalState.employee.id}
                     entityId={activeEntityId}
+                    organizationId={organizationId}
+                    onClose={() => setModalState(null)}
+                    defaultTab={modalState.tab}
+                    initialDate={modalState.initialDate}
                     timezone={timezone}
                 />
             )}

@@ -5,7 +5,8 @@ import { useQ_Tables_OrgEmployees } from '@/hooks/useQ_Tables_OrgEmployees'
 import type { EmployeeDataTable_TableField } from '@/types/employeeTable.types'
 import { useM_Employee_Update } from '@/hooks/useM_Employee_Update'
 import { useM_Files_Upload } from '@/hooks/useM_Files_Upload'
-import { AppEmployeeDetailModal_DetailsTab } from './AppEmployeeDetailModal_DetailsTab'
+import { AppEmployeeDetailModal_OverviewTab } from './AppEmployeeDetailModal_OverviewTab'
+import { AppEmployeeDetailModal_TimeclockTab } from './AppEmployeeDetailModal_TimeclockTab'
 import { isFileDeleteMarker } from './AppEmployeeDetailModal_FieldRenderer'
 
 type Choice = { value: string; label: string }
@@ -43,15 +44,20 @@ export const useProvider_App_EmployeeDetailModal = () => useContext(Context)
 
 // --- Modal --------------------------------------------------------------
 
+type TabKey = 'overview' | 'timeclock'
+
 type Props = {
     open: boolean
     employeeId: string | null
     entityId: string
     organizationId: string
     onClose: () => void
-    fields: EmployeeDataTable_TableField[]
-    choicesByField: Record<string, Choice[]>
+    fields?: EmployeeDataTable_TableField[]
+    choicesByField?: Record<string, Choice[]>
     onFilePreview?: (ctx: { file_id: string; employee_id: string; column_id: string }) => void
+    defaultTab?: TabKey
+    initialDate?: Date
+    timezone?: string
 }
 
 // Outer wrapper — keys the Provider so state resets every time a new employee
@@ -62,12 +68,13 @@ export const App_EmployeeDetailModal = (props: Props) => (
     </Provider_App_EmployeeDetailModal>
 )
 
-const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organizationId, onClose, fields, choicesByField, onFilePreview }: Props) => {
+const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organizationId, onClose, fields, choicesByField, onFilePreview, defaultTab = 'overview', initialDate, timezone }: Props) => {
     const { token } = theme.useToken()
     const { message, modal } = App.useApp()
     const pModal = useProvider_App_EmployeeDetailModal()
     const { editMode, patch } = pModal.state
     const isDirty = Object.keys(patch).length > 0
+    const [activeTab, setActiveTab] = useState<TabKey>(defaultTab)
     const mUpdateEmployee = useM_Employee_Update({ entityId })
     const mFilesUpload = useM_Files_Upload()
 
@@ -78,6 +85,7 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
         () => (employeeId ? qEmployees.employees.find((e) => e.id === employeeId) ?? null : null),
         [qEmployees.employees, employeeId],
     )
+    const resolvedTimezone = timezone ?? (employee?.entities as { timezone?: string } | null)?.timezone ?? 'UTC'
 
     // Lock applied for the entire save flow (file uploads + DB update + cleanup).
     // The mutation's own `isPending` only covers the final DB write; the file-upload
@@ -225,12 +233,17 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
         promptDirty(onClose)
     }, [isSaving, isDirty, resetToView, onClose, promptDirty])
 
-    // Edit / Cancel / Save belong to the Details tab (they operate on employee
-    // fields). Today the modal has only one tab, so rendering them in the modal
-    // footer is fine. When a second tab lands (Contracts, Files, etc.), lift an
-    // `activeTab` state and render each tab's actions conditionally — or let
-    // each tab contribute its own footer slot via the Tabs items config.
-    const detailsTabFooter =
+    const handleTabChange = useCallback((key: string) => {
+        const next = key as TabKey
+        if (activeTab === 'overview' && editMode === 'edit' && isDirty) {
+            promptDirty(() => setActiveTab(next))
+            return
+        }
+        if (editMode === 'edit') resetToView()
+        setActiveTab(next)
+    }, [activeTab, editMode, isDirty, promptDirty, resetToView])
+
+    const overviewFooter =
         editMode === 'view'
             ? [
                   <Button
@@ -260,9 +273,9 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
         <Modal
             open={open}
             onCancel={handleClose}
-            width={960}
+            width={activeTab === 'timeclock' ? 1200 : 960}
             title={null}
-            footer={detailsTabFooter}
+            footer={activeTab === 'overview' ? overviewFooter : null}
             destroyOnHidden
         >
             <div style={{ paddingBottom: token.paddingLG }}>
@@ -271,12 +284,14 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
                 </Typography.Title>
             </div>
             <Tabs
+                activeKey={activeTab}
+                onChange={handleTabChange}
                 items={[
                     {
-                        key: 'details',
-                        label: 'Details',
+                        key: 'overview',
+                        label: 'Overview',
                         children: employee ? (
-                            <AppEmployeeDetailModal_DetailsTab
+                            <AppEmployeeDetailModal_OverviewTab
                                 employee={employee}
                                 fields={fields}
                                 choicesByField={choicesByField}
@@ -289,6 +304,18 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
                                         column_id: ctx.column_id,
                                     })
                                 }
+                            />
+                        ) : null,
+                    },
+                    {
+                        key: 'timeclock',
+                        label: 'Timeclock',
+                        children: employee ? (
+                            <AppEmployeeDetailModal_TimeclockTab
+                                employeeId={employee.id}
+                                entityId={entityId}
+                                timezone={resolvedTimezone}
+                                initialRefDate={initialDate}
                             />
                         ) : null,
                     },

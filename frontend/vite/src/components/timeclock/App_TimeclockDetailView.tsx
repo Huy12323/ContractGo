@@ -1,21 +1,21 @@
 import { useState, useMemo } from "react";
-import { Segmented, Button, Tag, Typography, DatePicker, theme } from "antd";
-import { LeftOutlined, RightOutlined, BarChartOutlined, UnorderedListOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
+import { Segmented, Button, Tag, Typography, theme } from "antd";
+import { BarChartOutlined, UnorderedListOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
 import { useQ_Tables_TimeclockSessions } from "@/hooks/useQ_Tables_TimeclockEvents";
 import type { TimeclockSession } from "@/hooks/useQ_Tables_TimeclockEvents";
 import { formatDuration, formatTimeInTz } from "@/utils/timeclock/utils_Timeclock_AggregateEvents";
 import {
-    getDateRange, navigateDate, getDaysInRange, isToday, isFuture, isWeekend, formatDayLabel, fmtDate,
+    getDateRange, navigateDate, getDaysInRange, isToday, isFuture, formatDayLabel, fmtDate,
 } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import type { ViewMode } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import { App_TimeclockBar24, App_TimeclockLegend } from "@/components/timeclock/App_TimeclockBar24";
 import { App_TimeclockEventDot } from "@/components/timeclock/App_TimeclockEventDot";
+import { App_TimeclockDateNav } from "@/components/timeclock/App_TimeclockDateNav";
 import { TIMECLOCK_COLORS } from "@/utils/timeclock/const_Timeclock_Colors";
 import type { RangePickerProps } from "antd/es/date-picker";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
-const { RangePicker } = DatePicker;
 
 type DisplayMode = "bar" | "table";
 
@@ -128,17 +128,17 @@ type Props = {
     employeeId: string;
     timezone: string;
     initialPeriod?: ViewMode;
+    initialRefDate?: Date;
     onDayClick?: (day: Date, summary: DaySummary | undefined) => void;
     correctionTasksByDate?: CorrectionTaskMap;
 };
 
-export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", onDayClick, correctionTasksByDate }: Props) => {
+export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = "week", initialRefDate, onDayClick, correctionTasksByDate }: Props) => {
     const { token } = theme.useToken();
     const [displayMode, setDisplayMode] = useState<DisplayMode>("bar");
     const [period, setPeriod] = useState<ViewMode>(initialPeriod);
-    const [refDate, setRefDate] = useState(new Date());
+    const [refDate, setRefDate] = useState(initialRefDate ?? new Date());
     const [customRange, setCustomRange] = useState<[Date, Date] | null>(null);
-    const [pickerOpen, setPickerOpen] = useState(false);
     const dateRange = useMemo(() => getDateRange(period, refDate, customRange?.[0], customRange?.[1]), [period, refDate, customRange]);
     const days = useMemo(() => getDaysInRange(dateRange.startDate, dateRange.endDate), [dateRange]);
 
@@ -193,25 +193,15 @@ export const App_TimeclockDetailView = ({ employeeId, timezone, initialPeriod = 
                     />
                 </div>
                 <div style={{ position: "absolute", left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, pointerEvents: "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, pointerEvents: "auto" }}>
-                        <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "prev"))} />
-                        <Button size="small" onClick={() => setPickerOpen(true)}>
-                            {period.charAt(0).toUpperCase() + period.slice(1)}
-                        </Button>
-                        <RangePicker
-                            size="small"
-                            open={pickerOpen}
-                            onOpenChange={setPickerOpen}
-                            value={[dayjs(dateRange.startDate), dayjs(dateRange.endDate)]}
-                            onChange={(dates, dateStrings) => { handleRangeChange(dates, dateStrings); setPickerOpen(false); }}
-                            presets={rangePresets}
-                            allowClear={false}
-                            separator="–"
-                            format="DD/MM/YYYY"
-                        />
-                        <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setRefDate(navigateDate(period, refDate, "next"))} />
-                        <Button size="small" onClick={() => setRefDate(new Date())}>Today</Button>
-                    </div>
+                    <App_TimeclockDateNav
+                        viewModeLabel={period.charAt(0).toUpperCase() + period.slice(1)}
+                        dateRange={dateRange}
+                        rangePresets={rangePresets}
+                        onPrev={() => setRefDate(navigateDate(period, refDate, "prev"))}
+                        onNext={() => setRefDate(navigateDate(period, refDate, "next"))}
+                        onToday={() => setRefDate(new Date())}
+                        onRangeChange={handleRangeChange}
+                    />
                 </div>
             </div>
 
@@ -324,9 +314,8 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
     const [expanded, setExpanded] = useState(false);
     const td = isToday(day);
     const future = isFuture(day);
-    const wknd = isWeekend(day);
     const timeline = summary?.timeline ?? [];
-    const canExpand = !wknd && !future && timeline.length > 0;
+    const canExpand = !future && timeline.length > 0;
     const pending = correctionEntries?.find((e) => e.status === "pending");
     const approved = correctionEntries?.find((e) => e.status === "approved");
     const showTimeline = timelineMode === "expanded" ? canExpand : expanded;
@@ -334,12 +323,12 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
 
     return (
         <div
-            onClick={() => !wknd && !future && onDayClick?.(day, summary)}
+            onClick={() => !future && onDayClick?.(day, summary)}
             style={{
                 background: td ? "#eef2ff" : token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`,
                 borderRadius: token.borderRadiusSM, borderLeft: td ? "3px solid #6366f1" : undefined,
-                opacity: future ? 0.35 : wknd ? 0.3 : 1, overflow: "hidden",
-                cursor: !wknd && !future && onDayClick ? "pointer" : undefined,
+                opacity: future ? 0.35 : 1, overflow: "hidden",
+                cursor: !future && onDayClick ? "pointer" : undefined,
             }}
         >
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 14px" }}>
@@ -366,8 +355,7 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                         </div>
                     ) : (
                         <div style={{ paddingTop: 14, paddingBottom: pending ? 4 : 14 }}>
-                            {wknd ? <div style={{ color: token.colorTextQuaternary, fontSize: 11, textAlign: "center" }}>Off</div>
-                                : <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />}
+                            <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />
                         </div>
                     )}
                     {pending?.proposedSessions && (
@@ -396,12 +384,12 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                         <>
                             <div style={{ width: 70, textAlign: "right", fontWeight: 600, fontSize: 13, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
                                 <span style={{ color: workedMs > 0 ? TIMECLOCK_COLORS.work.solid : token.colorTextQuaternary }}>
-                                    {wknd || workedMs === 0 ? "—" : formatDuration(Math.max(workedMs, 0))}
+                                    {workedMs === 0 ? "—" : formatDuration(Math.max(workedMs, 0))}
                                 </span>
                                 <ActiveIndicator summary={summary} />
                             </div>
                             <div style={{ width: 70, textAlign: "right", fontSize: 13, flexShrink: 0, color: token.colorTextSecondary }}>
-                                {wknd || bMs === 0 ? "—" : formatDuration(bMs)}
+                                {bMs === 0 ? "—" : formatDuration(bMs)}
                             </div>
                         </>
                     );
@@ -431,20 +419,12 @@ const DayTableCard = ({ day, summary, correctionEntries, timezone }: { day: Date
     const { token } = theme.useToken();
     const td = isToday(day);
     const future = isFuture(day);
-    const wknd = isWeekend(day);
     const timeline = summary?.timeline ?? [];
     const approved = correctionEntries?.find((e) => e.status === "approved");
     const correctedTimeline = approved?.proposedSessions && timezone ? barSessionsToTimeline(approved.proposedSessions, timezone) : null;
     const correctedWorkedMs = approved?.proposedSessions?.filter((s) => s.type === "work").reduce((a, s) => a + s.durationMs, 0) ?? 0;
     const correctedBreakMs = approved?.proposedSessions?.filter((s) => s.type === "lunch").reduce((a, s) => a + s.durationMs, 0) ?? 0;
 
-    if (wknd) {
-        return (
-            <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", opacity: 0.3, fontSize: 12, color: token.colorTextQuaternary }}>
-                <span style={{ width: 120, fontWeight: 600 }}>{formatDayLabel(day)}</span><span>Off</span>
-            </div>
-        );
-    }
     if (future || (timeline.length === 0 && !correctedTimeline)) {
         return (
             <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", opacity: future ? 0.3 : 0.6, fontSize: 12, color: token.colorTextQuaternary }}>

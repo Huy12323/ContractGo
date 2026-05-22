@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback } from "react";
-import { Modal } from "antd";
 import { App_TimeclockDetailView } from "@/components/timeclock/App_TimeclockDetailView";
 import type { DaySummary, CorrectionTaskEntry, BarSession } from "@/components/timeclock/App_TimeclockDetailView";
 import { useQ_PageMyTimeclock_MyCorrectionTasks } from "@/hooks/useQ_PageMyTimeclock_MyCorrectionTasks";
@@ -8,15 +7,13 @@ import { PageMyTimeclock_DayModal } from "@/pages/Page_MyTimeclock/PageMyTimeclo
 type ModalMode = { day: Date; summary: DaySummary | undefined };
 
 type Props = {
-    open: boolean;
-    onClose: () => void;
     employeeId: string;
-    employeeName: string;
     entityId: string;
     timezone: string;
+    initialRefDate?: Date;
 };
 
-export const PageTimesheets_EmployeeModal = ({ open, onClose, employeeId, employeeName, entityId, timezone }: Props) => {
+export const AppEmployeeDetailModal_TimeclockTab = ({ employeeId, entityId, timezone, initialRefDate }: Props) => {
     const [modalState, setModalState] = useState<ModalMode | null>(null);
     const qCorrections = useQ_PageMyTimeclock_MyCorrectionTasks({ employeeId });
 
@@ -54,22 +51,15 @@ export const PageTimesheets_EmployeeModal = ({ open, onClose, employeeId, employ
 
     return (
         <>
-            <Modal
-                open={open}
-                onCancel={onClose}
-                title={employeeName}
-                footer={null}
-                width="80vw"
-                styles={{ body: { padding: 0, maxHeight: "70vh", overflow: "auto" } }}
-                destroyOnHidden
-            >
+            <div style={{ overflow: "auto", maxHeight: "60vh" }}>
                 <App_TimeclockDetailView
                     employeeId={employeeId}
                     timezone={timezone}
+                    initialRefDate={initialRefDate}
                     onDayClick={handleDayClick}
                     correctionTasksByDate={correctionTasksByDate}
                 />
-            </Modal>
+            </div>
             {modalState && (
                 <PageMyTimeclock_DayModal
                     open

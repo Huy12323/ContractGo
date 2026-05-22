@@ -5,7 +5,7 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import { theme } from "antd";
 import { useGlideTheme, GRID_EXPAND_ICON, drawExpandIcon } from "@/hooks/useGlideTheme";
 import { formatDuration } from "@/utils/timeclock/utils_Timeclock_AggregateEvents";
-import { isWeekend, fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
+import { fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import { TIMECLOCK_COLORS } from "@/utils/timeclock/const_Timeclock_Colors";
 import type { EmployeeLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
 
@@ -25,10 +25,11 @@ type Props = {
     employees: GridEmployee[];
     days: Date[];
     onEmployeeClick?: (employee: GridEmployee) => void;
+    onDayCellClick?: (employee: GridEmployee, day: Date) => void;
     onVisibleRegionChanged?: (startRow: number, endRow: number) => void;
 };
 
-export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onVisibleRegionChanged }: Props) => {
+export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onDayCellClick, onVisibleRegionChanged }: Props) => {
     const { token } = theme.useToken();
     const gridTheme = useGlideTheme();
     const gridRef = useRef<DataEditorRef>(null);
@@ -65,14 +66,8 @@ export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onVisibl
         }
 
         const dayIdx = col - 2;
-        const d = days[dayIdx]!;
-        const wknd = isWeekend(d);
         const ms = emp.dailyHours[dayIdx] ?? 0;
 
-        if (wknd) {
-            return { kind: GridCellKind.Text, data: "—", displayData: "—", allowOverlay: false, readonly: true, contentAlign: "center",
-                themeOverride: { textDark: token.colorTextQuaternary, bgCell: token.colorFillAlter } };
-        }
         if (ms === 0) {
             return { kind: GridCellKind.Text, data: "—", displayData: "—", allowOverlay: false, readonly: true, contentAlign: "center",
                 themeOverride: { textDark: token.colorTextQuaternary } };
@@ -142,10 +137,17 @@ export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onVisibl
     }, [onVisibleRegionChanged]);
 
     const handleCellClicked = useCallback(([col, row]: Item) => {
-        if (col === 0 && row < employees.length) {
-            onEmployeeClick?.(employees[row]!);
+        if (row >= employees.length) return;
+        const emp = employees[row]!;
+        if (col === 0) {
+            onEmployeeClick?.(emp);
+            return;
         }
-    }, [employees, onEmployeeClick]);
+        if (col >= 2 && onDayCellClick) {
+            const day = days[col - 2];
+            if (day) onDayCellClick(emp, day);
+        }
+    }, [employees, days, onEmployeeClick, onDayCellClick]);
 
     return (
         <DataEditor
