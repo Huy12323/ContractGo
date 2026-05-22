@@ -18,6 +18,12 @@ const timeToPercent = (isoStr: string, timezone: string) => {
     }
 };
 
+// Midnight end_at (00:00) should render as 100% (end of day), not 0% (start of day).
+const endTimeToPercent = (isoStr: string, timezone: string, startPct: number) => {
+    const pct = timeToPercent(isoStr, timezone);
+    return pct === 0 && startPct === 0 ? 100 : pct;
+};
+
 const HOUR_TICKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 export const App_TimeclockBar24 = ({
@@ -79,7 +85,7 @@ export const App_TimeclockBar24 = ({
                     <>
                         {workSessions.map((ws, wi) => {
                             const startPct = timeToPercent(ws.startAt, timezone);
-                            const endPct = ws.endAt ? timeToPercent(ws.endAt, timezone) : (nowPercent ?? startPct);
+                            const endPct = ws.endAt ? endTimeToPercent(ws.endAt, timezone, startPct) : (nowPercent ?? startPct);
                             const width = Math.max(endPct - startPct, 0.3);
                             const wsText = `Work: ${formatTimeInTz(ws.startAt, timezone)} → ${ws.endAt ? formatTimeInTz(ws.endAt, timezone) : "Now"} · ${formatDuration(ws.durationMs)}`;
 
@@ -101,7 +107,7 @@ export const App_TimeclockBar24 = ({
                                 >
                                     {innerLunches.map((ls, li) => {
                                         const lsStartPct = timeToPercent(ls.startAt, timezone);
-                                        const lsEndPct = ls.endAt ? timeToPercent(ls.endAt, timezone) : (nowPercent ?? lsStartPct);
+                                        const lsEndPct = ls.endAt ? endTimeToPercent(ls.endAt, timezone, lsStartPct) : (nowPercent ?? lsStartPct);
                                         const lsWidth = Math.max(lsEndPct - lsStartPct, 0.3);
                                         const relLeft = ((lsStartPct - startPct) / width) * 100;
                                         const relWidth = (lsWidth / width) * 100;
@@ -124,7 +130,7 @@ export const App_TimeclockBar24 = ({
                         {/* Timestamps */}
                         {workSessions.map((ws, wi) => {
                             const startPct = timeToPercent(ws.startAt, timezone);
-                            const endPct = ws.endAt ? timeToPercent(ws.endAt, timezone) : (nowPercent ?? startPct);
+                            const endPct = ws.endAt ? endTimeToPercent(ws.endAt, timezone, startPct) : (nowPercent ?? startPct);
                             const width = Math.max(endPct - startPct, 0.3);
                             const startLabel = formatTimeInTz(ws.startAt, timezone);
                             const endLabel = ws.endAt ? formatTimeInTz(ws.endAt, timezone) : null;
@@ -146,7 +152,7 @@ export const App_TimeclockBar24 = ({
                                     )}
                                     {innerLunches.map((ls, li) => {
                                         const lsStartPct = timeToPercent(ls.startAt, timezone);
-                                        const lsEndPct = ls.endAt ? timeToPercent(ls.endAt, timezone) : (nowPercent ?? lsStartPct);
+                                        const lsEndPct = ls.endAt ? endTimeToPercent(ls.endAt, timezone, lsStartPct) : (nowPercent ?? lsStartPct);
                                         const lsWidth = Math.max(lsEndPct - lsStartPct, 0.3);
                                         return (
                                             <div key={`lunch-label-${li}`}>
