@@ -6,16 +6,13 @@ import { App_PageToolbar } from "@/components/app-shell/App_PageToolbar";
 import { useQ_Tables_OrgEntities } from "@/hooks/useQ_Tables_OrgEntities";
 import { useQ_Tables_OrgEmployees } from "@/hooks/useQ_Tables_OrgEmployees";
 import { useQ_Tables_TimesheetGrid } from "@/hooks/useQ_Tables_EntityTimeclockEvents";
-import { useQ_Tables_EntityTimeclockLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
 import { useQ_Tables_EntityTimeclockEventsToday } from "@/hooks/useQ_Tables_EntityTimeclockEventsToday";
-import type { EmployeeLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
 import { getDateRange, navigateDate, getDaysInRange, fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import type { ViewMode } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import { Utils_String_GetInitials } from "@/utils/Utils_String_GetInitials";
 import { App_TimeclockDateNav } from "@/components/timeclock/App_TimeclockDateNav";
 import { App_EmployeeDetailModal } from "@/components/employees/App_EmployeeDetailModal";
 import { PageTimesheets_Grid } from "./PageTimesheets_Grid";
-import type { GridEmployee } from "./PageTimesheets_Grid";
 import type { RangePickerProps } from "antd/es/date-picker";
 import dayjs from "dayjs";
 
@@ -34,7 +31,7 @@ export const Page_Timesheets = () => {
     const [refDate, setRefDate] = useState(new Date());
     const [searchText, setSearchText] = useState("");
     const [customRange, setCustomRange] = useState<[Date, Date] | null>(null);
-    const [modalState, setModalState] = useState<{ employee: GridEmployee; tab?: 'overview' | 'timeclock'; initialDate?: Date } | null>(null);
+    const [modalState, setModalState] = useState<{ employee: { id: string }; tab?: 'overview' | 'timeclock'; initialDate?: Date } | null>(null);
 
     const activeEntityId = entityId || qEntities.entities[0]?.id || "";
     const activeEntity = qEntities.entities.find((e) => e.id === activeEntityId);
@@ -63,7 +60,6 @@ export const Page_Timesheets = () => {
     }, [searchText]);
 
     const qEmployees = useQ_Tables_OrgEmployees({ entityId: activeEntityId, searchText: debouncedSearch || undefined });
-    const qLiveStatus = useQ_Tables_EntityTimeclockLiveStatus({ entityId: activeEntityId });
     const qToday = useQ_Tables_EntityTimeclockEventsToday({ entityId: activeEntityId, timezone });
 
     // --- Batch loading ---
@@ -147,22 +143,6 @@ export const Page_Timesheets = () => {
         return index;
     }, [qGrid.summaryIndex, qToday.todayWorkedByEmployee, dateRangeIncludesToday, today]);
 
-    const employeeGridData = useMemo((): GridEmployee[] => {
-        return employeeBase.map((emp) => {
-            const dailyHours: (number | null)[] = days.map((d) => {
-                const ms = summaryIndex.get(`${emp.id}|${fmtDate(d)}`);
-                return ms && ms > 0 ? ms : null;
-            });
-            const totalMs = dailyHours.reduce<number>((sum, h) => sum + (h ?? 0), 0);
-            return {
-                ...emp,
-                liveStatus: (qLiveStatus.statusMap[emp.id] ?? "idle") as EmployeeLiveStatus,
-                dailyHours,
-                totalMs,
-            };
-        });
-    }, [employeeBase, summaryIndex, qLiveStatus.statusMap, days]);
-
     const currentCycleRange = useMemo(() => getDateRange("cycle", new Date()), []);
 
     const rangePresets: RangePickerProps["presets"] = [
@@ -243,8 +223,9 @@ export const Page_Timesheets = () => {
                     </div>
                 ) : (
                     <PageTimesheets_Grid
-                        employees={employeeGridData}
+                        employees={employeeBase}
                         days={days}
+                        summaryIndex={summaryIndex}
                         onEmployeeClick={(emp) => setModalState({ employee: emp })}
                         onDayCellClick={(emp, day) => setModalState({ employee: emp, tab: 'timeclock', initialDate: day })}
                         onVisibleRegionChanged={handleVisibleRegionChanged}

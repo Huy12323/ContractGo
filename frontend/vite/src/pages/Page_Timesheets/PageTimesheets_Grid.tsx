@@ -7,7 +7,6 @@ import { useGlideTheme, GRID_EXPAND_ICON, drawExpandIcon } from "@/hooks/useGlid
 import { formatDuration } from "@/utils/timeclock/utils_Timeclock_AggregateEvents";
 import { fmtDate } from "@/utils/timeclock/utils_Timeclock_DateRange";
 import { TIMECLOCK_COLORS } from "@/utils/timeclock/const_Timeclock_Colors";
-import type { EmployeeLiveStatus } from "@/hooks/useQ_Tables_EntityTimeclockLiveStatus";
 
 const MS_8H = 8 * 60 * 60 * 1000;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,20 +15,18 @@ export type GridEmployee = {
     id: string;
     name: string;
     initials: string;
-    liveStatus: EmployeeLiveStatus;
-    dailyHours: (number | null)[];
-    totalMs: number;
 };
 
 type Props = {
     employees: GridEmployee[];
     days: Date[];
+    summaryIndex: Map<string, number>;
     onEmployeeClick?: (employee: GridEmployee) => void;
     onDayCellClick?: (employee: GridEmployee, day: Date) => void;
     onVisibleRegionChanged?: (startRow: number, endRow: number) => void;
 };
 
-export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onDayCellClick, onVisibleRegionChanged }: Props) => {
+export const PageTimesheets_Grid = ({ employees, days, summaryIndex, onEmployeeClick, onDayCellClick, onVisibleRegionChanged }: Props) => {
     const { token } = theme.useToken();
     const gridTheme = useGlideTheme();
     const gridRef = useRef<DataEditorRef>(null);
@@ -50,6 +47,8 @@ export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onDayCel
         return cols;
     }, [days]);
 
+    const dayDateStrings = useMemo(() => days.map(fmtDate), [days]);
+
     const getCellContent = useCallback(([col, row]: Item): GridCell => {
         const emp = employees[row]!;
 
@@ -60,13 +59,16 @@ export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onDayCel
         }
 
         if (col === 1) {
-            const display = emp.totalMs > 0 ? formatDuration(emp.totalMs) : "—";
+            let totalMs = 0;
+            for (const ds of dayDateStrings) {
+                totalMs += summaryIndex.get(`${emp.id}|${ds}`) ?? 0;
+            }
+            const display = totalMs > 0 ? formatDuration(totalMs) : "—";
             return { kind: GridCellKind.Text, data: display, displayData: display, allowOverlay: false, readonly: true, contentAlign: "center",
                 themeOverride: { baseFontStyle: "700 13px" } };
         }
 
-        const dayIdx = col - 2;
-        const ms = emp.dailyHours[dayIdx] ?? 0;
+        const ms = summaryIndex.get(`${emp.id}|${dayDateStrings[col - 2]}`) ?? 0;
 
         if (ms === 0) {
             return { kind: GridCellKind.Text, data: "—", displayData: "—", allowOverlay: false, readonly: true, contentAlign: "center",
@@ -76,7 +78,7 @@ export const PageTimesheets_Grid = ({ employees, days, onEmployeeClick, onDayCel
         const hours = (ms / 3600000).toFixed(2) + "h";
         return { kind: GridCellKind.Text, data: hours, displayData: hours, allowOverlay: false, readonly: true, contentAlign: "center",
             themeOverride: { baseFontStyle: "600 13px", textDark: ms >= MS_8H ? TIMECLOCK_COLORS.work.dark : TIMECLOCK_COLORS.work.soft } };
-    }, [employees, days, token]);
+    }, [employees, dayDateStrings, summaryIndex, token]);
 
     const handleItemHovered = useCallback((args: GridMouseEventArgs) => {
         const newRow = args.kind === "cell" ? args.location[1] : undefined;
