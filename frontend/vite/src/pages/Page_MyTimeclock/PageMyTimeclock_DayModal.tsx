@@ -175,7 +175,7 @@ export const PageMyTimeclock_DayModal = ({
                                 {/* Before / After bars */}
                                 <div>
                                     <Text type="secondary" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>Original</Text>
-                                    <div style={{ paddingTop: 10, paddingBottom: 10 }}>
+                                    <div style={{ paddingTop: 16, paddingBottom: 16 }}>
                                         <App_TimeclockBar24 sessions={sessions} timezone={timezone} showHourLabels />
                                     </div>
                                     <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
@@ -183,12 +183,12 @@ export const PageMyTimeclock_DayModal = ({
                                         <span>Break: <strong>{formatDuration(breakMs)}</strong></span>
                                     </div>
                                 </div>
-                                <div style={{ border: `1px solid #52c41a`, borderRadius: token.borderRadiusSM, padding: `${token.paddingSM}px ${token.paddingSM}px ${token.paddingMD}px`, background: "rgba(82, 196, 26, 0.04)" }}>
+                                <div style={{ border: `1px solid #52c41a`, borderRadius: token.borderRadiusSM, padding: `${token.paddingSM}px ${token.paddingSM}px ${token.paddingMD}px`, background: "rgba(82, 196, 26, 0.04)", overflow: "visible" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                         <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#52c41a" }} />
                                         <Text style={{ fontSize: 11, color: "#52c41a", fontWeight: 600 }}>Corrected</Text>
                                     </div>
-                                    <div style={{ paddingTop: 10, paddingBottom: 10 }}>
+                                    <div style={{ paddingTop: 16, paddingBottom: 16 }}>
                                         <App_TimeclockBar24 sessions={approvedSessions} timezone={timezone} showHourLabels />
                                     </div>
                                     <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
@@ -229,7 +229,7 @@ export const PageMyTimeclock_DayModal = ({
                             </>
                         ) : (
                             <>
-                                <div style={{ paddingTop: 14, paddingBottom: 14 }}>
+                                <div style={{ paddingTop: 16, paddingBottom: 16 }}>
                                     <App_TimeclockBar24 sessions={sessions} timezone={timezone} showHourLabels />
                                 </div>
                                 <div style={{ display: "flex", gap: 24 }}>
@@ -326,7 +326,7 @@ export const PageMyTimeclock_DayModal = ({
                 title={
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{overlay?.type === "edit-pending" ? `Edit Correction — ${dayLabel}` : `Request Correction — ${dayLabel}`}</span>
-                        <Button type="text" size="small" icon={<QuestionCircleOutlined />} onClick={() => setHelpOpen(!helpOpen)} style={helpOpen ? { color: token.colorPrimary } : undefined} />
+                        <Button type="text" size="small" icon={<QuestionCircleOutlined />} onClick={() => setHelpOpen(!helpOpen)} style={{ color: token.colorPrimary }} />
                     </div>
                 }
                 width={helpOpen ? 1200 : 920}

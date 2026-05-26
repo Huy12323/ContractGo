@@ -550,7 +550,7 @@ export const PageMyTimeclock_CorrectionEditor = forwardRef<CorrectionEditorHandl
                     style={{
                         position: "relative", height: BAR_HEIGHT, background: token.colorFillAlter,
                         borderRadius: token.borderRadiusSM, userSelect: "none", cursor: barCursor,
-                        marginTop: 16, marginBottom: 20,
+                        marginTop: 16, marginBottom: 20, marginLeft: 6, marginRight: 10,
                     }}
                 >
                     {HOUR_TICKS.map((h) => (

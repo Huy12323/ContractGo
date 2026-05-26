@@ -29,7 +29,7 @@ const HOUR_TICKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 export const App_TimeclockBar24 = ({
     sessions,
     timezone,
-    height = 32,
+    height = 20,
     showNow = false,
     showHourLabels = false,
 }: {
@@ -60,15 +60,15 @@ export const App_TimeclockBar24 = ({
     })() : null;
 
     return (
-        <div style={{ position: "relative", height, background: token.colorFillAlter, borderRadius: token.borderRadiusSM, overflow: "visible" }}>
+        <div style={{ position: "relative", height, background: token.colorFillAlter, borderRadius: token.borderRadiusSM, overflow: "visible", marginLeft: 6, marginRight: 10 }}>
             {HOUR_TICKS.map((h) => (
                 <div key={h} style={{ position: "absolute", left: `${(h / 24) * 100}%`, top: 0, height: "100%", width: 1, background: token.colorBorder, opacity: 0.6 }} />
             ))}
 
             {showHourLabels && HOUR_TICKS.map((h) => (
                 <span key={`lbl-${h}`} style={{
-                    position: "absolute", left: `${(h / 24) * 100}%`, bottom: -12,
-                    transform: "translateX(-50%)", fontSize: 8, color: token.colorTextQuaternary, fontWeight: 500,
+                    position: "absolute", left: `${(h / 24) * 100}%`, bottom: -16,
+                    transform: "translateX(-50%)", fontSize: 10, color: token.colorTextQuaternary, fontWeight: 500,
                     pointerEvents: "none",
                 }}>
                     {h}
@@ -142,11 +142,11 @@ export const App_TimeclockBar24 = ({
 
                             return (
                                 <div key={`labels-${wi}`}>
-                                    <span style={{ position: "absolute", left: `${startPct}%`, top: -14, fontSize: 9, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
+                                    <span style={{ position: "absolute", left: `${startPct}%`, top: -16, fontSize: 11, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
                                         {startLabel}
                                     </span>
                                     {endLabel && (
-                                        <span style={{ position: "absolute", left: `${startPct + width}%`, top: -14, fontSize: 9, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
+                                        <span style={{ position: "absolute", left: `${startPct + width}%`, top: -16, fontSize: 11, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
                                             {endLabel}
                                         </span>
                                     )}
@@ -156,11 +156,11 @@ export const App_TimeclockBar24 = ({
                                         const lsWidth = Math.max(lsEndPct - lsStartPct, 0.3);
                                         return (
                                             <div key={`lunch-label-${li}`}>
-                                                <span style={{ position: "absolute", left: `${lsStartPct}%`, top: -14, fontSize: 9, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
+                                                <span style={{ position: "absolute", left: `${lsStartPct}%`, top: -16, fontSize: 11, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
                                                     {formatTimeInTz(ls.startAt, timezone)}
                                                 </span>
                                                 {ls.endAt && (
-                                                    <span style={{ position: "absolute", left: `${lsStartPct + lsWidth}%`, top: -14, fontSize: 9, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
+                                                    <span style={{ position: "absolute", left: `${lsStartPct + lsWidth}%`, top: -16, fontSize: 11, color: token.colorTextSecondary, fontWeight: 600, transform: "translateX(-50%)", whiteSpace: "nowrap", zIndex: 3 }}>
                                                         {formatTimeInTz(ls.endAt, timezone)}
                                                     </span>
                                                 )}
@@ -177,7 +177,7 @@ export const App_TimeclockBar24 = ({
             {nowPercent !== null && (
                 <>
                     <div style={{ position: "absolute", left: `${nowPercent}%`, top: -4, height: "calc(100% + 8px)", width: 2, background: token.colorError, zIndex: 2 }} />
-                    <span style={{ position: "absolute", left: `${nowPercent}%`, top: -16, fontSize: 8, color: token.colorError, fontWeight: 700, transform: "translateX(-50%)" }}>
+                    <span style={{ position: "absolute", left: `${nowPercent}%`, top: -16, fontSize: 11, color: token.colorError, fontWeight: 700, transform: "translateX(-50%)" }}>
                         {new Date().toLocaleTimeString("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false })}
                     </span>
                 </>
@@ -207,7 +207,7 @@ export const App_TimeclockBar24HourRuler = () => {
             {labels.map((h) => (
                 <span key={h} style={{
                     position: "absolute", left: `${(h / 24) * 100}%`, transform: "translateX(-50%)",
-                    fontSize: 9, color: token.colorTextQuaternary, fontWeight: 500,
+                    fontSize: 11, color: token.colorTextQuaternary, fontWeight: 500,
                 }}>
                     {h}
                 </span>

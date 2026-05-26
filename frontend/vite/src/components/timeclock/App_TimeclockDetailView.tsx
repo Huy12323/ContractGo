@@ -327,7 +327,7 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
             style={{
                 background: td ? "#eef2ff" : token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`,
                 borderRadius: token.borderRadiusSM, borderLeft: td ? "3px solid #6366f1" : undefined,
-                opacity: future ? 0.35 : 1, overflow: "hidden",
+                opacity: future ? 0.35 : 1,
                 cursor: !future && onDayClick ? "pointer" : undefined,
             }}
         >
@@ -344,8 +344,9 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                         <div style={{
                             marginLeft: -6, marginRight: -6,
                             border: "1px solid #52c41a", borderRadius: token.borderRadiusSM,
-                            padding: "4px 6px 14px",
+                            padding: "4px 6px 16px",
                             background: "rgba(82, 196, 26, 0.04)",
+                            overflow: "visible",
                         }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#52c41a" }} />
@@ -354,7 +355,7 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                             <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />
                         </div>
                     ) : (
-                        <div style={{ paddingTop: 14, paddingBottom: pending ? 4 : 14 }}>
+                        <div style={{ paddingTop: 16, paddingBottom: pending ? 4 : 16 }}>
                             <App_TimeclockBar24 sessions={displaySessions} timezone={timezone} showNow={td} showHourLabels />
                         </div>
                     )}
@@ -362,8 +363,9 @@ const DayRow = ({ day, summary, timezone, onDayClick, correctionEntries, timelin
                         <div style={{
                             marginTop: 8, marginLeft: -6, marginRight: -6,
                             border: "1px dashed #fa8c16", borderRadius: token.borderRadiusSM,
-                            padding: "4px 6px 14px",
+                            padding: "4px 6px 16px",
                             background: "rgba(250, 140, 22, 0.04)",
+                            overflow: "visible",
                         }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fa8c16" }} />

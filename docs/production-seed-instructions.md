@@ -392,6 +392,7 @@ JOIN entities ent ON ent.id = e.entity_id
 WHERE e.organization_id = '<ORG_ID>'
 GROUP BY ent.name;
 
+
 -- Session counts per entity
 SELECT ent.name, s.type, count(*) FROM timeclock_sessions s
 JOIN entities ent ON ent.id = s.entity_id
