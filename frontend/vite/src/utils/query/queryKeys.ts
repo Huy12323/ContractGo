@@ -31,6 +31,7 @@ export const QueryKeys = {
     employees: createTableFactory("employees"),
     entities: createTableFactory("entities"),
     files: createTableFactory("files"),
+    folders: createTableFactory("folders"),
     onboarding_invitations: createTableFactory("onboarding_invitations"),
     organization_role_permissions: createTableFactory("organization_role_permissions"),
     organizations: createTableFactory("organizations"),

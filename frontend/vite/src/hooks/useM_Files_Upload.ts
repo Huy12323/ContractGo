@@ -16,6 +16,7 @@ export type UseM_Files_Upload_Params_EmployeeCol = {
     file: File;
     employee_id: string;
     column_id: string;
+    folder_id?: string;
 };
 
 export type UseM_Files_Upload_Params_InvitationCol = {
@@ -23,6 +24,7 @@ export type UseM_Files_Upload_Params_InvitationCol = {
     file: File;
     invitation_id: string;
     column_id: string;
+    folder_id?: string;
 };
 
 export type UseM_Files_Upload_Params_ContractTemplatePdf = {
@@ -163,6 +165,7 @@ export const useM_Files_Upload = () => {
                     size: file.size,
                     uploaded_by: user.id,
                     organization_id,
+                    ...(params.resource_type !== "contract_template_pdf" && params.folder_id && { folder_id: params.folder_id }),
                 })
                 .select("id")
                 .single();

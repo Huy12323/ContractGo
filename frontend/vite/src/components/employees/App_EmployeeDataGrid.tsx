@@ -76,6 +76,7 @@ type Props = {
   onHideField?: (columnKey: string) => void
   onExpandEmployee?: (employee: EmployeeRow) => void
   onFilePreview?: (ctx: { file_id: string; employee_id: string; column_id: string }) => void
+  onFolderPreview?: (ctx: { folder_id: string; employee_id: string; column_id: string }) => void
 }
 
 export const App_EmployeeDataGrid = ({
@@ -95,6 +96,7 @@ export const App_EmployeeDataGrid = ({
   onHideField,
   onExpandEmployee,
   onFilePreview,
+  onFolderPreview,
 }: Props) => {
   const { token } = theme.useToken()
   const { modal } = App.useApp()
@@ -291,19 +293,17 @@ export const App_EmployeeDataGrid = ({
       if (!employeeId) continue
       for (const field of visibleFields) {
         if (field.type !== 'file') continue
-        const fileId = (record as unknown as Record<string, unknown>)[field.key]
-        if (typeof fileId !== 'string' || !fileId) continue
-        if (seen.has(fileId)) continue
-        const filesRow = qOrgFiles.filesMap[fileId]
-        // `thumbnail_r2_key` is null until the backend generates a thumbnail —
-        // skip those rows so we don't fire a 404 on every render.
-        if (!filesRow?.thumbnail_r2_key) continue
-        seen.add(fileId)
-        cells.push({ file_id: fileId, employee_id: employeeId, column_id: field.key })
+        const folderId = (record as unknown as Record<string, unknown>)[field.key]
+        if (typeof folderId !== 'string' || !folderId) continue
+        const firstFile = qOrgFiles.folderFilesMap[folderId]?.[0]
+        if (!firstFile?.thumbnail_r2_key) continue
+        if (seen.has(firstFile.id)) continue
+        seen.add(firstFile.id)
+        cells.push({ file_id: firstFile.id, employee_id: employeeId, column_id: field.key })
       }
     }
     return cells
-  }, [visibleRows, visibleFields, qOrgFiles.filesMap])
+  }, [visibleRows, visibleFields, qOrgFiles.folderFilesMap])
 
   const SIX_DAYS_MS = 6 * 24 * 3600 * 1000
   const thumbnailQueries = useQueries({
@@ -415,17 +415,18 @@ export const App_EmployeeDataGrid = ({
           return { kind: GridCellKind.Bubble, data: arr, allowOverlay: false }
         }
         case 'file': {
-          const fileId = value as string
-          const filesRow = qOrgFiles.filesMap[fileId]
-          const thumbnailUrl = thumbnailUrlsMap[fileId]
-          // Drilldown cell = pill with thumbnail + filename side-by-side. Falls back
-          // to the ANTD TwoTone data URI (red PDF, blue Word, etc.) when no thumbnail
-          // exists. onCellClicked still opens the preview modal.
-          const img = thumbnailUrl ?? Utils_FileTypeIcon_DataUri(filesRow?.content_type ?? '')
-          const name = filesRow?.name ?? fileId
+          const folderId = value as string
+          const folderFiles = qOrgFiles.folderFilesMap[folderId]
+          const firstFile = folderFiles?.[0]
+          if (!firstFile) {
+            return { kind: GridCellKind.Text, data: '', displayData: 'Null', allowOverlay: false, themeOverride: { textDark: token.colorTextTertiary } }
+          }
+          const thumbnailUrl = thumbnailUrlsMap[firstFile.id]
+          const img = thumbnailUrl ?? Utils_FileTypeIcon_DataUri(firstFile.content_type ?? '')
+          const text = folderFiles && folderFiles.length > 1 ? `${folderFiles.length} files` : firstFile.name
           return {
             kind: GridCellKind.Drilldown,
-            data: [{ text: name, img }],
+            data: [{ text, img }],
             allowOverlay: false,
           }
         }
@@ -441,7 +442,7 @@ export const App_EmployeeDataGrid = ({
           }
       }
     },
-    [visibleFields, visibleRows, choicesByField, qOrgFiles.filesMap, thumbnailUrlsMap, token.colorTextTertiary, token.colorFillAlter, token.colorLink, lastColIndex],
+    [visibleFields, visibleRows, choicesByField, qOrgFiles.folderFilesMap, thumbnailUrlsMap, token.colorTextTertiary, token.colorFillAlter, token.colorLink, lastColIndex],
   )
 
   // Per-tick during drag. Glide's live resize preview depends on us updating the
@@ -552,17 +553,26 @@ export const App_EmployeeDataGrid = ({
       }
       const field = visibleFields[col]
       if (field && field.type === 'file') {
-        const fileId = (record as unknown as Record<string, unknown>)[field.key]
-        if (typeof fileId === 'string' && fileId) {
-          onFilePreview?.({
-            file_id: fileId,
-            employee_id: (record as EmployeeRow).id,
-            column_id: field.key,
-          })
+        const folderId = (record as unknown as Record<string, unknown>)[field.key]
+        if (typeof folderId === 'string' && folderId) {
+          const folderFiles = qOrgFiles.folderFilesMap[folderId]
+          if (folderFiles && folderFiles.length > 1) {
+            onFolderPreview?.({
+              folder_id: folderId,
+              employee_id: (record as EmployeeRow).id,
+              column_id: field.key,
+            })
+          } else if (folderFiles?.[0]) {
+            onFilePreview?.({
+              file_id: folderFiles[0].id,
+              employee_id: (record as EmployeeRow).id,
+              column_id: field.key,
+            })
+          }
         }
       }
     },
-    [visibleRows, visibleFields, onExpandEmployee, onFilePreview],
+    [visibleRows, visibleFields, onExpandEmployee, onFilePreview, onFolderPreview, qOrgFiles.folderFilesMap],
   )
 
   const handleDeleteField = useCallback(

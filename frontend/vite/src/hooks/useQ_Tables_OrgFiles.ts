@@ -6,7 +6,7 @@ import { QueryKeys } from "@/utils/query/queryKeys";
 const fetchOrgFiles = async (organizationId: string) => {
     const sb_FromFiles_Select = await supabase
         .from("files")
-        .select("id, name, content_type, size, organization_id, r2_key, thumbnail_r2_key")
+        .select("id, name, content_type, size, organization_id, r2_key, thumbnail_r2_key, folder_id")
         .eq("organization_id", organizationId);
     if (sb_FromFiles_Select.error) throw sb_FromFiles_Select.error;
     return sb_FromFiles_Select.data;
@@ -35,5 +35,20 @@ export const useQ_Tables_OrgFiles = ({ organizationId }: { organizationId: strin
         [files],
     );
 
-    return { query, files, filesMap };
+    const folderFilesMap = useMemo(
+        () =>
+            files.reduce(
+                (acc, f) => {
+                    if (!f.folder_id) return acc;
+                    const key = f.folder_id;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key]!.push(f);
+                    return acc;
+                },
+                {} as Record<string, OrgFileRecord[]>,
+            ),
+        [files],
+    );
+
+    return { query, files, filesMap, folderFilesMap };
 };

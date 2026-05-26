@@ -881,12 +881,18 @@ export type Database = {
       }
       ent_ldvQLdiB32b0FahS__employees: {
         Row: {
+          col_4oDUuMW1OicXR0GH: string | null
+          col_vhlkbR33M6w5LCmg: string | null
           employee_id: string
         }
         Insert: {
+          col_4oDUuMW1OicXR0GH?: string | null
+          col_vhlkbR33M6w5LCmg?: string | null
           employee_id: string
         }
         Update: {
+          col_4oDUuMW1OicXR0GH?: string | null
+          col_vhlkbR33M6w5LCmg?: string | null
           employee_id?: string
         }
         Relationships: [
@@ -984,6 +990,7 @@ export type Database = {
         Row: {
           content_type: string
           created_at: string | null
+          folder_id: string | null
           id: string
           name: string
           organization_id: string | null
@@ -996,6 +1003,7 @@ export type Database = {
         Insert: {
           content_type: string
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           name: string
           organization_id?: string | null
@@ -1008,6 +1016,7 @@ export type Database = {
         Update: {
           content_type?: string
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           name?: string
           organization_id?: string | null
@@ -1018,6 +1027,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "files_organization_id_fkey"
             columns: ["organization_id"]
@@ -1030,6 +1046,35 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
