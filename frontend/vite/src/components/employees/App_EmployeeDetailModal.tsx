@@ -7,7 +7,7 @@ import { useM_Employee_Update } from '@/hooks/useM_Employee_Update'
 import { useM_Files_Upload } from '@/hooks/useM_Files_Upload'
 import { AppEmployeeDetailModal_OverviewTab } from './AppEmployeeDetailModal_OverviewTab'
 import { AppEmployeeDetailModal_TimeclockTab } from './AppEmployeeDetailModal_TimeclockTab'
-import { isFileDeleteMarker } from './AppEmployeeDetailModal_FieldRenderer'
+import { isFileDeleteMarker, isMultiFilePatch } from './AppEmployeeDetailModal_FieldRenderer'
 
 type Choice = { value: string; label: string }
 
@@ -18,6 +18,7 @@ type Choice = { value: string; label: string }
 class State {
     editMode: 'view' | 'edit' = 'view'
     patch: Record<string, unknown> = {}
+    isSaving: boolean = false
 }
 
 const ContextDefault: {
@@ -91,16 +92,16 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
     // The mutation's own `isPending` only covers the final DB write; the file-upload
     // phase can take much longer for heavy files and previously left the Save button
     // clickable, allowing repeat clicks → duplicate uploads / audit-log noise.
-    const [isSaving, setIsSaving] = useState(false)
+    const isSaving = pModal.state.isSaving
 
     const resetToView = useCallback(() => {
-        pModal.setState({ editMode: 'view', patch: {} })
+        pModal.setState({ editMode: 'view', patch: {}, isSaving: false })
     }, [pModal])
 
     const saveChanges = useCallback(async (): Promise<boolean> => {
         if (!employee) return false
         if (isSaving) return false
-        setIsSaving(true)
+        pModal.setState({ isSaving: true })
         try {
             // Normalize file-column patches before the DB update:
             //   File instance            → upload to R2, insert files row, replace with file_id;
@@ -109,32 +110,55 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
             //                              so we don't orphan storage on every replace
             //   { __delete, file_id }    → delete R2 object + thumbnail + files row, replace with null
             //   anything else            → pass through unchanged
-            const currentValues = employee as unknown as Record<string, unknown>
             const normalized: Record<string, unknown> = {}
             for (const [key, value] of Object.entries(patch)) {
-                if (value instanceof File) {
-                    const result = await mFilesUpload.mutation.mutateAsync({
-                        resource_type: 'employee_col',
-                        file: value,
-                        employee_id: employee.id,
-                        column_id: key,
-                    })
-                    normalized[key] = result.file_id
-                    // Replace flow — if the column previously held a file_id, delete that
-                    // old file now. We do this AFTER the new upload succeeds so a failed
-                    // new upload doesn't strand the employee with no file at all.
-                    const previousFileId = currentValues[key]
-                    if (typeof previousFileId === 'string' && previousFileId && previousFileId !== result.file_id) {
-                        try {
-                            await supabase.functions.invoke('files_r2_delete', {
-                                body: { file_id: previousFileId },
-                            })
-                        } catch (cleanupErr) {
-                            // Best-effort cleanup — orphaned R2 objects + files row are a
-                            // soft problem, not worth failing the save over. Logged for
-                            // future reconciliation.
-                            console.warn(`Failed to delete replaced file ${previousFileId}:`, cleanupErr)
+                if (isMultiFilePatch(value)) {
+                    let folderId = value.folder_id
+
+                    if (!folderId && value.pending_uploads.length > 0) {
+                        const sb_FromFolders_Insert = await supabase
+                            .from('folders')
+                            .insert({ organization_id: organizationId })
+                            .select('id')
+                            .single()
+                        if (sb_FromFolders_Insert.error || !sb_FromFolders_Insert.data) {
+                            throw new Error('Failed to create folder')
                         }
+                        folderId = sb_FromFolders_Insert.data.id
+                    }
+
+                    for (const file of value.pending_uploads) {
+                        await mFilesUpload.mutation.mutateAsync({
+                            resource_type: 'employee_col',
+                            file,
+                            employee_id: employee.id,
+                            column_id: key,
+                            folder_id: folderId!,
+                        })
+                    }
+
+                    for (const fileId of value.pending_deletes) {
+                        try {
+                            await supabase.functions.invoke('files_r2_delete', { body: { file_id: fileId } })
+                        } catch (err) {
+                            console.warn(`Failed to delete file ${fileId}:`, err)
+                        }
+                    }
+
+                    if (folderId) {
+                        const sb_FromFiles_Select = await supabase
+                            .from('files')
+                            .select('id')
+                            .eq('folder_id', folderId)
+                        const remaining = sb_FromFiles_Select.data?.length ?? 0
+                        if (remaining === 0) {
+                            await supabase.from('folders').delete().eq('id', folderId)
+                            normalized[key] = null
+                        } else {
+                            normalized[key] = folderId
+                        }
+                    } else {
+                        normalized[key] = null
                     }
                 } else if (isFileDeleteMarker(value)) {
                     const invoke = await supabase.functions.invoke('files_r2_delete', {
@@ -151,6 +175,7 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
                         }
                         throw new Error(serverMessage)
                     }
+                    await supabase.from('folders').delete().eq('id', value.folder_id)
                     normalized[key] = null
                 } else {
                     normalized[key] = value
@@ -163,9 +188,9 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
             message.error(err instanceof Error ? err.message : 'Failed to save')
             return false
         } finally {
-            setIsSaving(false)
+            pModal.setState({ isSaving: false })
         }
-    }, [employee, patch, mUpdateEmployee.mutation, mFilesUpload.mutation, message, isSaving])
+    }, [employee, patch, mUpdateEmployee.mutation, mFilesUpload.mutation, message, isSaving, pModal, organizationId])
 
     // Three-way dirty prompt. `afterResolve` runs after Save-success or Discard —
     // Cancel button passes a no-op (stays open in view mode); close paths pass
@@ -273,10 +298,11 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
         <Modal
             open={open}
             onCancel={handleClose}
-            width={activeTab === 'timeclock' ? 1200 : 960}
+            width={activeTab === 'timeclock' ? 1200 : 640}
             title={null}
             footer={activeTab === 'overview' ? overviewFooter : null}
             destroyOnHidden
+            styles={{ body: { paddingBottom: 0 } }}
         >
             <div style={{ paddingBottom: token.paddingLG }}>
                 <Typography.Title level={3} style={{ margin: 0 }} ellipsis>
@@ -291,32 +317,36 @@ const AppEmployeeDetailModal_Shell = ({ open, employeeId, entityId, organization
                         key: 'overview',
                         label: 'Overview',
                         children: employee ? (
-                            <AppEmployeeDetailModal_OverviewTab
-                                employee={employee}
-                                fields={fields}
-                                choicesByField={choicesByField}
-                                entityId={entityId}
-                                organizationId={organizationId}
-                                onFilePreview={(ctx) =>
-                                    onFilePreview?.({
-                                        file_id: ctx.file_id,
-                                        employee_id: employee.id,
-                                        column_id: ctx.column_id,
-                                    })
-                                }
-                            />
+                            <div style={{ maxHeight: 'calc(75vh - 160px)', overflowY: 'auto' }}>
+                                <AppEmployeeDetailModal_OverviewTab
+                                    employee={employee}
+                                    fields={fields}
+                                    choicesByField={choicesByField}
+                                    entityId={entityId}
+                                    organizationId={organizationId}
+                                    onFilePreview={(ctx) =>
+                                        onFilePreview?.({
+                                            file_id: ctx.file_id,
+                                            employee_id: employee.id,
+                                            column_id: ctx.column_id,
+                                        })
+                                    }
+                                />
+                            </div>
                         ) : null,
                     },
                     {
                         key: 'timeclock',
                         label: 'Timeclock',
                         children: employee ? (
-                            <AppEmployeeDetailModal_TimeclockTab
-                                employeeId={employee.id}
-                                entityId={entityId}
-                                timezone={resolvedTimezone}
-                                initialRefDate={initialDate}
-                            />
+                            <div style={{ maxHeight: 'calc(75vh - 160px)', overflowY: 'auto' }}>
+                                <AppEmployeeDetailModal_TimeclockTab
+                                    employeeId={employee.id}
+                                    entityId={entityId}
+                                    timezone={resolvedTimezone}
+                                    initialRefDate={initialDate}
+                                />
+                            </div>
                         ) : null,
                     },
                 ]}

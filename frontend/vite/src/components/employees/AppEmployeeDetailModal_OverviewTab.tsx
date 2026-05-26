@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { Typography, theme } from 'antd'
+import { useMemo, useRef } from 'react'
+import { Typography, Button, theme } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import type { Tables_OrgEmployees_QueryData } from '@/hooks/useQ_Tables_OrgEmployees'
 import { useQ_Tables_EmployeeColumns } from '@/hooks/useQ_Tables_EmployeeColumns'
 import { useQ_Tables_EmployeeColumnChoices } from '@/hooks/useQ_Tables_EmployeeColumnChoices'
@@ -60,49 +61,59 @@ export const AppEmployeeDetailModal_OverviewTab = ({
     [fields],
   )
 
-  // Snake-fill: even-indexed fields go left, odd-indexed go right.
-  const [leftFields, rightFields] = useMemo(() => {
-    const left: EmployeeDataTable_TableField[] = []
-    const right: EmployeeDataTable_TableField[] = []
-    bodyFields.forEach((f, i) => {
-      if (i % 2 === 0) left.push(f)
-      else right.push(f)
-    })
-    return [left, right]
-  }, [bodyFields])
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const renderLabel = (field: EmployeeDataTable_TableField) => (
+    <>
+      <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
+        <FieldTypeIcon type={field.type} />
+      </span>
+      <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }} ellipsis>
+        {field.label}
+      </Typography.Text>
+    </>
+  )
 
   const renderField = (field: EmployeeDataTable_TableField) => {
     const effectiveValue = field.key in patch ? patch[field.key] : (employee as Record<string, unknown>)[field.key]
+    const isFile = field.type === 'file'
+
     return (
       <div
         key={field.key}
         style={{
           display: 'flex',
-          alignItems: editMode === 'edit' ? 'center' : 'flex-start',
+          alignItems: 'flex-start',
           gap: token.marginSM,
           marginBottom: token.marginSM,
         }}
       >
         <div
           style={{
-            flex: '0 0 160px',
-            maxWidth: 160,
+            flex: '0 0 140px',
+            maxWidth: 140,
             display: 'flex',
             alignItems: 'center',
             gap: token.marginXS,
             color: token.colorTextSecondary,
             fontSize: token.fontSizeSM,
-            paddingTop: editMode === 'edit' ? 0 : 2,
+            paddingTop: 4,
           }}
         >
-          <span style={{ color: token.colorTextTertiary, display: 'inline-flex' }}>
-            <FieldTypeIcon type={field.type} />
-          </span>
-          <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }} ellipsis>
-            {field.label}
-          </Typography.Text>
+          {renderLabel(field)}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: token.marginXS }}>
+          {isFile && editMode === 'edit' && (
+            <Button
+              size="small"
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={() => fileInputRefs.current[field.key]?.click()}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              Add files
+            </Button>
+          )}
           <AppEmployeeDetailModal_FieldRenderer
             field={field}
             value={effectiveValue}
@@ -111,6 +122,8 @@ export const AppEmployeeDetailModal_OverviewTab = ({
             choices={choicesByField[field.key]}
             organizationId={organizationId}
             onFilePreview={(fileId) => onFilePreview?.({ file_id: fileId, column_id: field.key })}
+            isSaving={pModal.state.isSaving}
+            {...(isFile && { employeeId: employee.id, columnId: field.key, fileInputRef: { get current() { return fileInputRefs.current[field.key] ?? null }, set current(v: HTMLInputElement | null) { fileInputRefs.current[field.key] = v } } })}
           />
         </div>
       </div>
@@ -118,14 +131,8 @@ export const AppEmployeeDetailModal_OverviewTab = ({
   }
 
   return (
-    <div style={{ display: 'flex', padding: `${token.paddingMD}px 0`, alignItems: 'stretch' }}>
-      <div style={{ flex: 1, minWidth: 0, paddingRight: token.paddingLG }}>
-        {leftFields.map(renderField)}
-      </div>
-      <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />
-      <div style={{ flex: 1, minWidth: 0, paddingLeft: token.paddingLG }}>
-        {rightFields.map(renderField)}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', padding: `${token.paddingMD}px 0` }}>
+      {bodyFields.map(renderField)}
     </div>
   )
 }

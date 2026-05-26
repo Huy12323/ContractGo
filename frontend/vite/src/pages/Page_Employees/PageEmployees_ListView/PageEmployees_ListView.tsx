@@ -26,6 +26,7 @@ import { useQ_Tables_OrgEmployeeViews } from '@/hooks/useQ_Tables_OrgEmployeeVie
 import { App_EmployeeDataGrid } from '@/components/employees/App_EmployeeDataGrid'
 import { App_EmployeeDetailModal } from '@/components/employees/App_EmployeeDetailModal'
 import { App_FilePreviewModal } from '@/components/employees/App_FilePreviewModal'
+import { AppEmployee_FolderModal } from '@/components/employees/AppEmployee_FolderModal'
 import { useQ_Files_ReadUrl } from '@/hooks/useQ_Files_ReadUrl'
 import { useQ_Tables_OrgFiles } from '@/hooks/useQ_Tables_OrgFiles'
 import { FieldTypeIcon } from '@/components/employees/App_EmployeeFieldTypeIcon'
@@ -302,6 +303,7 @@ export const PageEmployees_ListView = ({ entityId, organizationId }: Props) => {
   // The modal itself is scope-agnostic — we resolve URL + metadata here via the
   // employee_col path and hand the modal a pre-resolved view.
   const [previewCtx, setPreviewCtx] = useState<{ file_id: string; employee_id: string; column_id: string } | null>(null)
+  const [folderCtx, setFolderCtx] = useState<{ folder_id: string; employee_id: string; column_id: string } | null>(null)
 
   const qPreviewUrl = useQ_Files_ReadUrl({
     resource_type: 'employee_col',
@@ -968,6 +970,7 @@ export const PageEmployees_ListView = ({ entityId, organizationId }: Props) => {
               onHideField={(colKey) => patchActiveView({ hidden_keys: [...hiddenKeys, colKey] })}
               onExpandEmployee={(employee) => setModalEmployeeId(employee.id)}
               onFilePreview={setPreviewCtx}
+              onFolderPreview={setFolderCtx}
             />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -1019,6 +1022,15 @@ export const PageEmployees_ListView = ({ entityId, organizationId }: Props) => {
         contentType={previewFile?.content_type ?? null}
         size={previewFile?.size ?? null}
         onClose={() => setPreviewCtx(null)}
+      />
+
+      <AppEmployee_FolderModal
+        open={folderCtx !== null}
+        onClose={() => setFolderCtx(null)}
+        files={folderCtx ? qPreviewOrgFiles.folderFilesMap[folderCtx.folder_id] ?? [] : []}
+        title={folderCtx ? listViewFields.find((f) => f.key === folderCtx.column_id)?.label : undefined}
+        employeeId={folderCtx?.employee_id ?? ''}
+        columnId={folderCtx?.column_id ?? ''}
       />
     </div>
   )

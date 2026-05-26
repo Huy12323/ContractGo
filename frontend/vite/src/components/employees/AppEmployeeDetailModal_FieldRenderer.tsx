@@ -1,18 +1,28 @@
 import { useRef } from 'react'
-import { Input, InputNumber, DatePicker, Switch, Select, Tag, Typography, Button, theme } from 'antd'
-import { PaperClipOutlined, UploadOutlined, DeleteOutlined, UndoOutlined } from '@ant-design/icons'
+import { Input, InputNumber, DatePicker, Switch, Select, Typography, Button, Spin, theme } from 'antd'
+import { DeleteOutlined, UndoOutlined, LoadingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { EmployeeDataTable_TableField } from '@/types/employeeTable.types'
 import { useQ_Tables_OrgFiles } from '@/hooks/useQ_Tables_OrgFiles'
+import { useQ_Files_ReadUrl } from '@/hooks/useQ_Files_ReadUrl'
+import { Utils_FileTypeIcon_Component } from '@/utils/Utils_FileTypeIcon'
 
 type Choice = { value: string; label: string }
 
-// Tri-state marker for file-column remove flow. Stored in patch by the FieldRenderer,
-// resolved into `null` (+ side-effect R2/files-row delete) by the modal save orchestrator.
-export type FileDeleteMarker = { __delete: true; file_id: string }
+export type FileDeleteMarker = { __delete: true; file_id: string; folder_id: string }
 
 export const isFileDeleteMarker = (v: unknown): v is FileDeleteMarker =>
   typeof v === 'object' && v !== null && (v as { __delete?: boolean }).__delete === true
+
+export type FileFieldMultiPatch = {
+  __multi_file: true
+  folder_id: string | null
+  pending_uploads: File[]
+  pending_deletes: string[]
+}
+
+export const isMultiFilePatch = (v: unknown): v is FileFieldMultiPatch =>
+  typeof v === 'object' && v !== null && (v as { __multi_file?: boolean }).__multi_file === true
 
 type Props = {
   field: EmployeeDataTable_TableField
@@ -22,35 +32,93 @@ type Props = {
   choices?: Choice[]
   organizationId?: string
   onFilePreview?: (fileId: string) => void
+  isSaving?: boolean
+  employeeId?: string
+  columnId?: string
+  fileInputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 const isEmpty = (v: unknown) =>
   v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+const CARD_THUMB = 80
+
+const FileCard = ({ name, contentType, fileId, employeeId, columnId, onClick, overlay }: {
+  name: string
+  contentType?: string
+  fileId?: string
+  employeeId?: string
+  columnId?: string
+  onClick?: () => void
+  overlay?: React.ReactNode
+}) => {
+  const { token } = theme.useToken()
+  const { Icon, primary } = Utils_FileTypeIcon_Component(contentType ?? '')
+  const isImage = contentType?.startsWith('image/') ?? false
+  const qThumbUrl = useQ_Files_ReadUrl({
+    resource_type: 'employee_col',
+    file_id: isImage && fileId ? fileId : null,
+    employee_id: employeeId ?? null,
+    column_id: columnId ?? null,
+    use_thumbnail: true,
+  })
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: token.borderRadiusSM,
+        overflow: 'hidden',
+        cursor: onClick ? 'pointer' : undefined,
+        background: token.colorBgContainer,
+        position: 'relative',
+      }}
+    >
+      <div style={{ height: CARD_THUMB, display: 'flex', alignItems: 'center', justifyContent: 'center', background: token.colorFillQuaternary, overflow: 'hidden' }}>
+        {isImage && qThumbUrl.url ? (
+          <img src={qThumbUrl.url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <Icon style={{ fontSize: 32 }} twoToneColor={primary} />
+        )}
+      </div>
+      <div style={{ padding: `${token.paddingXXS}px ${token.paddingXS}px` }}>
+        <Typography.Text ellipsis style={{ display: 'block', fontSize: token.fontSizeSM }}>{name}</Typography.Text>
+      </div>
+      {overlay && <div style={{ position: 'absolute', top: 4, right: 4 }}>{overlay}</div>}
+    </div>
+  )
+}
 
 const FileFieldView = ({
   value,
   organizationId,
   onFilePreview,
+  employeeId,
+  columnId,
 }: {
   value: unknown
   organizationId?: string
   onFilePreview?: (fileId: string) => void
+  employeeId?: string
+  columnId?: string
 }) => {
   const { token } = theme.useToken()
   const qOrgFiles = useQ_Tables_OrgFiles({ organizationId: organizationId ?? '' })
 
   if (isEmpty(value)) {
-    return <Typography.Text style={{ color: token.colorTextTertiary }}>Null</Typography.Text>
+    return <Input disabled variant="filled" value="" />
   }
-  const fileId = value as string
-  const name = qOrgFiles.filesMap[fileId]?.name ?? fileId
+  const folderId = value as string
+  const files = qOrgFiles.folderFilesMap[folderId]
+  if (!files || files.length === 0) {
+    return <Input disabled variant="filled" value="" />
+  }
   return (
-    <Typography.Link onClick={() => onFilePreview?.(fileId)}>
-      <PaperClipOutlined /> {name}
-    </Typography.Link>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: token.marginXS }}>
+      {files.map((f) => (
+        <FileCard key={f.id} name={f.name} contentType={f.content_type} fileId={f.id} employeeId={employeeId} columnId={columnId} onClick={() => onFilePreview?.(f.id)} />
+      ))}
+    </div>
   )
 }
 
@@ -58,93 +126,118 @@ const FileFieldEdit = ({
   value,
   onChange,
   organizationId,
+  isSaving,
+  employeeId,
+  columnId,
+  inputRef,
 }: {
   value: unknown
   onChange?: (next: unknown) => void
   organizationId?: string
+  isSaving?: boolean
+  employeeId?: string
+  columnId?: string
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }) => {
   const { token } = theme.useToken()
   const qOrgFiles = useQ_Tables_OrgFiles({ organizationId: organizationId ?? '' })
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const fallbackRef = useRef<HTMLInputElement | null>(null)
+  const fileInputRef = inputRef ?? fallbackRef
 
-  const openPicker = () => inputRef.current?.click()
+  const multi = isMultiFilePatch(value) ? value : null
+  const folderId = multi?.folder_id ?? (typeof value === 'string' && value ? value : null)
+  const existingFiles = folderId ? (qOrgFiles.folderFilesMap[folderId] ?? []) : []
+  const pendingUploads = multi?.pending_uploads ?? []
+  const pendingDeletes = new Set(multi?.pending_deletes ?? [])
+  const visibleExisting = existingFiles.filter((f) => !pendingDeletes.has(f.id))
+  const deletedExisting = existingFiles.filter((f) => pendingDeletes.has(f.id))
+
+  const emitMulti = (patch: Partial<FileFieldMultiPatch>) => {
+    const base: FileFieldMultiPatch = multi ?? {
+      __multi_file: true,
+      folder_id: folderId,
+      pending_uploads: [],
+      pending_deletes: [],
+    }
+    onChange?.({ ...base, ...patch })
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = '' // allow re-picking same file
-    if (file) onChange?.(file)
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length > 0) emitMulti({ pending_uploads: [...pendingUploads, ...files] })
   }
 
-  // State branching. Order matters — File check MUST come before string check.
-  if (value instanceof File) {
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: token.marginXS,
+  }
+
+  if (isSaving) {
+    const allFiles = [...visibleExisting.map((f) => f.name), ...pendingUploads.map((f) => f.name)]
     return (
-      <div style={{ display: 'flex', gap: token.marginXS, alignItems: 'center' }}>
-        <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={handleFileChange} />
-        <PaperClipOutlined style={{ color: token.colorSuccess }} />
-        <Typography.Text style={{ flex: 1 }} ellipsis>
-          {value.name}
-        </Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-          (ready to upload)
-        </Typography.Text>
-        <Button size="small" onClick={() => onChange?.(null)}>
-          Cancel
-        </Button>
+      <div style={{ ...gridStyle, opacity: 0.7 }}>
+        {allFiles.map((name, i) => (
+          <FileCard key={i} name={name} overlay={<Spin indicator={<LoadingOutlined spin style={{ fontSize: 12 }} />} size="small" />} />
+        ))}
       </div>
     )
   }
 
-  if (isFileDeleteMarker(value)) {
-    const name = qOrgFiles.filesMap[value.file_id]?.name ?? value.file_id
-    return (
-      <div style={{ display: 'flex', gap: token.marginXS, alignItems: 'center' }}>
-        <PaperClipOutlined style={{ color: token.colorTextTertiary }} />
-        <Typography.Text delete style={{ flex: 1 }} ellipsis>
-          {name}
-        </Typography.Text>
-        <Button
-          size="small"
-          icon={<UndoOutlined />}
-          onClick={() => onChange?.(value.file_id)}
-        >
-          Undo
-        </Button>
-      </div>
-    )
-  }
+  const hasCards = visibleExisting.length > 0 || deletedExisting.length > 0 || pendingUploads.length > 0
 
-  if (typeof value === 'string' && value) {
-    const name = qOrgFiles.filesMap[value]?.name ?? value
-    return (
-      <div style={{ display: 'flex', gap: token.marginXS, alignItems: 'center' }}>
-        <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={handleFileChange} />
-        <PaperClipOutlined />
-        <Typography.Text style={{ flex: 1 }} ellipsis>
-          {name}
-        </Typography.Text>
-        <Button size="small" onClick={openPicker}>
-          Replace
-        </Button>
-        <Button
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => onChange?.({ __delete: true, file_id: value } satisfies FileDeleteMarker)}
-        >
-          Remove
-        </Button>
-      </div>
-    )
-  }
-
-  // Empty → single Choose file button
   return (
-    <div style={{ display: 'flex', gap: token.marginXS, alignItems: 'center' }}>
-      <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={handleFileChange} />
-      <Button icon={<UploadOutlined />} onClick={openPicker}>
-        Choose file
-      </Button>
-    </div>
+    <>
+      <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+      {hasCards ? (
+        <div style={gridStyle}>
+          {visibleExisting.map((f) => (
+            <FileCard
+              key={f.id}
+              name={f.name}
+              contentType={f.content_type}
+              fileId={f.id}
+              employeeId={employeeId}
+              columnId={columnId}
+              overlay={
+                <Button size="small" type="text" danger icon={<DeleteOutlined />}
+                  onClick={(e) => { e.stopPropagation(); emitMulti({ pending_deletes: [...(multi?.pending_deletes ?? []), f.id] }) }}
+                />
+              }
+            />
+          ))}
+
+          {deletedExisting.map((f) => (
+            <div key={f.id} style={{ opacity: 0.4 }}>
+              <FileCard
+                name={f.name}
+                contentType={f.content_type}
+                overlay={
+                  <Button size="small" type="text" icon={<UndoOutlined />}
+                    onClick={(e) => { e.stopPropagation(); emitMulti({ pending_deletes: (multi?.pending_deletes ?? []).filter((id) => id !== f.id) }) }}
+                  />
+                }
+              />
+            </div>
+          ))}
+
+          {pendingUploads.map((file, i) => (
+            <FileCard
+              key={`pending-${i}`}
+              name={file.name}
+              overlay={
+                <Button size="small" type="text" icon={<DeleteOutlined />}
+                  onClick={(e) => { e.stopPropagation(); emitMulti({ pending_uploads: pendingUploads.filter((_, j) => j !== i) }) }}
+                />
+              }
+            />
+          ))}
+        </div>
+      ) : (
+        <Input disabled variant="filled" value="" />
+      )}
+    </>
   )
 }
 
@@ -156,47 +249,39 @@ export const AppEmployeeDetailModal_FieldRenderer = ({
   choices,
   organizationId,
   onFilePreview,
+  isSaving,
+  employeeId,
+  columnId,
+  fileInputRef,
 }: Props) => {
-  const { token } = theme.useToken()
-
   if (mode === 'view') {
     if (field.type === 'file') {
-      return <FileFieldView value={value} organizationId={organizationId} onFilePreview={onFilePreview} />
+      return <FileFieldView value={value} organizationId={organizationId} onFilePreview={onFilePreview} employeeId={employeeId} columnId={columnId} />
     }
-    if (isEmpty(value)) {
-      return <Typography.Text style={{ color: token.colorTextTertiary }}>Null</Typography.Text>
-    }
+    const displayValue = isEmpty(value) ? '' : String(value)
     switch (field.type) {
       case 'number':
-        return <Typography.Text>{String(value)}</Typography.Text>
+        return <InputNumber style={{ width: '100%' }} value={typeof value === 'number' ? value : null} disabled variant="filled" />
       case 'date':
-        return <Typography.Text>{formatDate(value as string)}</Typography.Text>
+        return <DatePicker style={{ width: '100%' }} value={typeof value === 'string' && value ? dayjs(value) : null} disabled variant="filled" />
       case 'boolean':
-        return <Typography.Text>{value === true ? 'Yes' : 'No'}</Typography.Text>
+        return <Switch checked={value === true} disabled />
       case 'single_select': {
         const match = (choices ?? []).find((c) => c.value === value)
-        return <Tag>{match?.label ?? String(value)}</Tag>
+        return <Select style={{ width: '100%' }} value={match ? value as string : undefined} options={(choices ?? []).map((c) => ({ value: c.value, label: c.label }))} disabled variant="filled" />
       }
       case 'multi_select': {
-        const arr = Array.isArray(value) ? (value as string[]) : []
-        return (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXXS }}>
-            {arr.map((v) => {
-              const match = (choices ?? []).find((c) => c.value === v)
-              return <Tag key={v}>{match?.label ?? v}</Tag>
-            })}
-          </div>
-        )
+        return <Select mode="multiple" style={{ width: '100%' }} value={Array.isArray(value) ? (value as string[]) : []} options={(choices ?? []).map((c) => ({ value: c.value, label: c.label }))} disabled variant="filled" />
       }
       case 'text':
       default:
-        return <Typography.Text>{String(value)}</Typography.Text>
+        return <Input value={displayValue} disabled variant="filled" />
     }
   }
 
   // edit mode
   if (field.type === 'file') {
-    return <FileFieldEdit value={value} onChange={onChange} organizationId={organizationId} />
+    return <FileFieldEdit value={value} onChange={onChange} organizationId={organizationId} isSaving={isSaving} employeeId={employeeId} columnId={columnId} inputRef={fileInputRef} />
   }
   switch (field.type) {
     case 'number':
