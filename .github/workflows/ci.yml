@@ -1,0 +1,64 @@
+name: CI
+
+# Frontend quality gate. Blocks the MERGE, not the deploy — Cloudflare Pages
+# auto-deploys on push and `build` is deliberately NOT gated on `check` so a lint
+# rule can never take production down.
+#
+# `demo` is excluded on purpose: it is a personal working branch, and CI on every
+# push there just trains people to ignore red.
+
+on:
+    push:
+        branches: [master, dev]
+        paths-ignore:
+            - "cycles/**"
+            - "docs/**"
+            - "**/*.md"
+    pull_request:
+        branches: [master, dev]
+    workflow_dispatch:
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    frontend:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            # Must come BEFORE setup-node: `cache: pnpm` needs pnpm on PATH.
+            # Version must match `packageManager` in package.json exactly or
+            # Corepack errors out.
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 9.15.4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install
+              run: pnpm install --frozen-lockfile
+
+            # Steps are separate and sequential rather than `pnpm check` so the
+            # job graph shows WHICH gate failed. `pnpm check` stays the local
+            # ergonomic entry point.
+            - name: Format check
+              run: pnpm format:check
+
+            - name: Type check
+              run: pnpm type-check
+
+            # `lint`, not `lint:strict` — exhaustive-deps is still "warn" while
+            # the known warnings are worked down. Flip this when the ratchet closes.
+            - name: Lint
+              run: pnpm lint
+
+            - name: Test
+              run: pnpm test:fe
+
+            - name: Build
+              run: pnpm build

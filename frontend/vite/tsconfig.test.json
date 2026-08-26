@@ -1,0 +1,30 @@
+{
+    // Separate from tsconfig.json ON PURPOSE. The base config is what `build`
+    // (tsc -b && vite build) uses, and it must keep behaving byte-identically —
+    // so its strictness is never relaxed here for src's benefit.
+    // Run with `pnpm type-check:tests`.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
+        // Test files routinely trip these: destructured-but-unused render
+        // results, and unused params in stub callbacks. Relaxed for tests only.
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "paths": {
+            "@/*": ["./src/*"],
+            // Mirrors the aliases in vitest.config.ts. Edge functions import
+            // supabase-js under the bare specifier "supabase" (mapped by each
+            // function's deno.json to esm.sh), and _shared/storage.ts imports
+            // the AWS SDK inside the unreachable R2 driver. Without these, tsc
+            // reports module-not-found on code that runs fine under Deno.
+            //
+            // NOTE: `deno check` (pnpm check:ef) remains the AUTHORITY on edge
+            // function types — it uses the real import maps. This is only here
+            // so test files can import _shared without spurious errors.
+            "supabase": ["./node_modules/@supabase/supabase-js"],
+            "@aws-sdk/client-s3": ["./tests/setup/stubs/aws-sdk.ts"],
+            "@aws-sdk/s3-request-presigner": ["./tests/setup/stubs/aws-sdk.ts"]
+        }
+    },
+    "include": ["src", "tests"]
+}

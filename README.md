@@ -1,16 +1,16 @@
-# AIUR HR
+# ContractGo
 
-Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + R2).
+Electronic contract drafting, signing, and management. Monorepo with React frontend, Supabase backend, and Cloudflare (Pages + R2).
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, TanStack Router, TanStack Query, TanStack Store, Ant Design v6 |
-| Backend | Supabase (PostgreSQL + Auth + Edge Functions + Realtime) |
-| File Storage | Cloudflare R2 (S3-compatible, zero egress) |
-| Monorepo | pnpm workspaces |
-| Deployment | Cloudflare Pages (frontend), Supabase Cloud (backend) |
+| Layer        | Technology                                                               |
+| ------------ | ------------------------------------------------------------------------ |
+| Frontend     | React 19, TanStack Router, TanStack Query, TanStack Store, Ant Design v6 |
+| Backend      | Supabase (PostgreSQL + Auth + Edge Functions + Realtime)                 |
+| File Storage | Cloudflare R2 (S3-compatible, zero egress)                               |
+| Monorepo     | pnpm workspaces                                                          |
+| Deployment   | Cloudflare Pages (frontend), Supabase Cloud (backend)                    |
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ Monorepo project with React frontend, Supabase backend, and Cloudflare (Pages + 
 
 ```bash
 git clone <repo-url>
-cd aiur-hr
+cd contractgo
 pnpm install
 ```
 
@@ -41,18 +41,34 @@ Start everything:
 pnpm dev
 ```
 
+> **No Cloudflare account yet?** Set `STORAGE_DRIVER=local` in `.env.dev` (already the
+> default in a fresh dev setup). File uploads then go to a local Supabase Storage bucket
+> instead of R2, and the Worker isn't needed — run `pnpm sb:dev:start`, `pnpm dev:ef`, and
+> `pnpm dev:web` instead of `pnpm dev` (which also starts wrangler). See
+> [cloudflare/README.md](cloudflare/README.md) for how to swap R2 back in.
+
+### Git hooks
+
+`pnpm install` runs `pnpm prepare`, which installs the husky hooks. Pre-commit
+runs Prettier over staged files only — it does not lint or run tests, so it stays
+fast. If hooks don't fire (common with GUI git clients, which use a different
+PATH than your shell), run `pnpm prepare` manually and verify `pnpm` is on the
+PATH that Git Bash sees.
+
+`git commit --no-verify` bypasses the hook. Emergencies only.
+
 ## Useful URLs
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
+| Service         | URL                    |
+| --------------- | ---------------------- |
+| Frontend        | http://localhost:5173  |
 | Supabase Studio | http://localhost:54323 |
-| Supabase API | http://localhost:54321 |
+| Supabase API    | http://localhost:54321 |
 
 ## Project Structure
 
 ```
-aiur-hr/
+contractgo/
 ├── frontend/
 │   └── vite/                   # React SPA (TanStack Router + Ant Design)
 │       ├── supabase/           # Database + Edge Functions
@@ -76,20 +92,28 @@ aiur-hr/
 
 ## Key Commands
 
-| Command | What it does |
-|---------|-------------|
-| `pnpm dev` | Start everything (Supabase + Edge Functions + frontend) |
-| `pnpm dev:web` | Start frontend only |
-| `pnpm dev:ef` | Serve Edge Functions locally |
-| `pnpm build` | Build frontend |
-| `pnpm sb:dev:start` | Start local Supabase (Docker) |
-| `pnpm sb:dev:stop` | Stop local Supabase |
-| `pnpm sb:dev:reset` | Drop and recreate database from migrations + seed |
-| `pnpm sb:dev:types` | Regenerate TypeScript types from Supabase schema |
-| `pnpm sb:dev:diff` | Generate migration from schema changes |
-| `pnpm sb:dev:push` | Apply pending migrations locally |
-| `pnpm sb:dev:new` | Create new empty migration |
-| `pnpm env:apply dev` | Distribute env vars to destinations |
+| Command                 | What it does                                                      |
+| ----------------------- | ----------------------------------------------------------------- |
+| `pnpm dev`              | Start everything (Supabase + Edge Functions + frontend)           |
+| `pnpm dev:web`          | Start frontend only                                               |
+| `pnpm dev:ef`           | Serve Edge Functions locally                                      |
+| `pnpm build`            | Build frontend                                                    |
+| `pnpm check`            | All quality gates: type-check + lint + edge-function `deno check` |
+| `pnpm test`             | Run the unit test suite (see `docs/testing.md`)                   |
+| `pnpm test:fe:coverage` | Unit tests with a coverage report                                 |
+| `pnpm lint`             | ESLint the frontend                                               |
+| `pnpm type-check`       | `tsc --noEmit` over `src`                                         |
+| `pnpm format`           | Format the repo with Prettier                                     |
+| `pnpm format:check`     | Verify formatting (what CI runs)                                  |
+| `pnpm seed:demo`        | Build a realistic demo dataset via the real edge functions        |
+| `pnpm sb:dev:start`     | Start local Supabase (Docker)                                     |
+| `pnpm sb:dev:stop`      | Stop local Supabase                                               |
+| `pnpm sb:dev:reset`     | Drop and recreate database from migrations + seed                 |
+| `pnpm sb:dev:types`     | Regenerate TypeScript types from Supabase schema                  |
+| `pnpm sb:dev:diff`      | Generate migration from schema changes                            |
+| `pnpm sb:dev:push`      | Apply pending migrations locally                                  |
+| `pnpm sb:dev:new`       | Create new empty migration                                        |
+| `pnpm env:apply dev`    | Distribute env vars to destinations                               |
 
 ## How Auth Works
 
@@ -116,10 +140,10 @@ pnpm sb:dev:types
 
 This project uses the PM Bible for product management. Commands:
 
-| Command | Role | Purpose |
-|---------|------|---------|
-| `/pm` | Manager | Vision, breakdown, triage |
-| `/p` | Engineer | Plan implementation |
-| `/s` | Engineer | Execute tasks |
-| `/pp` | Engineer | Push to Plane + update Outline |
-| `/rp` | Reporter | Cycle reports |
+| Command | Role     | Purpose                        |
+| ------- | -------- | ------------------------------ |
+| `/pm`   | Manager  | Vision, breakdown, triage      |
+| `/p`    | Engineer | Plan implementation            |
+| `/s`    | Engineer | Execute tasks                  |
+| `/pp`   | Engineer | Push to Plane + update Outline |
+| `/rp`   | Reporter | Cycle reports                  |

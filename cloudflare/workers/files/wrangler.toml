@@ -1,4 +1,10 @@
 #:schema node_modules/wrangler/config-schema.json
+# NOTE (ContractGo rebrand, Phase C): the Worker script names and R2 bucket names
+# below still read `aiur-hr` / `aiurhr--*` on purpose. They identify already-deployed
+# Cloudflare resources — changing them here does not rename anything, it deploys a
+# NEW Worker and points it at a NON-EXISTENT bucket. Renaming is an infra migration
+# (create bucket, copy objects, re-issue custom domains, re-put secrets) and is an
+# open decision for `/pm`. Until it is made, leave these strings alone.
 name = "aiur-hr-files-dev"
 main = "src/index.js"
 compatibility_date = "2026-04-16"

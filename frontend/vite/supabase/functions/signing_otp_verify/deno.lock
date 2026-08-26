@@ -1,0 +1,18 @@
+{
+  "version": "5",
+  "remote": {
+    "https://esm.sh/@supabase/supabase-js@2.49.4": "d52c4d06946766d328fdd0ac2e007f52bb6d2ef7ce6103ad9f0f57d92b73e978"
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:@aws-sdk/client-s3@*",
+      "npm:@aws-sdk/s3-request-presigner@*",
+      "npm:@pdf-lib/fontkit@1.1.1",
+      "npm:@signpdf/placeholder-plain@3",
+      "npm:@signpdf/utils@3",
+      "npm:jose@5",
+      "npm:node-forge@1",
+      "npm:pdf-lib@1.17.1"
+    ]
+  }
+}

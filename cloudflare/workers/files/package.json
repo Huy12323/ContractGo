@@ -1,9 +1,9 @@
 {
-    "name": "aiur-hr-files-worker",
+    "name": "contractgo-files-worker",
     "private": true,
     "version": "0.0.0",
     "type": "module",
-    "description": "Cloudflare Worker serving files from R2 with JWT authentication (AIUR HR)",
+    "description": "Cloudflare Worker serving files from R2 with JWT authentication (ContractGo)",
     "main": "src/index.js",
     "scripts": {
         "dev": "rimraf .wrangler && wrangler dev",

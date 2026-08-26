@@ -9,13 +9,18 @@ export const useM_CreateOrgModal_OrganizationCreate = () => {
 
     const mutation = useMutation({
         mutationFn: async (orgName: string) => {
-            const sb_RpcCreateOrganization = await supabase.rpc("create_organization", { org_name: orgName });
+            const sb_RpcCreateOrganization = await supabase.rpc("create_organization", {
+                org_name: orgName,
+            });
             if (sb_RpcCreateOrganization.error) throw sb_RpcCreateOrganization.error;
             return sb_RpcCreateOrganization.data;
         },
         onSuccess: () => {
             message.success("Organization created");
             queryClient.invalidateQueries({ queryKey: QueryKeys.organizations.all() });
+            // The RPC's second write — CG-026's default entity — needs no
+            // invalidation since CG-030: nothing on the client caches entities,
+            // or reads them at all.
         },
         onError: (err) => {
             message.error(err instanceof Error ? err.message : "Failed to create organization");

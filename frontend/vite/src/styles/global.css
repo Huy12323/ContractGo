@@ -1,0 +1,72 @@
+/* The only stylesheet in the app, and a deliberate exception to the
+   inline-`style={{}}`-from-`theme.useToken()` convention every component follows.
+   Four things cannot be expressed as an inline style object, and all four are
+   load-bearing on mobile:
+
+     * `@media` / `@supports`   — pointer-coarse and dvh feature detection
+     * `env(safe-area-inset-*)` — keeping footers above the iOS home indicator
+     * `::-webkit-scrollbar`    — the PDF pane's gutters
+     * `touch-action`           — is inline-able, but belongs next to the rest
+
+   Everything else stays inline. Do not grow this file into a stylesheet: if a
+   rule can be a token-driven inline style, it should be one. */
+
+:root {
+    /* The app's frame height. `100vh` on a mobile browser measures the viewport
+       WITH the URL bar collapsed, so a `100vh` frame is taller than what the
+       user can see and — with `body { overflow: hidden }` — the remainder is
+       unreachable. `100dvh` tracks the bar. The `@supports` fallback keeps
+       older engines on the old behaviour rather than on nothing. */
+    --app-vh: 100vh;
+
+    --app-safe-top: env(safe-area-inset-top, 0px);
+    --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --app-safe-left: env(safe-area-inset-left, 0px);
+    --app-safe-right: env(safe-area-inset-right, 0px);
+}
+
+@supports (height: 100dvh) {
+    :root {
+        --app-vh: 100dvh;
+    }
+}
+
+/* The signature pad. Without this, iOS treats a drawing stroke as a page-scroll
+   gesture and the pad receives a `pointerdown` followed by nothing. */
+.no-touch-scroll {
+    touch-action: none;
+}
+
+/* `App_PdfDocument` injects 14px custom scrollbars and pins the container to
+   `overflow: scroll`. Both are correct on a desktop pointer — the comment in
+   that file documents the ResizeObserver oscillation `overflow: auto` causes
+   when a classic scrollbar's appearance changes the content width.
+   A coarse pointer has OVERLAY scrollbars, which consume no content width, so
+   the oscillation cannot occur there and `auto` is safe. Reclaiming those ~28px
+   matters on a 390px screen. Scoped to `pointer: coarse` and nothing else. */
+@media (pointer: coarse) {
+    .pdf-scroll-container {
+        overflow: auto !important;
+        scrollbar-width: thin !important;
+    }
+
+    .pdf-scroll-container::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    /* Touch targets. ANTD's `size="small"` icon-only button is 24px square and its
+       tab is ~12px tall — both well under the ~44px a fingertip actually covers.
+       Here rather than per-component because it is a pointer query, which is the
+       one thing an inline style cannot express, and because the alternative is
+       branching on `isMobile` at every one of the ~30 call sites. `pointer: coarse`
+       and not `isMobile` on purpose: this is about the input device, not the width. */
+    .ant-btn-icon-only {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .ant-tabs-tab {
+        padding-block: 12px;
+    }
+}

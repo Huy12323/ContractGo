@@ -9,24 +9,53 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as EmbedRouteRouteImport } from './routes/embed/route'
+import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as PublicVerifyRouteImport } from './routes/_public/verify'
+import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
+import { Route as AuthPendingAccessRouteImport } from './routes/_auth/pending-access'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthInvitationRouteImport } from './routes/_auth/invitation'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
+import { Route as ProtectedMeRouteRouteImport } from './routes/_protected/me/route'
 import { Route as ProtectedOrganizationIdRouteRouteImport } from './routes/_protected/$organizationId/route'
 import { Route as ProtectedOrganizationIdIndexRouteImport } from './routes/_protected/$organizationId/index'
-import { Route as ProtectedOnboardingInvitationTokenRouteImport } from './routes/_protected/onboarding/$invitationToken'
-import { Route as ProtectedOrganizationIdTimesheetsIndexRouteImport } from './routes/_protected/$organizationId/timesheets/index'
-import { Route as ProtectedOrganizationIdOrgChartIndexRouteImport } from './routes/_protected/$organizationId/org-chart/index'
-import { Route as ProtectedOrganizationIdMyTimeclockIndexRouteImport } from './routes/_protected/$organizationId/my-timeclock/index'
-import { Route as ProtectedOrganizationIdEmployeesIndexRouteImport } from './routes/_protected/$organizationId/employees/index'
-import { Route as ProtectedOrganizationIdAppsTasksRouteImport } from './routes/_protected/$organizationId/apps/tasks'
+import { Route as EmbedSignAccessTokenRouteImport } from './routes/embed/sign.$accessToken'
+import { Route as PublicSignAccessTokenRouteImport } from './routes/_public/sign.$accessToken'
+import { Route as ProtectedOrganizationIdSettingsRouteRouteImport } from './routes/_protected/$organizationId/settings/route'
+import { Route as ProtectedMeDocumentsIndexRouteImport } from './routes/_protected/me/documents/index'
+import { Route as ProtectedOrganizationIdTemplatesIndexRouteImport } from './routes/_protected/$organizationId/templates/index'
+import { Route as ProtectedOrganizationIdSettingsIndexRouteImport } from './routes/_protected/$organizationId/settings/index'
+import { Route as ProtectedOrganizationIdPeopleIndexRouteImport } from './routes/_protected/$organizationId/people/index'
+import { Route as ProtectedOrganizationIdNotificationsIndexRouteImport } from './routes/_protected/$organizationId/notifications/index'
+import { Route as ProtectedOrganizationIdEnvelopesIndexRouteImport } from './routes/_protected/$organizationId/envelopes/index'
+import { Route as ProtectedOrganizationIdArchiveIndexRouteImport } from './routes/_protected/$organizationId/archive/index'
+import { Route as ProtectedMeDocumentsNewRouteImport } from './routes/_protected/me/documents/new'
+import { Route as ProtectedOrganizationIdTemplatesTemplateIdRouteImport } from './routes/_protected/$organizationId/templates/$templateId'
+import { Route as ProtectedOrganizationIdSettingsWebhooksRouteImport } from './routes/_protected/$organizationId/settings/webhooks'
+import { Route as ProtectedOrganizationIdSettingsApiKeysRouteImport } from './routes/_protected/$organizationId/settings/api-keys'
+import { Route as ProtectedOrganizationIdEnvelopesNewRouteImport } from './routes/_protected/$organizationId/envelopes/new'
+import { Route as ProtectedMeDocumentsEnvelopeIdIndexRouteImport } from './routes/_protected/me/documents/$envelopeId.index'
+import { Route as ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRouteImport } from './routes/_protected/$organizationId/envelopes/$envelopeId.index'
+import { Route as ProtectedMeDocumentsEnvelopeIdEditRouteImport } from './routes/_protected/me/documents/$envelopeId.edit'
+import { Route as ProtectedOrganizationIdEnvelopesEnvelopeIdEditRouteImport } from './routes/_protected/$organizationId/envelopes/$envelopeId.edit'
 
+const EmbedRouteRoute = EmbedRouteRouteImport.update({
+  id: '/embed',
+  path: '/embed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicRouteRoute = PublicRouteRouteImport.update({
+  id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
@@ -38,6 +67,21 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicVerifyRoute = PublicVerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
@@ -55,6 +99,11 @@ const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthPendingAccessRoute = AuthPendingAccessRouteImport.update({
+  id: '/pending-access',
+  path: '/pending-access',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -70,6 +119,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const ProtectedMeRouteRoute = ProtectedMeRouteRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
 const ProtectedOrganizationIdRouteRoute =
   ProtectedOrganizationIdRouteRouteImport.update({
     id: '/$organizationId',
@@ -82,158 +136,364 @@ const ProtectedOrganizationIdIndexRoute =
     path: '/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOnboardingInvitationTokenRoute =
-  ProtectedOnboardingInvitationTokenRouteImport.update({
-    id: '/onboarding/$invitationToken',
-    path: '/onboarding/$invitationToken',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedOrganizationIdTimesheetsIndexRoute =
-  ProtectedOrganizationIdTimesheetsIndexRouteImport.update({
-    id: '/timesheets/',
-    path: '/timesheets/',
+const EmbedSignAccessTokenRoute = EmbedSignAccessTokenRouteImport.update({
+  id: '/sign/$accessToken',
+  path: '/sign/$accessToken',
+  getParentRoute: () => EmbedRouteRoute,
+} as any)
+const PublicSignAccessTokenRoute = PublicSignAccessTokenRouteImport.update({
+  id: '/sign/$accessToken',
+  path: '/sign/$accessToken',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const ProtectedOrganizationIdSettingsRouteRoute =
+  ProtectedOrganizationIdSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdOrgChartIndexRoute =
-  ProtectedOrganizationIdOrgChartIndexRouteImport.update({
-    id: '/org-chart/',
-    path: '/org-chart/',
+const ProtectedMeDocumentsIndexRoute =
+  ProtectedMeDocumentsIndexRouteImport.update({
+    id: '/documents/',
+    path: '/documents/',
+    getParentRoute: () => ProtectedMeRouteRoute,
+  } as any)
+const ProtectedOrganizationIdTemplatesIndexRoute =
+  ProtectedOrganizationIdTemplatesIndexRouteImport.update({
+    id: '/templates/',
+    path: '/templates/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdMyTimeclockIndexRoute =
-  ProtectedOrganizationIdMyTimeclockIndexRouteImport.update({
-    id: '/my-timeclock/',
-    path: '/my-timeclock/',
+const ProtectedOrganizationIdSettingsIndexRoute =
+  ProtectedOrganizationIdSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdPeopleIndexRoute =
+  ProtectedOrganizationIdPeopleIndexRouteImport.update({
+    id: '/people/',
+    path: '/people/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdEmployeesIndexRoute =
-  ProtectedOrganizationIdEmployeesIndexRouteImport.update({
-    id: '/employees/',
-    path: '/employees/',
+const ProtectedOrganizationIdNotificationsIndexRoute =
+  ProtectedOrganizationIdNotificationsIndexRouteImport.update({
+    id: '/notifications/',
+    path: '/notifications/',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdAppsTasksRoute =
-  ProtectedOrganizationIdAppsTasksRouteImport.update({
-    id: '/apps/tasks',
-    path: '/apps/tasks',
+const ProtectedOrganizationIdEnvelopesIndexRoute =
+  ProtectedOrganizationIdEnvelopesIndexRouteImport.update({
+    id: '/envelopes/',
+    path: '/envelopes/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedOrganizationIdArchiveIndexRoute =
+  ProtectedOrganizationIdArchiveIndexRouteImport.update({
+    id: '/archive/',
+    path: '/archive/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedMeDocumentsNewRoute = ProtectedMeDocumentsNewRouteImport.update({
+  id: '/documents/new',
+  path: '/documents/new',
+  getParentRoute: () => ProtectedMeRouteRoute,
+} as any)
+const ProtectedOrganizationIdTemplatesTemplateIdRoute =
+  ProtectedOrganizationIdTemplatesTemplateIdRouteImport.update({
+    id: '/templates/$templateId',
+    path: '/templates/$templateId',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsWebhooksRoute =
+  ProtectedOrganizationIdSettingsWebhooksRouteImport.update({
+    id: '/webhooks',
+    path: '/webhooks',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsApiKeysRoute =
+  ProtectedOrganizationIdSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdEnvelopesNewRoute =
+  ProtectedOrganizationIdEnvelopesNewRouteImport.update({
+    id: '/envelopes/new',
+    path: '/envelopes/new',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedMeDocumentsEnvelopeIdIndexRoute =
+  ProtectedMeDocumentsEnvelopeIdIndexRouteImport.update({
+    id: '/documents/$envelopeId/',
+    path: '/documents/$envelopeId/',
+    getParentRoute: () => ProtectedMeRouteRoute,
+  } as any)
+const ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute =
+  ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRouteImport.update({
+    id: '/envelopes/$envelopeId/',
+    path: '/envelopes/$envelopeId/',
+    getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedMeDocumentsEnvelopeIdEditRoute =
+  ProtectedMeDocumentsEnvelopeIdEditRouteImport.update({
+    id: '/documents/$envelopeId/edit',
+    path: '/documents/$envelopeId/edit',
+    getParentRoute: () => ProtectedMeRouteRoute,
+  } as any)
+const ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute =
+  ProtectedOrganizationIdEnvelopesEnvelopeIdEditRouteImport.update({
+    id: '/envelopes/$envelopeId/edit',
+    path: '/envelopes/$envelopeId/edit',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
+  '/embed': typeof EmbedRouteRouteWithChildren
   '/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
+  '/me': typeof ProtectedMeRouteRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
+  '/pending-access': typeof AuthPendingAccessRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
-  '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
+  '/settings': typeof ProtectedSettingsRoute
+  '/verify': typeof PublicVerifyRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsRouteRouteWithChildren
+  '/sign/$accessToken': typeof PublicSignAccessTokenRoute
+  '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
-  '/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
-  '/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
-  '/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
-  '/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
-  '/$organizationId/timesheets/': typeof ProtectedOrganizationIdTimesheetsIndexRoute
+  '/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
+  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
+  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
+  '/me/documents/new': typeof ProtectedMeDocumentsNewRoute
+  '/$organizationId/archive/': typeof ProtectedOrganizationIdArchiveIndexRoute
+  '/$organizationId/envelopes/': typeof ProtectedOrganizationIdEnvelopesIndexRoute
+  '/$organizationId/notifications/': typeof ProtectedOrganizationIdNotificationsIndexRoute
+  '/$organizationId/people/': typeof ProtectedOrganizationIdPeopleIndexRoute
+  '/$organizationId/settings/': typeof ProtectedOrganizationIdSettingsIndexRoute
+  '/$organizationId/templates/': typeof ProtectedOrganizationIdTemplatesIndexRoute
+  '/me/documents/': typeof ProtectedMeDocumentsIndexRoute
+  '/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
+  '/$organizationId/envelopes/$envelopeId/': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
+  '/me/documents/$envelopeId/': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ProtectedIndexRoute
+  '/embed': typeof EmbedRouteRouteWithChildren
+  '/me': typeof ProtectedMeRouteRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/invitation': typeof AuthInvitationRoute
   '/login': typeof AuthLoginRoute
+  '/pending-access': typeof AuthPendingAccessRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
-  '/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
+  '/settings': typeof ProtectedSettingsRoute
+  '/verify': typeof PublicVerifyRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/sign/$accessToken': typeof PublicSignAccessTokenRoute
+  '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
-  '/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
-  '/$organizationId/employees': typeof ProtectedOrganizationIdEmployeesIndexRoute
-  '/$organizationId/my-timeclock': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
-  '/$organizationId/org-chart': typeof ProtectedOrganizationIdOrgChartIndexRoute
-  '/$organizationId/timesheets': typeof ProtectedOrganizationIdTimesheetsIndexRoute
+  '/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
+  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
+  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
+  '/me/documents/new': typeof ProtectedMeDocumentsNewRoute
+  '/$organizationId/archive': typeof ProtectedOrganizationIdArchiveIndexRoute
+  '/$organizationId/envelopes': typeof ProtectedOrganizationIdEnvelopesIndexRoute
+  '/$organizationId/notifications': typeof ProtectedOrganizationIdNotificationsIndexRoute
+  '/$organizationId/people': typeof ProtectedOrganizationIdPeopleIndexRoute
+  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsIndexRoute
+  '/$organizationId/templates': typeof ProtectedOrganizationIdTemplatesIndexRoute
+  '/me/documents': typeof ProtectedMeDocumentsIndexRoute
+  '/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
+  '/$organizationId/envelopes/$envelopeId': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
+  '/me/documents/$envelopeId': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteRouteWithChildren
+  '/_public': typeof PublicRouteRouteWithChildren
+  '/embed': typeof EmbedRouteRouteWithChildren
   '/_protected/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
+  '/_protected/me': typeof ProtectedMeRouteRouteWithChildren
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/invitation': typeof AuthInvitationRoute
   '/_auth/login': typeof AuthLoginRoute
+  '/_auth/pending-access': typeof AuthPendingAccessRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/_protected/settings': typeof ProtectedSettingsRoute
+  '/_public/verify': typeof PublicVerifyRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/_protected/': typeof ProtectedIndexRoute
-  '/_protected/onboarding/$invitationToken': typeof ProtectedOnboardingInvitationTokenRoute
+  '/_protected/$organizationId/settings': typeof ProtectedOrganizationIdSettingsRouteRouteWithChildren
+  '/_public/sign/$accessToken': typeof PublicSignAccessTokenRoute
+  '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
-  '/_protected/$organizationId/apps/tasks': typeof ProtectedOrganizationIdAppsTasksRoute
-  '/_protected/$organizationId/employees/': typeof ProtectedOrganizationIdEmployeesIndexRoute
-  '/_protected/$organizationId/my-timeclock/': typeof ProtectedOrganizationIdMyTimeclockIndexRoute
-  '/_protected/$organizationId/org-chart/': typeof ProtectedOrganizationIdOrgChartIndexRoute
-  '/_protected/$organizationId/timesheets/': typeof ProtectedOrganizationIdTimesheetsIndexRoute
+  '/_protected/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
+  '/_protected/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
+  '/_protected/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/_protected/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
+  '/_protected/me/documents/new': typeof ProtectedMeDocumentsNewRoute
+  '/_protected/$organizationId/archive/': typeof ProtectedOrganizationIdArchiveIndexRoute
+  '/_protected/$organizationId/envelopes/': typeof ProtectedOrganizationIdEnvelopesIndexRoute
+  '/_protected/$organizationId/notifications/': typeof ProtectedOrganizationIdNotificationsIndexRoute
+  '/_protected/$organizationId/people/': typeof ProtectedOrganizationIdPeopleIndexRoute
+  '/_protected/$organizationId/settings/': typeof ProtectedOrganizationIdSettingsIndexRoute
+  '/_protected/$organizationId/templates/': typeof ProtectedOrganizationIdTemplatesIndexRoute
+  '/_protected/me/documents/': typeof ProtectedMeDocumentsIndexRoute
+  '/_protected/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/_protected/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
+  '/_protected/$organizationId/envelopes/$envelopeId/': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
+  '/_protected/me/documents/$envelopeId/': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/embed'
     | '/$organizationId'
+    | '/me'
     | '/forgot-password'
     | '/invitation'
     | '/login'
+    | '/pending-access'
     | '/reset-password'
     | '/signup'
     | '/verify-email'
-    | '/onboarding/$invitationToken'
+    | '/settings'
+    | '/verify'
+    | '/auth/callback'
+    | '/$organizationId/settings'
+    | '/sign/$accessToken'
+    | '/embed/sign/$accessToken'
     | '/$organizationId/'
-    | '/$organizationId/apps/tasks'
-    | '/$organizationId/employees/'
-    | '/$organizationId/my-timeclock/'
-    | '/$organizationId/org-chart/'
-    | '/$organizationId/timesheets/'
+    | '/$organizationId/envelopes/new'
+    | '/$organizationId/settings/api-keys'
+    | '/$organizationId/settings/webhooks'
+    | '/$organizationId/templates/$templateId'
+    | '/me/documents/new'
+    | '/$organizationId/archive/'
+    | '/$organizationId/envelopes/'
+    | '/$organizationId/notifications/'
+    | '/$organizationId/people/'
+    | '/$organizationId/settings/'
+    | '/$organizationId/templates/'
+    | '/me/documents/'
+    | '/$organizationId/envelopes/$envelopeId/edit'
+    | '/me/documents/$envelopeId/edit'
+    | '/$organizationId/envelopes/$envelopeId/'
+    | '/me/documents/$envelopeId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/embed'
+    | '/me'
     | '/forgot-password'
     | '/invitation'
     | '/login'
+    | '/pending-access'
     | '/reset-password'
     | '/signup'
     | '/verify-email'
-    | '/onboarding/$invitationToken'
+    | '/settings'
+    | '/verify'
+    | '/auth/callback'
+    | '/sign/$accessToken'
+    | '/embed/sign/$accessToken'
     | '/$organizationId'
-    | '/$organizationId/apps/tasks'
-    | '/$organizationId/employees'
-    | '/$organizationId/my-timeclock'
-    | '/$organizationId/org-chart'
-    | '/$organizationId/timesheets'
+    | '/$organizationId/envelopes/new'
+    | '/$organizationId/settings/api-keys'
+    | '/$organizationId/settings/webhooks'
+    | '/$organizationId/templates/$templateId'
+    | '/me/documents/new'
+    | '/$organizationId/archive'
+    | '/$organizationId/envelopes'
+    | '/$organizationId/notifications'
+    | '/$organizationId/people'
+    | '/$organizationId/settings'
+    | '/$organizationId/templates'
+    | '/me/documents'
+    | '/$organizationId/envelopes/$envelopeId/edit'
+    | '/me/documents/$envelopeId/edit'
+    | '/$organizationId/envelopes/$envelopeId'
+    | '/me/documents/$envelopeId'
   id:
     | '__root__'
     | '/_auth'
     | '/_protected'
+    | '/_public'
+    | '/embed'
     | '/_protected/$organizationId'
+    | '/_protected/me'
     | '/_auth/forgot-password'
     | '/_auth/invitation'
     | '/_auth/login'
+    | '/_auth/pending-access'
     | '/_auth/reset-password'
     | '/_auth/signup'
     | '/_auth/verify-email'
+    | '/_protected/settings'
+    | '/_public/verify'
+    | '/auth/callback'
     | '/_protected/'
-    | '/_protected/onboarding/$invitationToken'
+    | '/_protected/$organizationId/settings'
+    | '/_public/sign/$accessToken'
+    | '/embed/sign/$accessToken'
     | '/_protected/$organizationId/'
-    | '/_protected/$organizationId/apps/tasks'
-    | '/_protected/$organizationId/employees/'
-    | '/_protected/$organizationId/my-timeclock/'
-    | '/_protected/$organizationId/org-chart/'
-    | '/_protected/$organizationId/timesheets/'
+    | '/_protected/$organizationId/envelopes/new'
+    | '/_protected/$organizationId/settings/api-keys'
+    | '/_protected/$organizationId/settings/webhooks'
+    | '/_protected/$organizationId/templates/$templateId'
+    | '/_protected/me/documents/new'
+    | '/_protected/$organizationId/archive/'
+    | '/_protected/$organizationId/envelopes/'
+    | '/_protected/$organizationId/notifications/'
+    | '/_protected/$organizationId/people/'
+    | '/_protected/$organizationId/settings/'
+    | '/_protected/$organizationId/templates/'
+    | '/_protected/me/documents/'
+    | '/_protected/$organizationId/envelopes/$envelopeId/edit'
+    | '/_protected/me/documents/$envelopeId/edit'
+    | '/_protected/$organizationId/envelopes/$envelopeId/'
+    | '/_protected/me/documents/$envelopeId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
+  PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  EmbedRouteRoute: typeof EmbedRouteRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/embed': {
+      id: '/embed'
+      path: '/embed'
+      fullPath: '/embed'
+      preLoaderRoute: typeof EmbedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected': {
       id: '/_protected'
       path: ''
@@ -253,6 +513,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public/verify': {
+      id: '/_public/verify'
+      path: '/verify'
+      fullPath: '/verify'
+      preLoaderRoute: typeof PublicVerifyRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_protected/settings': {
+      id: '/_protected/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof ProtectedSettingsRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_auth/verify-email': {
@@ -276,6 +557,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthResetPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_auth/pending-access': {
+      id: '/_auth/pending-access'
+      path: '/pending-access'
+      fullPath: '/pending-access'
+      preLoaderRoute: typeof AuthPendingAccessRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/_auth/login': {
       id: '/_auth/login'
       path: '/login'
@@ -297,6 +585,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_protected/me': {
+      id: '/_protected/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof ProtectedMeRouteRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/$organizationId': {
       id: '/_protected/$organizationId'
       path: '/$organizationId'
@@ -311,46 +606,137 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrganizationIdIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/onboarding/$invitationToken': {
-      id: '/_protected/onboarding/$invitationToken'
-      path: '/onboarding/$invitationToken'
-      fullPath: '/onboarding/$invitationToken'
-      preLoaderRoute: typeof ProtectedOnboardingInvitationTokenRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/embed/sign/$accessToken': {
+      id: '/embed/sign/$accessToken'
+      path: '/sign/$accessToken'
+      fullPath: '/embed/sign/$accessToken'
+      preLoaderRoute: typeof EmbedSignAccessTokenRouteImport
+      parentRoute: typeof EmbedRouteRoute
     }
-    '/_protected/$organizationId/timesheets/': {
-      id: '/_protected/$organizationId/timesheets/'
-      path: '/timesheets'
-      fullPath: '/$organizationId/timesheets/'
-      preLoaderRoute: typeof ProtectedOrganizationIdTimesheetsIndexRouteImport
+    '/_public/sign/$accessToken': {
+      id: '/_public/sign/$accessToken'
+      path: '/sign/$accessToken'
+      fullPath: '/sign/$accessToken'
+      preLoaderRoute: typeof PublicSignAccessTokenRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_protected/$organizationId/settings': {
+      id: '/_protected/$organizationId/settings'
+      path: '/settings'
+      fullPath: '/$organizationId/settings'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsRouteRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/$organizationId/org-chart/': {
-      id: '/_protected/$organizationId/org-chart/'
-      path: '/org-chart'
-      fullPath: '/$organizationId/org-chart/'
-      preLoaderRoute: typeof ProtectedOrganizationIdOrgChartIndexRouteImport
+    '/_protected/me/documents/': {
+      id: '/_protected/me/documents/'
+      path: '/documents'
+      fullPath: '/me/documents/'
+      preLoaderRoute: typeof ProtectedMeDocumentsIndexRouteImport
+      parentRoute: typeof ProtectedMeRouteRoute
+    }
+    '/_protected/$organizationId/templates/': {
+      id: '/_protected/$organizationId/templates/'
+      path: '/templates'
+      fullPath: '/$organizationId/templates/'
+      preLoaderRoute: typeof ProtectedOrganizationIdTemplatesIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/$organizationId/my-timeclock/': {
-      id: '/_protected/$organizationId/my-timeclock/'
-      path: '/my-timeclock'
-      fullPath: '/$organizationId/my-timeclock/'
-      preLoaderRoute: typeof ProtectedOrganizationIdMyTimeclockIndexRouteImport
+    '/_protected/$organizationId/settings/': {
+      id: '/_protected/$organizationId/settings/'
+      path: '/'
+      fullPath: '/$organizationId/settings/'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/people/': {
+      id: '/_protected/$organizationId/people/'
+      path: '/people'
+      fullPath: '/$organizationId/people/'
+      preLoaderRoute: typeof ProtectedOrganizationIdPeopleIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/$organizationId/employees/': {
-      id: '/_protected/$organizationId/employees/'
-      path: '/employees'
-      fullPath: '/$organizationId/employees/'
-      preLoaderRoute: typeof ProtectedOrganizationIdEmployeesIndexRouteImport
+    '/_protected/$organizationId/notifications/': {
+      id: '/_protected/$organizationId/notifications/'
+      path: '/notifications'
+      fullPath: '/$organizationId/notifications/'
+      preLoaderRoute: typeof ProtectedOrganizationIdNotificationsIndexRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/$organizationId/apps/tasks': {
-      id: '/_protected/$organizationId/apps/tasks'
-      path: '/apps/tasks'
-      fullPath: '/$organizationId/apps/tasks'
-      preLoaderRoute: typeof ProtectedOrganizationIdAppsTasksRouteImport
+    '/_protected/$organizationId/envelopes/': {
+      id: '/_protected/$organizationId/envelopes/'
+      path: '/envelopes'
+      fullPath: '/$organizationId/envelopes/'
+      preLoaderRoute: typeof ProtectedOrganizationIdEnvelopesIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/$organizationId/archive/': {
+      id: '/_protected/$organizationId/archive/'
+      path: '/archive'
+      fullPath: '/$organizationId/archive/'
+      preLoaderRoute: typeof ProtectedOrganizationIdArchiveIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/me/documents/new': {
+      id: '/_protected/me/documents/new'
+      path: '/documents/new'
+      fullPath: '/me/documents/new'
+      preLoaderRoute: typeof ProtectedMeDocumentsNewRouteImport
+      parentRoute: typeof ProtectedMeRouteRoute
+    }
+    '/_protected/$organizationId/templates/$templateId': {
+      id: '/_protected/$organizationId/templates/$templateId'
+      path: '/templates/$templateId'
+      fullPath: '/$organizationId/templates/$templateId'
+      preLoaderRoute: typeof ProtectedOrganizationIdTemplatesTemplateIdRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/$organizationId/settings/webhooks': {
+      id: '/_protected/$organizationId/settings/webhooks'
+      path: '/webhooks'
+      fullPath: '/$organizationId/settings/webhooks'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsWebhooksRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/settings/api-keys': {
+      id: '/_protected/$organizationId/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/$organizationId/settings/api-keys'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsApiKeysRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/envelopes/new': {
+      id: '/_protected/$organizationId/envelopes/new'
+      path: '/envelopes/new'
+      fullPath: '/$organizationId/envelopes/new'
+      preLoaderRoute: typeof ProtectedOrganizationIdEnvelopesNewRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/me/documents/$envelopeId/': {
+      id: '/_protected/me/documents/$envelopeId/'
+      path: '/documents/$envelopeId'
+      fullPath: '/me/documents/$envelopeId/'
+      preLoaderRoute: typeof ProtectedMeDocumentsEnvelopeIdIndexRouteImport
+      parentRoute: typeof ProtectedMeRouteRoute
+    }
+    '/_protected/$organizationId/envelopes/$envelopeId/': {
+      id: '/_protected/$organizationId/envelopes/$envelopeId/'
+      path: '/envelopes/$envelopeId'
+      fullPath: '/$organizationId/envelopes/$envelopeId/'
+      preLoaderRoute: typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRouteImport
+      parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/me/documents/$envelopeId/edit': {
+      id: '/_protected/me/documents/$envelopeId/edit'
+      path: '/documents/$envelopeId/edit'
+      fullPath: '/me/documents/$envelopeId/edit'
+      preLoaderRoute: typeof ProtectedMeDocumentsEnvelopeIdEditRouteImport
+      parentRoute: typeof ProtectedMeRouteRoute
+    }
+    '/_protected/$organizationId/envelopes/$envelopeId/edit': {
+      id: '/_protected/$organizationId/envelopes/$envelopeId/edit'
+      path: '/envelopes/$envelopeId/edit'
+      fullPath: '/$organizationId/envelopes/$envelopeId/edit'
+      preLoaderRoute: typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
   }
@@ -360,6 +746,7 @@ interface AuthRouteRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthInvitationRoute: typeof AuthInvitationRoute
   AuthLoginRoute: typeof AuthLoginRoute
+  AuthPendingAccessRoute: typeof AuthPendingAccessRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignupRoute: typeof AuthSignupRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
@@ -369,6 +756,7 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthInvitationRoute: AuthInvitationRoute,
   AuthLoginRoute: AuthLoginRoute,
+  AuthPendingAccessRoute: AuthPendingAccessRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignupRoute: AuthSignupRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
@@ -378,28 +766,64 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface ProtectedOrganizationIdSettingsRouteRouteChildren {
+  ProtectedOrganizationIdSettingsApiKeysRoute: typeof ProtectedOrganizationIdSettingsApiKeysRoute
+  ProtectedOrganizationIdSettingsWebhooksRoute: typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  ProtectedOrganizationIdSettingsIndexRoute: typeof ProtectedOrganizationIdSettingsIndexRoute
+}
+
+const ProtectedOrganizationIdSettingsRouteRouteChildren: ProtectedOrganizationIdSettingsRouteRouteChildren =
+  {
+    ProtectedOrganizationIdSettingsApiKeysRoute:
+      ProtectedOrganizationIdSettingsApiKeysRoute,
+    ProtectedOrganizationIdSettingsWebhooksRoute:
+      ProtectedOrganizationIdSettingsWebhooksRoute,
+    ProtectedOrganizationIdSettingsIndexRoute:
+      ProtectedOrganizationIdSettingsIndexRoute,
+  }
+
+const ProtectedOrganizationIdSettingsRouteRouteWithChildren =
+  ProtectedOrganizationIdSettingsRouteRoute._addFileChildren(
+    ProtectedOrganizationIdSettingsRouteRouteChildren,
+  )
+
 interface ProtectedOrganizationIdRouteRouteChildren {
+  ProtectedOrganizationIdSettingsRouteRoute: typeof ProtectedOrganizationIdSettingsRouteRouteWithChildren
   ProtectedOrganizationIdIndexRoute: typeof ProtectedOrganizationIdIndexRoute
-  ProtectedOrganizationIdAppsTasksRoute: typeof ProtectedOrganizationIdAppsTasksRoute
-  ProtectedOrganizationIdEmployeesIndexRoute: typeof ProtectedOrganizationIdEmployeesIndexRoute
-  ProtectedOrganizationIdMyTimeclockIndexRoute: typeof ProtectedOrganizationIdMyTimeclockIndexRoute
-  ProtectedOrganizationIdOrgChartIndexRoute: typeof ProtectedOrganizationIdOrgChartIndexRoute
-  ProtectedOrganizationIdTimesheetsIndexRoute: typeof ProtectedOrganizationIdTimesheetsIndexRoute
+  ProtectedOrganizationIdEnvelopesNewRoute: typeof ProtectedOrganizationIdEnvelopesNewRoute
+  ProtectedOrganizationIdTemplatesTemplateIdRoute: typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
+  ProtectedOrganizationIdArchiveIndexRoute: typeof ProtectedOrganizationIdArchiveIndexRoute
+  ProtectedOrganizationIdEnvelopesIndexRoute: typeof ProtectedOrganizationIdEnvelopesIndexRoute
+  ProtectedOrganizationIdNotificationsIndexRoute: typeof ProtectedOrganizationIdNotificationsIndexRoute
+  ProtectedOrganizationIdPeopleIndexRoute: typeof ProtectedOrganizationIdPeopleIndexRoute
+  ProtectedOrganizationIdTemplatesIndexRoute: typeof ProtectedOrganizationIdTemplatesIndexRoute
+  ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute: typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute: typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
 }
 
 const ProtectedOrganizationIdRouteRouteChildren: ProtectedOrganizationIdRouteRouteChildren =
   {
+    ProtectedOrganizationIdSettingsRouteRoute:
+      ProtectedOrganizationIdSettingsRouteRouteWithChildren,
     ProtectedOrganizationIdIndexRoute: ProtectedOrganizationIdIndexRoute,
-    ProtectedOrganizationIdAppsTasksRoute:
-      ProtectedOrganizationIdAppsTasksRoute,
-    ProtectedOrganizationIdEmployeesIndexRoute:
-      ProtectedOrganizationIdEmployeesIndexRoute,
-    ProtectedOrganizationIdMyTimeclockIndexRoute:
-      ProtectedOrganizationIdMyTimeclockIndexRoute,
-    ProtectedOrganizationIdOrgChartIndexRoute:
-      ProtectedOrganizationIdOrgChartIndexRoute,
-    ProtectedOrganizationIdTimesheetsIndexRoute:
-      ProtectedOrganizationIdTimesheetsIndexRoute,
+    ProtectedOrganizationIdEnvelopesNewRoute:
+      ProtectedOrganizationIdEnvelopesNewRoute,
+    ProtectedOrganizationIdTemplatesTemplateIdRoute:
+      ProtectedOrganizationIdTemplatesTemplateIdRoute,
+    ProtectedOrganizationIdArchiveIndexRoute:
+      ProtectedOrganizationIdArchiveIndexRoute,
+    ProtectedOrganizationIdEnvelopesIndexRoute:
+      ProtectedOrganizationIdEnvelopesIndexRoute,
+    ProtectedOrganizationIdNotificationsIndexRoute:
+      ProtectedOrganizationIdNotificationsIndexRoute,
+    ProtectedOrganizationIdPeopleIndexRoute:
+      ProtectedOrganizationIdPeopleIndexRoute,
+    ProtectedOrganizationIdTemplatesIndexRoute:
+      ProtectedOrganizationIdTemplatesIndexRoute,
+    ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute:
+      ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute,
+    ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute:
+      ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute,
   }
 
 const ProtectedOrganizationIdRouteRouteWithChildren =
@@ -407,27 +831,76 @@ const ProtectedOrganizationIdRouteRouteWithChildren =
     ProtectedOrganizationIdRouteRouteChildren,
   )
 
+interface ProtectedMeRouteRouteChildren {
+  ProtectedMeDocumentsNewRoute: typeof ProtectedMeDocumentsNewRoute
+  ProtectedMeDocumentsIndexRoute: typeof ProtectedMeDocumentsIndexRoute
+  ProtectedMeDocumentsEnvelopeIdEditRoute: typeof ProtectedMeDocumentsEnvelopeIdEditRoute
+  ProtectedMeDocumentsEnvelopeIdIndexRoute: typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
+}
+
+const ProtectedMeRouteRouteChildren: ProtectedMeRouteRouteChildren = {
+  ProtectedMeDocumentsNewRoute: ProtectedMeDocumentsNewRoute,
+  ProtectedMeDocumentsIndexRoute: ProtectedMeDocumentsIndexRoute,
+  ProtectedMeDocumentsEnvelopeIdEditRoute:
+    ProtectedMeDocumentsEnvelopeIdEditRoute,
+  ProtectedMeDocumentsEnvelopeIdIndexRoute:
+    ProtectedMeDocumentsEnvelopeIdIndexRoute,
+}
+
+const ProtectedMeRouteRouteWithChildren =
+  ProtectedMeRouteRoute._addFileChildren(ProtectedMeRouteRouteChildren)
+
 interface ProtectedRouteRouteChildren {
   ProtectedOrganizationIdRouteRoute: typeof ProtectedOrganizationIdRouteRouteWithChildren
+  ProtectedMeRouteRoute: typeof ProtectedMeRouteRouteWithChildren
+  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
-  ProtectedOnboardingInvitationTokenRoute: typeof ProtectedOnboardingInvitationTokenRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedOrganizationIdRouteRoute:
     ProtectedOrganizationIdRouteRouteWithChildren,
+  ProtectedMeRouteRoute: ProtectedMeRouteRouteWithChildren,
+  ProtectedSettingsRoute: ProtectedSettingsRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
-  ProtectedOnboardingInvitationTokenRoute:
-    ProtectedOnboardingInvitationTokenRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
   ProtectedRouteRouteChildren,
 )
 
+interface PublicRouteRouteChildren {
+  PublicVerifyRoute: typeof PublicVerifyRoute
+  PublicSignAccessTokenRoute: typeof PublicSignAccessTokenRoute
+}
+
+const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicVerifyRoute: PublicVerifyRoute,
+  PublicSignAccessTokenRoute: PublicSignAccessTokenRoute,
+}
+
+const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
+  PublicRouteRouteChildren,
+)
+
+interface EmbedRouteRouteChildren {
+  EmbedSignAccessTokenRoute: typeof EmbedSignAccessTokenRoute
+}
+
+const EmbedRouteRouteChildren: EmbedRouteRouteChildren = {
+  EmbedSignAccessTokenRoute: EmbedSignAccessTokenRoute,
+}
+
+const EmbedRouteRouteWithChildren = EmbedRouteRoute._addFileChildren(
+  EmbedRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
+  PublicRouteRoute: PublicRouteRouteWithChildren,
+  EmbedRouteRoute: EmbedRouteRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

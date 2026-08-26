@@ -1,4 +1,15 @@
-# AIUR HR — Project Index
+# ContractGo — Project Index
+
+## Local Docs
+
+- [Development](development.md) — running the stack locally
+- [Deployment](deployment.md) — Cloudflare Pages, Workers, Supabase Cloud
+- [Testing](testing.md) — the test ladder and the MSW strictness contract
+- [API](api.md) — the machine surface: keys, scopes, endpoints, idempotency, webhooks
+- [Embedded signing](embedding.md) — the signing ceremony inside someone else's page
+- [AI assistant](ai-assistant.md) — the signer-side reading assistant: trust boundary, caps, kill switches
+- [Entities](entities.md) — why the `entities` table has no UI, and must not grow one
+- [PM Workflow](pm.md) — the PM Bible workflow and its commands
 
 ## External Links
 

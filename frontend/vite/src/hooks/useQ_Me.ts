@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/configs/supabase/config";
 import { useStore_Auth_User } from "@/stores/Store_Auth";
+import { AVATAR_FILE_SELECT } from "@/utils/Utils_Avatar_Src";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
 const fetchMe = async () => {
@@ -9,7 +10,9 @@ const fetchMe = async () => {
 
     const sb_FromProfiles_Select = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+            `id, email, full_name, avatar_url, email_verified, whitelist, created_at, updated_at, ${AVATAR_FILE_SELECT}`
+        )
         .eq("id", sb_Auth_GetUser.data.user.id)
         .single();
 

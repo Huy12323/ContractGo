@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "lib": ["deno.window", "deno.ns"],
+        "strict": true
+    },
+    "imports": {
+        "supabase": "https://esm.sh/@supabase/supabase-js@2.49.4",
+        "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3",
+        "@aws-sdk/s3-request-presigner": "npm:@aws-sdk/s3-request-presigner",
+        "jose": "npm:jose@5"
+    }
+}

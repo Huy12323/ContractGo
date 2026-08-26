@@ -1,0 +1,62 @@
+# Cloudflare Pages response headers.
+#
+# ═══ WHY THIS FILE EXISTS ═══
+#
+# Until v1.4.0 nothing in this repository set `X-Frame-Options` or a
+# `frame-ancestors` directive, which means the ENTIRE authenticated application
+# could be framed by any site on the internet. That is an ordinary clickjacking
+# exposure and it predates embedded signing by four versions. Embedded signing is
+# simply the moment it had to be resolved, because the fix ("deny framing") and
+# the feature ("allow framing here") are the same header.
+#
+# Rules are matched most-specific-first by Cloudflare Pages, and a matching rule
+# REPLACES the header it names rather than appending to it — so the `/embed/*`
+# block below is a complete restatement of the policy for that path, not a
+# modifier on the one above it.
+#
+# ═══ THE HONEST LIMITATION, STATED HERE RATHER THAN IMPLIED AWAY ═══
+#
+# `frame-ancestors` on `/embed/*` CANNOT be per-tenant. This is a static file
+# served by a CDN; it cannot know which API key minted the token in the URL, so
+# it cannot narrow the allowed ancestors to the origins that key registered.
+# `*` is therefore the honest value, and the defence on that path is NOT the CSP:
+#
+#   * the credential lives fifteen minutes by default and one hour at most
+#   * it is capped at three uses
+#   * it was NEVER EMAILED, so it has no mailbox to leak from
+#   * it names ONE origin, chosen at mint time from the key owner's allowlist,
+#     and the signing page will `postMessage` to that origin and no other. A page
+#     framing the ceremony from an unregistered origin receives silence — not a
+#     wildcard broadcast (see `utils_Embed_PostMessage.ts`)
+#
+# What an attacker gains by framing `/embed/sign/{token}` is therefore what they
+# already had by opening that URL: they must possess the token. Framing adds no
+# capability. Everything OUTSIDE `/embed/*` becomes strictly safer than it was
+# before this file existed.
+#
+# If per-tenant ancestors are ever wanted, the place for them is a dynamic
+# response — the Cloudflare Worker that already fronts this product — and not a
+# looser value here.
+
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  # Not framing-related, and cheap to state once we are setting headers at all.
+  # `nosniff` stops a browser second-guessing a Content-Type, which is how a
+  # served file becomes executable script. `no-referrer` matters more than usual
+  # on this product: signing URLs carry a bearer credential IN THE PATH, so a
+  # referrer header leaving this origin would hand that credential to every
+  # third party a signing page ever links or loads from.
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
+/embed/*
+  # DELIBERATELY PERMISSIVE, and deliberately only here. See the limitation above.
+  # `X-Frame-Options` has no wildcard-origin form at all — its only useful values
+  # are DENY and SAMEORIGIN, both of which would block the feature — so it is
+  # omitted for this path and `frame-ancestors` is the whole policy. Modern
+  # browsers prefer `frame-ancestors` over `X-Frame-Options` when both are
+  # present; omitting it avoids relying on that preference.
+  Content-Security-Policy: frame-ancestors *
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer

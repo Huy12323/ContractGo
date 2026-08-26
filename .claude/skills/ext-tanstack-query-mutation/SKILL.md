@@ -6,7 +6,7 @@ base: bible-tanstack-query-mutation
 
 # TanStack Query & Mutation — Project Extensions
 
-> Base skill: **bible-tanstack-query-mutation** — read it first for universal hook patterns (useQ_* / useM_* shape, no-destructuring, minimal processing principle).
+> Base skill: **bible-tanstack-query-mutation** — read it first for universal hook patterns (useQ*\* / useM*\* shape, no-destructuring, minimal processing principle).
 
 ## CRITICAL: Drop-in replacement for the base's scaffolding template
 
@@ -41,17 +41,19 @@ Three rules enforce realtime-compatibility:
 
 3. **The factory is typed against `keyof Database["public"]["Tables"]`.** Every key in `QueryKeys` must match a real table. Adding a new table forces an explicit entry — no silent drift between the realtime event payload and the cache.
 
+4. **The key STRING must equal the table name, and there is a test for it.** `src/utils/query/queryKeys.test.ts` iterates every entry and asserts `factory.all()` equals `[keyName]`. The `satisfies` clause cannot catch this: renaming a key's string while keeping the table valid still compiles, and `Provider_SupabaseRealtimeSync` matches events by string equality — so the drift silently unwires the event bus. A rename must update the factory **and** stay green in that test.
+
 ## No Custom Methods
 
 The factory exposes only `all` / `list` / `record`. Domain-specific access patterns use the spread pattern from the base skill:
 
-| Pattern | Shape |
-|---|---|
-| "My items" (current user) | `[...QueryKeys.organizations.list(), "mine"]` |
-| Current user's profile | `QueryKeys.profiles.record(userId)` (via `useStore_Auth_User`) |
-| Filtered list by org | `[...QueryKeys.onboarding_invitations.list(), { organizationId }]` |
-| Lookup by unique non-id key (e.g. token) | `QueryKeys.onboarding_invitations.record(token)` |
-| Alternate DTO view of a record | `[...QueryKeys.onboarding_invitations.record(token), "preview"]` |
+| Pattern                                  | Shape                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| "My items" (current user)                | `[...QueryKeys.organizations.list(), "mine"]`                      |
+| Current user's profile                   | `QueryKeys.profiles.record(userId)` (via `useStore_Auth_User`)     |
+| Filtered list by org                     | `[...QueryKeys.onboarding_invitations.list(), { organizationId }]` |
+| Lookup by unique non-id key (e.g. token) | `QueryKeys.onboarding_invitations.record(token)`                   |
+| Alternate DTO view of a record           | `[...QueryKeys.onboarding_invitations.record(token), "preview"]`   |
 
 Resist adding `.mine()` / `.byToken()` / `.preview()` convenience methods — they scale linearly with tables and muddy the realtime predicate. The 5 spread patterns above cover every historical case.
 
@@ -65,7 +67,7 @@ predicate: (query) => {
     const i = key.findIndex((s) => s === event.table_name);
     if (i === -1) return false;
     const marker = key[i + 1];
-    if (marker === "list") return true;                    // all list shapes
+    if (marker === "list") return true; // all list shapes
     if (marker === "record") {
         const keyId = key[i + 2];
         return event.record_id === null || keyId === event.record_id;
@@ -91,10 +93,10 @@ Don't remove existing mutation invalidation "because we have realtime now" — t
 
 ## Anti-Patterns (project-specific)
 
-| Wrong | Correct |
-|---|---|
-| `QueryKeys.adminInvitations` (camelCase) | `QueryKeys.admin_invitations` (snake_case, matches DB) |
-| `record(id)` returning `[domain, id]` | `record(id)` returning `[domain, "record", id]` |
-| `QueryKeys.organizations.mine()` convenience | `[...QueryKeys.organizations.list(), "mine"]` |
-| `QueryKeys` typed as `Record<string, ...>` | `satisfies Record<TableName, ...>` (completeness enforced) |
-| Removing mutation `invalidateQueries` because realtime exists | Keep both — hybrid is the chosen policy |
+| Wrong                                                         | Correct                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| `QueryKeys.adminInvitations` (camelCase)                      | `QueryKeys.admin_invitations` (snake_case, matches DB)     |
+| `record(id)` returning `[domain, id]`                         | `record(id)` returning `[domain, "record", id]`            |
+| `QueryKeys.organizations.mine()` convenience                  | `[...QueryKeys.organizations.list(), "mine"]`              |
+| `QueryKeys` typed as `Record<string, ...>`                    | `satisfies Record<TableName, ...>` (completeness enforced) |
+| Removing mutation `invalidateQueries` because realtime exists | Keep both — hybrid is the chosen policy                    |

@@ -34,54 +34,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_invitations: {
-        Row: {
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          invited_by: string | null
-          organization_id: string
-          status: string
-          token: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          expires_at: string
-          id?: string
-          invited_by?: string | null
-          organization_id: string
-          status?: string
-          token?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invited_by?: string | null
-          organization_id?: string
-          status?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "org_admin_invitations_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "org_admin_invitations_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       admins: {
         Row: {
           created_at: string
@@ -118,6 +70,158 @@ export type Database = {
           },
         ]
       }
+      ai_usage_daily: {
+        Row: {
+          day: string
+          request_count: number
+          scope: string
+          scope_id: string
+          updated_at: string
+        }
+        Insert: {
+          day: string
+          request_count?: number
+          scope: string
+          scope_id: string
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          request_count?: number
+          scope?: string
+          scope_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      api_idempotency_keys: {
+        Row: {
+          api_key_id: string | null
+          completed_at: string | null
+          created_at: string
+          endpoint: string
+          idempotency_key: string
+          organization_id: string
+          request_fingerprint: string
+          response_body: Json | null
+          response_status: number | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          endpoint: string
+          idempotency_key: string
+          organization_id: string
+          request_fingerprint: string
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Update: {
+          api_key_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          endpoint?: string
+          idempotency_key?: string
+          organization_id?: string
+          request_fingerprint?: string
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_keys_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_idempotency_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          allowed_embed_origins: string[]
+          created_at: string
+          created_by_user_id: string
+          expires_at: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          last_used_ip: unknown
+          name: string
+          organization_id: string
+          revoked_at: string | null
+          scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+          updated_at: string
+        }
+        Insert: {
+          allowed_embed_origins?: string[]
+          created_at?: string
+          created_by_user_id: string
+          expires_at?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          last_used_ip?: unknown
+          name: string
+          organization_id: string
+          revoked_at?: string | null
+          scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+          updated_at?: string
+        }
+        Update: {
+          allowed_embed_origins?: string[]
+          created_at?: string
+          created_by_user_id?: string
+          expires_at?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          last_used_ip?: unknown
+          name?: string
+          organization_id?: string
+          revoked_at?: string | null
+          scopes?: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_rate_limits: {
+        Row: {
+          attempt_count: number
+          client_key: string
+          window_start: string
+        }
+        Insert: {
+          attempt_count?: number
+          client_key: string
+          window_start?: string
+        }
+        Update: {
+          attempt_count?: number
+          client_key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       auth_tokens: {
         Row: {
           created_at: string
@@ -147,46 +251,49 @@ export type Database = {
       }
       contract_template_versions: {
         Row: {
-          attachment_field_keys: Json
           content_hash: string
           created_at: string
           created_by: string | null
-          hr_field_keys: Json
+          default_expiry_days: number | null
+          default_reminder_days: number[]
           id: string
           layout: Json
-          mandatory_field_keys: Json
           organization_id: string
+          pdf_file_id: string | null
           pdf_file_path: string | null
+          signer_roles: Json
           template_id: string
           type: Database["public"]["Enums"]["contract_template_type_enum"]
           version_number: number
         }
         Insert: {
-          attachment_field_keys?: Json
           content_hash: string
           created_at?: string
           created_by?: string | null
-          hr_field_keys?: Json
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
           id?: string
           layout?: Json
-          mandatory_field_keys?: Json
           organization_id: string
+          pdf_file_id?: string | null
           pdf_file_path?: string | null
+          signer_roles?: Json
           template_id: string
           type: Database["public"]["Enums"]["contract_template_type_enum"]
           version_number: number
         }
         Update: {
-          attachment_field_keys?: Json
           content_hash?: string
           created_at?: string
           created_by?: string | null
-          hr_field_keys?: Json
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
           id?: string
           layout?: Json
-          mandatory_field_keys?: Json
           organization_id?: string
+          pdf_file_id?: string | null
           pdf_file_path?: string | null
+          signer_roles?: Json
           template_id?: string
           type?: Database["public"]["Enums"]["contract_template_type_enum"]
           version_number?: number
@@ -207,6 +314,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contract_template_versions_pdf_file_id_fkey"
+            columns: ["pdf_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contract_template_versions_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
@@ -217,47 +331,53 @@ export type Database = {
       }
       contract_templates: {
         Row: {
-          attachment_field_keys: Json
           created_at: string | null
+          default_expiry_days: number | null
+          default_reminder_days: number[]
           entity_id: string
-          hr_field_keys: Json
           id: string
+          is_ad_hoc: boolean
           is_archived: boolean
           layout: Json
-          mandatory_field_keys: Json
           name: string
           organization_id: string
+          pdf_file_id: string | null
           pdf_file_path: string | null
+          signer_roles: Json
           type: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at: string | null
         }
         Insert: {
-          attachment_field_keys?: Json
           created_at?: string | null
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
           entity_id: string
-          hr_field_keys?: Json
           id?: string
+          is_ad_hoc?: boolean
           is_archived?: boolean
           layout?: Json
-          mandatory_field_keys?: Json
           name: string
           organization_id?: string
+          pdf_file_id?: string | null
           pdf_file_path?: string | null
+          signer_roles?: Json
           type?: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at?: string | null
         }
         Update: {
-          attachment_field_keys?: Json
           created_at?: string | null
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
           entity_id?: string
-          hr_field_keys?: Json
           id?: string
+          is_ad_hoc?: boolean
           is_archived?: boolean
           layout?: Json
-          mandatory_field_keys?: Json
           name?: string
           organization_id?: string
+          pdf_file_id?: string | null
           pdf_file_path?: string | null
+          signer_roles?: Json
           type?: Database["public"]["Enums"]["contract_template_type_enum"]
           updated_at?: string | null
         }
@@ -270,6 +390,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contract_templates_pdf_file_id_fkey"
+            columns: ["pdf_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "onboarding_forms_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -278,676 +405,29 @@ export type Database = {
           },
         ]
       }
-      contracts: {
+      cron_dispatch_config: {
         Row: {
-          approved_at: string | null
-          approved_by: string | null
-          contract_template_id: string | null
-          contract_template_version_id: string | null
-          created_at: string | null
-          document_hash: string | null
-          employee_id: string | null
-          field_values: Json
+          cron_secret: string | null
+          functions_base_url: string | null
           id: string
-          invitation_id: string | null
-          organization_id: string
-          pdf_path: string | null
-          prefilled_fields: Json
-          signature_path: string | null
-          signed_at: string | null
-          signed_by: string | null
-          signed_pdf_r2_path: string | null
-          signer_ip: string | null
-          status: Database["public"]["Enums"]["contracts_status_enum"]
-          template_snapshot: Json
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          contract_template_id?: string | null
-          contract_template_version_id?: string | null
-          created_at?: string | null
-          document_hash?: string | null
-          employee_id?: string | null
-          field_values?: Json
+          cron_secret?: string | null
+          functions_base_url?: string | null
           id?: string
-          invitation_id?: string | null
-          organization_id: string
-          pdf_path?: string | null
-          prefilled_fields?: Json
-          signature_path?: string | null
-          signed_at?: string | null
-          signed_by?: string | null
-          signed_pdf_r2_path?: string | null
-          signer_ip?: string | null
-          status?: Database["public"]["Enums"]["contracts_status_enum"]
-          template_snapshot?: Json
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          contract_template_id?: string | null
-          contract_template_version_id?: string | null
-          created_at?: string | null
-          document_hash?: string | null
-          employee_id?: string | null
-          field_values?: Json
+          cron_secret?: string | null
+          functions_base_url?: string | null
           id?: string
-          invitation_id?: string | null
-          organization_id?: string
-          pdf_path?: string | null
-          prefilled_fields?: Json
-          signature_path?: string | null
-          signed_at?: string | null
-          signed_by?: string | null
-          signed_pdf_r2_path?: string | null
-          signer_ip?: string | null
-          status?: Database["public"]["Enums"]["contracts_status_enum"]
-          template_snapshot?: Json
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contracts_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contracts_contract_template_version_id_fkey"
-            columns: ["contract_template_version_id"]
-            isOneToOne: false
-            referencedRelation: "contract_template_versions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contracts_invitation_id_fkey"
-            columns: ["invitation_id"]
-            isOneToOne: false
-            referencedRelation: "onboarding_invitations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contracts_signed_by_fkey"
-            columns: ["signed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_contracts_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_contracts_onboarding_form_id_fkey"
-            columns: ["contract_template_id"]
-            isOneToOne: false
-            referencedRelation: "contract_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_contracts_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      correction_tasks: {
-        Row: {
-          admin_decided_at: string | null
-          admin_decided_by: string | null
-          admin_decision:
-            | Database["public"]["Enums"]["correction_admin_decision_enum"]
-            | null
-          created_at: string | null
-          day_id: string
-          employee_id: string
-          entity_id: string
-          id: string
-          message: string | null
-          organization_id: string
-          status: Database["public"]["Enums"]["correction_task_status_enum"]
-          updated_at: string | null
-        }
-        Insert: {
-          admin_decided_at?: string | null
-          admin_decided_by?: string | null
-          admin_decision?:
-            | Database["public"]["Enums"]["correction_admin_decision_enum"]
-            | null
-          created_at?: string | null
-          day_id: string
-          employee_id: string
-          entity_id: string
-          id?: string
-          message?: string | null
-          organization_id?: string
-          status?: Database["public"]["Enums"]["correction_task_status_enum"]
-          updated_at?: string | null
-        }
-        Update: {
-          admin_decided_at?: string | null
-          admin_decided_by?: string | null
-          admin_decision?:
-            | Database["public"]["Enums"]["correction_admin_decision_enum"]
-            | null
-          created_at?: string | null
-          day_id?: string
-          employee_id?: string
-          entity_id?: string
-          id?: string
-          message?: string | null
-          organization_id?: string
-          status?: Database["public"]["Enums"]["correction_task_status_enum"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "correction_tasks_admin_decided_by_fkey"
-            columns: ["admin_decided_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "correction_tasks_day_id_fkey"
-            columns: ["day_id"]
-            isOneToOne: false
-            referencedRelation: "days"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "correction_tasks_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "correction_tasks_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "correction_tasks_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      days: {
-        Row: {
-          created_at: string | null
-          date: string
-          day: number | null
-          id: string
-          month: number | null
-          timezone: string
-          year: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          date: string
-          day?: number | null
-          id?: string
-          month?: number | null
-          timezone: string
-          year?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          date?: string
-          day?: number | null
-          id?: string
-          month?: number | null
-          timezone?: string
-          year?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
-      departments: {
-        Row: {
-          created_at: string | null
-          entity_id: string
-          id: string
-          is_default: boolean
-          name: string
-          organization_id: string
-          parent_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          entity_id: string
-          id?: string
-          is_default?: boolean
-          name: string
-          organization_id?: string
-          parent_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          entity_id?: string
-          id?: string
-          is_default?: boolean
-          name?: string
-          organization_id?: string
-          parent_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "departments_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "departments_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "departments_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_audit_log: {
-        Row: {
-          actor_user_id: string | null
-          changed_at: string
-          employee_id: string
-          field_key: string
-          id: string
-          new_value: Json | null
-          old_value: Json | null
-          organization_id: string
-        }
-        Insert: {
-          actor_user_id?: string | null
-          changed_at?: string
-          employee_id: string
-          field_key: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-          organization_id: string
-        }
-        Update: {
-          actor_user_id?: string | null
-          changed_at?: string
-          employee_id?: string
-          field_key?: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-          organization_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_audit_log_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_column_choices: {
-        Row: {
-          created_at: string | null
-          employee_column_id: string
-          entity_id: string
-          id: string
-          label: string
-          organization_id: string
-          sort_order: number
-          updated_at: string | null
-          value: string
-        }
-        Insert: {
-          created_at?: string | null
-          employee_column_id: string
-          entity_id: string
-          id?: string
-          label: string
-          organization_id?: string
-          sort_order?: number
-          updated_at?: string | null
-          value?: string
-        }
-        Update: {
-          created_at?: string | null
-          employee_column_id?: string
-          entity_id?: string
-          id?: string
-          label?: string
-          organization_id?: string
-          sort_order?: number
-          updated_at?: string | null
-          value?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_column_choices_employee_column_id_fkey"
-            columns: ["employee_column_id"]
-            isOneToOne: false
-            referencedRelation: "employee_columns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_column_choices_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_column_choices_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_columns: {
-        Row: {
-          config: Json
-          created_at: string | null
-          entity_id: string
-          id: string
-          label: string
-          organization_id: string
-          type: Database["public"]["Enums"]["employee_column_type"]
-          updated_at: string | null
-        }
-        Insert: {
-          config?: Json
-          created_at?: string | null
-          entity_id: string
-          id?: string
-          label: string
-          organization_id?: string
-          type: Database["public"]["Enums"]["employee_column_type"]
-          updated_at?: string | null
-        }
-        Update: {
-          config?: Json
-          created_at?: string | null
-          entity_id?: string
-          id?: string
-          label?: string
-          organization_id?: string
-          type?: Database["public"]["Enums"]["employee_column_type"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_columns_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_columns_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_views: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          entity_id: string
-          field_order: Json
-          field_widths: Json
-          filter: Json
-          group_by: Json
-          hidden_keys: Json
-          id: string
-          is_default: boolean
-          name: string
-          organization_id: string
-          sort: Json
-          sort_order: number
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          entity_id: string
-          field_order?: Json
-          field_widths?: Json
-          filter?: Json
-          group_by?: Json
-          hidden_keys?: Json
-          id?: string
-          is_default?: boolean
-          name: string
-          organization_id?: string
-          sort?: Json
-          sort_order?: number
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          entity_id?: string
-          field_order?: Json
-          field_widths?: Json
-          filter?: Json
-          group_by?: Json
-          hidden_keys?: Json
-          id?: string
-          is_default?: boolean
-          name?: string
-          organization_id?: string
-          sort?: Json
-          sort_order?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_views_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_views_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_views_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employees: {
-        Row: {
-          __full_name: string | null
-          birthday: string
-          created_at: string
-          email: string
-          entity_id: string
-          first_name: string
-          id: string
-          last_name: string
-          organization_id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          __full_name?: string | null
-          birthday?: string
-          created_at?: string
-          email?: string
-          entity_id: string
-          first_name?: string
-          id?: string
-          last_name?: string
-          organization_id?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          __full_name?: string | null
-          birthday?: string
-          created_at?: string
-          email?: string
-          entity_id?: string
-          first_name?: string
-          id?: string
-          last_name?: string
-          organization_id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employees_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "org_employees_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "org_employees_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ent_HkG0u5u0Kxf6Mk9E__employees: {
-        Row: {
-          employee_id: string
-        }
-        Insert: {
-          employee_id: string
-        }
-        Update: {
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ent_HkG0u5u0Kxf6Mk9E__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ent_ldvQLdiB32b0FahS__employees: {
-        Row: {
-          col_4oDUuMW1OicXR0GH: string | null
-          col_vhlkbR33M6w5LCmg: string | null
-          employee_id: string
-        }
-        Insert: {
-          col_4oDUuMW1OicXR0GH?: string | null
-          col_vhlkbR33M6w5LCmg?: string | null
-          employee_id: string
-        }
-        Update: {
-          col_4oDUuMW1OicXR0GH?: string | null
-          col_vhlkbR33M6w5LCmg?: string | null
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ent_ldvQLdiB32b0FahS__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ent_LUKzZoIsU0Gwd7sA__employees: {
-        Row: {
-          employee_id: string
-        }
-        Insert: {
-          employee_id: string
-        }
-        Update: {
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ent_LUKzZoIsU0Gwd7sA__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ent_Z8dglT4JUM29FUFX__employees: {
-        Row: {
-          employee_id: string
-        }
-        Insert: {
-          employee_id: string
-        }
-        Update: {
-          employee_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ent_Z8dglT4JUM29FUFX__employees_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       entities: {
         Row: {
-          correction_approval_mode: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at: string | null
           id: string
           locale: string | null
@@ -957,7 +437,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          correction_approval_mode?: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at?: string | null
           id?: string
           locale?: string | null
@@ -967,7 +446,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          correction_approval_mode?: Database["public"]["Enums"]["entities_correction_approval_mode_enum"]
           created_at?: string | null
           id?: string
           locale?: string | null
@@ -1079,143 +557,201 @@ export type Database = {
           },
         ]
       }
-      onboarding_invitations: {
+      invitations: {
         Row: {
-          contract_template_id: string | null
-          contract_template_version_id: string | null
-          created_at: string | null
-          employee_email: string
-          entity_id: string
-          hr_comments: Json
+          created_at: string
+          email: string
+          expires_at: string
           id: string
-          invitation_token: string
+          invited_by: string | null
           organization_id: string
-          prefilled_fields: Json
-          sent_by: string | null
-          status: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
-          template_snapshot: Json
-          updated_at: string | null
+          role: string
+          status: string
+          token: string
         }
         Insert: {
-          contract_template_id?: string | null
-          contract_template_version_id?: string | null
-          created_at?: string | null
-          employee_email: string
-          entity_id: string
-          hr_comments?: Json
+          created_at?: string
+          email: string
+          expires_at: string
           id?: string
-          invitation_token?: string
+          invited_by?: string | null
           organization_id: string
-          prefilled_fields?: Json
-          sent_by?: string | null
-          status?: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
-          template_snapshot?: Json
-          updated_at?: string | null
+          role?: string
+          status?: string
+          token?: string
         }
         Update: {
-          contract_template_id?: string | null
-          contract_template_version_id?: string | null
-          created_at?: string | null
-          employee_email?: string
-          entity_id?: string
-          hr_comments?: Json
+          created_at?: string
+          email?: string
+          expires_at?: string
           id?: string
-          invitation_token?: string
+          invited_by?: string | null
           organization_id?: string
-          prefilled_fields?: Json
-          sent_by?: string | null
-          status?: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
-          template_snapshot?: Json
-          updated_at?: string | null
+          role?: string
+          status?: string
+          token?: string
         }
         Relationships: [
           {
-            foreignKeyName: "onboarding_invitations_contract_template_id_fkey"
-            columns: ["contract_template_id"]
+            foreignKeyName: "org_admin_invitations_invited_by_fkey"
+            columns: ["invited_by"]
             isOneToOne: false
-            referencedRelation: "contract_templates"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "onboarding_invitations_contract_template_version_id_fkey"
-            columns: ["contract_template_version_id"]
+            foreignKeyName: "org_admin_invitations_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "contract_template_versions"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      members: {
+        Row: {
+          __full_name: string | null
+          birthday: string
+          can_manage_templates: boolean
+          can_send_documents: boolean
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          organization_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          __full_name?: string | null
+          birthday?: string
+          can_manage_templates?: boolean
+          can_send_documents?: boolean
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          organization_id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          __full_name?: string | null
+          birthday?: string
+          can_manage_templates?: boolean
+          can_send_documents?: boolean
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          organization_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "onboarding_invitations_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "onboarding_invitations_organization_id_fkey"
+            foreignKeyName: "org_employees_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "onboarding_invitations_sent_by_fkey"
-            columns: ["sent_by"]
+            foreignKeyName: "org_employees_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      organization_role_permissions: {
+      notifications: {
         Row: {
+          body: string | null
           created_at: string
+          emailed: boolean
           id: string
-          organization_id: string
-          permission: Database["public"]["Enums"]["app_permission"]
-          role: string
+          link: string | null
+          metadata: Json
+          organization_id: string | null
+          read_at: string | null
+          request_id: string | null
+          title: string
+          type: Database["public"]["Enums"]["notifications_type_enum"]
+          user_id: string
         }
         Insert: {
+          body?: string | null
           created_at?: string
+          emailed?: boolean
           id?: string
-          organization_id: string
-          permission: Database["public"]["Enums"]["app_permission"]
-          role: string
+          link?: string | null
+          metadata?: Json
+          organization_id?: string | null
+          read_at?: string | null
+          request_id?: string | null
+          title: string
+          type: Database["public"]["Enums"]["notifications_type_enum"]
+          user_id: string
         }
         Update: {
+          body?: string | null
           created_at?: string
+          emailed?: boolean
           id?: string
-          organization_id?: string
-          permission?: Database["public"]["Enums"]["app_permission"]
-          role?: string
+          link?: string | null
+          metadata?: Json
+          organization_id?: string | null
+          read_at?: string | null
+          request_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["notifications_type_enum"]
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "organization_role_permissions_organization_id_fkey"
+            foreignKeyName: "notifications_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
             referencedColumns: ["id"]
           },
         ]
       }
       organizations: {
         Row: {
+          ai_assistant_enabled: boolean
           created_at: string
           id: string
+          is_personal: boolean
           name: string
           owner_id: string
           updated_at: string
         }
         Insert: {
+          ai_assistant_enabled?: boolean
           created_at?: string
           id?: string
+          is_personal?: boolean
           name: string
           owner_id: string
           updated_at?: string
         }
         Update: {
+          ai_assistant_enabled?: boolean
           created_at?: string
           id?: string
+          is_personal?: boolean
           name?: string
           owner_id?: string
           updated_at?: string
@@ -1232,33 +768,50 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_file_id: string | null
           avatar_url: string | null
           created_at: string
           email: string
           email_verified: boolean
           full_name: string | null
           id: string
+          phone: string | null
           updated_at: string
+          whitelist: boolean
         }
         Insert: {
+          avatar_file_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email: string
           email_verified?: boolean
           full_name?: string | null
           id: string
+          phone?: string | null
           updated_at?: string
+          whitelist?: boolean
         }
         Update: {
+          avatar_file_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string
           email_verified?: boolean
           full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
+          whitelist?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_avatar_file_id_fkey"
+            columns: ["avatar_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       realtime_table_events: {
         Row: {
@@ -1295,329 +848,1058 @@ export type Database = {
           },
         ]
       }
-      rel__correction_task__department: {
+      signature_audit_log: {
         Row: {
-          correction_task_id: string
-          created_at: string | null
-          decided_at: string | null
-          decided_by: string | null
-          decision:
-            | Database["public"]["Enums"]["correction_dept_decision_enum"]
-            | null
-          department_id: string
-        }
-        Insert: {
-          correction_task_id: string
-          created_at?: string | null
-          decided_at?: string | null
-          decided_by?: string | null
-          decision?:
-            | Database["public"]["Enums"]["correction_dept_decision_enum"]
-            | null
-          department_id: string
-        }
-        Update: {
-          correction_task_id?: string
-          created_at?: string | null
-          decided_at?: string | null
-          decided_by?: string | null
-          decision?:
-            | Database["public"]["Enums"]["correction_dept_decision_enum"]
-            | null
-          department_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rel__correction_task__department_correction_task_id_fkey"
-            columns: ["correction_task_id"]
-            isOneToOne: false
-            referencedRelation: "correction_tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rel__correction_task__department_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rel__correction_task__department_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rel__department__employee: {
-        Row: {
-          created_at: string
-          department_id: string
-          employee_id: string
-          is_manager: boolean
-        }
-        Insert: {
-          created_at?: string
-          department_id: string
-          employee_id: string
-          is_manager?: boolean
-        }
-        Update: {
-          created_at?: string
-          department_id?: string
-          employee_id?: string
-          is_manager?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rel__department__employee_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rel__department__employee_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rel__department__invitation: {
-        Row: {
-          created_at: string
-          department_id: string
-          invitation_id: string
-        }
-        Insert: {
-          created_at?: string
-          department_id: string
-          invitation_id: string
-        }
-        Update: {
-          created_at?: string
-          department_id?: string
-          invitation_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rel__department__invitation_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rel__department__invitation_invitation_id_fkey"
-            columns: ["invitation_id"]
-            isOneToOne: false
-            referencedRelation: "onboarding_invitations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      timeclock_corrections: {
-        Row: {
-          correction_task_id: string
-          created_at: string | null
-          day_id: string
-          duration_ms: number
-          end_at: string
+          actor_user_id: string | null
+          entry_hash: string
+          event_type: Database["public"]["Enums"]["signature_audit_log_event_type_enum"]
           id: string
+          occurred_at: string
           organization_id: string
-          session_id: string | null
-          start_at: string
-          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
-          updated_at: string | null
+          payload: Json
+          prev_hash: string | null
+          request_id: string
+          seq: number
+          signer_id: string | null
         }
         Insert: {
-          correction_task_id: string
-          created_at?: string | null
-          day_id: string
-          duration_ms: number
-          end_at: string
+          actor_user_id?: string | null
+          entry_hash: string
+          event_type: Database["public"]["Enums"]["signature_audit_log_event_type_enum"]
           id?: string
-          organization_id?: string
-          session_id?: string | null
-          start_at: string
-          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
-          updated_at?: string | null
+          occurred_at?: string
+          organization_id: string
+          payload?: Json
+          prev_hash?: string | null
+          request_id: string
+          seq: number
+          signer_id?: string | null
         }
         Update: {
-          correction_task_id?: string
-          created_at?: string | null
-          day_id?: string
-          duration_ms?: number
-          end_at?: string
+          actor_user_id?: string | null
+          entry_hash?: string
+          event_type?: Database["public"]["Enums"]["signature_audit_log_event_type_enum"]
           id?: string
+          occurred_at?: string
           organization_id?: string
-          session_id?: string | null
-          start_at?: string
-          type?: Database["public"]["Enums"]["timeclock_session_type_enum"]
-          updated_at?: string | null
+          payload?: Json
+          prev_hash?: string | null
+          request_id?: string
+          seq?: number
+          signer_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "timeclock_corrections_correction_task_id_fkey"
-            columns: ["correction_task_id"]
+            foreignKeyName: "signature_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "correction_tasks"
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_captures: {
+        Row: {
+          capture_method: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          captured_at: string
+          captured_ip: unknown
+          captured_user_agent: string | null
+          id: string
+          request_id: string
+          signature_file_id: string | null
+          signature_r2_key: string
+          signature_sha256: string
+          signer_id: string
+          signer_user_id: string | null
+          superseded_at: string | null
+        }
+        Insert: {
+          capture_method: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          captured_at?: string
+          captured_ip?: unknown
+          captured_user_agent?: string | null
+          id?: string
+          request_id: string
+          signature_file_id?: string | null
+          signature_r2_key: string
+          signature_sha256: string
+          signer_id: string
+          signer_user_id?: string | null
+          superseded_at?: string | null
+        }
+        Update: {
+          capture_method?: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          captured_at?: string
+          captured_ip?: unknown
+          captured_user_agent?: string | null
+          id?: string
+          request_id?: string
+          signature_file_id?: string | null
+          signature_r2_key?: string
+          signature_sha256?: string
+          signer_id?: string
+          signer_user_id?: string | null
+          superseded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_captures_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_corrections_day_id_fkey"
-            columns: ["day_id"]
+            foreignKeyName: "signature_captures_signature_file_id_fkey"
+            columns: ["signature_file_id"]
             isOneToOne: false
-            referencedRelation: "days"
+            referencedRelation: "files"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_corrections_organization_id_fkey"
+            foreignKeyName: "signature_captures_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "signature_request_signers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_request_signers: {
+        Row: {
+          auth_method:
+            | Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+            | null
+          changes_requested_reason: string | null
+          created_at: string
+          decline_reason: string | null
+          field_values: Json
+          id: string
+          last_reminded_at: string | null
+          notified_at: string | null
+          organization_id: string
+          recipient_type: Database["public"]["Enums"]["signature_request_signers_recipient_type_enum"]
+          reminder_count: number
+          request_id: string
+          require_identity_check: boolean | null
+          role_id: string | null
+          signed_at: string | null
+          signer_email: string
+          signer_name: string
+          signer_order: number
+          signer_phone: string | null
+          signer_user_id: string | null
+          status: Database["public"]["Enums"]["signature_request_signers_status_enum"]
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          auth_method?:
+            | Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+            | null
+          changes_requested_reason?: string | null
+          created_at?: string
+          decline_reason?: string | null
+          field_values?: Json
+          id?: string
+          last_reminded_at?: string | null
+          notified_at?: string | null
+          organization_id: string
+          recipient_type?: Database["public"]["Enums"]["signature_request_signers_recipient_type_enum"]
+          reminder_count?: number
+          request_id: string
+          require_identity_check?: boolean | null
+          role_id?: string | null
+          signed_at?: string | null
+          signer_email: string
+          signer_name: string
+          signer_order: number
+          signer_phone?: string | null
+          signer_user_id?: string | null
+          status?: Database["public"]["Enums"]["signature_request_signers_status_enum"]
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          auth_method?:
+            | Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+            | null
+          changes_requested_reason?: string | null
+          created_at?: string
+          decline_reason?: string | null
+          field_values?: Json
+          id?: string
+          last_reminded_at?: string | null
+          notified_at?: string | null
+          organization_id?: string
+          recipient_type?: Database["public"]["Enums"]["signature_request_signers_recipient_type_enum"]
+          reminder_count?: number
+          request_id?: string
+          require_identity_check?: boolean | null
+          role_id?: string | null
+          signed_at?: string | null
+          signer_email?: string
+          signer_name?: string
+          signer_order?: number
+          signer_phone?: string | null
+          signer_user_id?: string | null
+          status?: Database["public"]["Enums"]["signature_request_signers_status_enum"]
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_request_signers_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_corrections_session_id_fkey"
-            columns: ["session_id"]
+            foreignKeyName: "signature_request_signers_request_id_fkey"
+            columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "timeclock_sessions"
+            referencedRelation: "signature_requests"
             referencedColumns: ["id"]
           },
         ]
       }
-      timeclock_events: {
+      signature_requests: {
         Row: {
+          certificate_chain_intact: boolean | null
+          certificate_events_root_hash: string | null
+          certificate_events_seq: number | null
+          certificate_generated_at: string | null
+          certificate_r2_key: string | null
+          certificate_sha256: string | null
+          completed_at: string | null
           created_at: string
-          employee_id: string
-          entity_id: string
-          event_type: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          created_by: string | null
+          current_order: number
+          entity_id: string | null
+          expires_at: string | null
           id: string
           organization_id: string
-          timezone: string
+          prefilled_values: Json
+          reminder_days: number[]
+          require_identity_check: boolean
+          sent_at: string | null
+          signed_pdf_file_id: string | null
+          signed_pdf_r2_key: string | null
+          signed_pdf_sha256: string | null
+          signer_auth: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          source_pdf_file_id: string | null
+          source_pdf_r2_key: string
+          source_pdf_sha256: string
+          status: Database["public"]["Enums"]["signature_requests_status_enum"]
+          template_id: string | null
+          template_snapshot: Json | null
+          template_version_id: string | null
+          title: string
+          updated_at: string
         }
         Insert: {
+          certificate_chain_intact?: boolean | null
+          certificate_events_root_hash?: string | null
+          certificate_events_seq?: number | null
+          certificate_generated_at?: string | null
+          certificate_r2_key?: string | null
+          certificate_sha256?: string | null
+          completed_at?: string | null
           created_at?: string
-          employee_id: string
-          entity_id: string
-          event_type: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          created_by?: string | null
+          current_order?: number
+          entity_id?: string | null
+          expires_at?: string | null
           id?: string
-          organization_id?: string
-          timezone?: string
+          organization_id: string
+          prefilled_values?: Json
+          reminder_days?: number[]
+          require_identity_check?: boolean
+          sent_at?: string | null
+          signed_pdf_file_id?: string | null
+          signed_pdf_r2_key?: string | null
+          signed_pdf_sha256?: string | null
+          signer_auth?: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          source_pdf_file_id?: string | null
+          source_pdf_r2_key: string
+          source_pdf_sha256: string
+          status?: Database["public"]["Enums"]["signature_requests_status_enum"]
+          template_id?: string | null
+          template_snapshot?: Json | null
+          template_version_id?: string | null
+          title: string
+          updated_at?: string
         }
         Update: {
+          certificate_chain_intact?: boolean | null
+          certificate_events_root_hash?: string | null
+          certificate_events_seq?: number | null
+          certificate_generated_at?: string | null
+          certificate_r2_key?: string | null
+          certificate_sha256?: string | null
+          completed_at?: string | null
           created_at?: string
-          employee_id?: string
-          entity_id?: string
-          event_type?: Database["public"]["Enums"]["timeclock_event_type_enum"]
+          created_by?: string | null
+          current_order?: number
+          entity_id?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string
-          timezone?: string
+          prefilled_values?: Json
+          reminder_days?: number[]
+          require_identity_check?: boolean
+          sent_at?: string | null
+          signed_pdf_file_id?: string | null
+          signed_pdf_r2_key?: string | null
+          signed_pdf_sha256?: string | null
+          signer_auth?: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          source_pdf_file_id?: string | null
+          source_pdf_r2_key?: string
+          source_pdf_sha256?: string
+          status?: Database["public"]["Enums"]["signature_requests_status_enum"]
+          template_id?: string | null
+          template_snapshot?: Json | null
+          template_version_id?: string | null
+          title?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "timeclock_events_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "timeclock_events_entity_id_fkey"
+            foreignKeyName: "signature_requests_entity_id_fkey"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_events_organization_id_fkey"
+            foreignKeyName: "signature_requests_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "signature_requests_signed_pdf_file_id_fkey"
+            columns: ["signed_pdf_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_source_pdf_file_id_fkey"
+            columns: ["source_pdf_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_template_version_id_fkey"
+            columns: ["template_version_id"]
+            isOneToOne: false
+            referencedRelation: "contract_template_versions"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      timeclock_sessions: {
+      signer_access_tokens: {
         Row: {
+          consumed_at: string | null
           created_at: string
-          day_id: string
-          duration_ms: number | null
-          employee_id: string
-          end_at: string | null
-          end_by: Database["public"]["Enums"]["timeclock_actor_enum"] | null
-          entity_id: string
+          embed_origin: string | null
+          expires_at: string
+          id: string
+          last_used_at: string | null
+          last_used_ip: unknown
+          max_uses: number
+          organization_id: string
+          otp_verified_at: string | null
+          otp_verified_ip: unknown
+          purpose: Database["public"]["Enums"]["signer_access_tokens_purpose_enum"]
+          request_id: string
+          revoked_at: string | null
+          signer_id: string
+          token_hash: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          embed_origin?: string | null
+          expires_at: string
+          id?: string
+          last_used_at?: string | null
+          last_used_ip?: unknown
+          max_uses?: number
+          organization_id?: string
+          otp_verified_at?: string | null
+          otp_verified_ip?: unknown
+          purpose?: Database["public"]["Enums"]["signer_access_tokens_purpose_enum"]
+          request_id: string
+          revoked_at?: string | null
+          signer_id: string
+          token_hash: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          embed_origin?: string | null
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          last_used_ip?: unknown
+          max_uses?: number
+          organization_id?: string
+          otp_verified_at?: string | null
+          otp_verified_ip?: unknown
+          purpose?: Database["public"]["Enums"]["signer_access_tokens_purpose_enum"]
+          request_id?: string
+          revoked_at?: string | null
+          signer_id?: string
+          token_hash?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signer_access_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_access_tokens_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_access_tokens_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "signature_request_signers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signer_ai_document_context: {
+        Row: {
+          char_count: number
+          context_sha256: string | null
+          created_at: string
+          document_text: string
+          extraction_error: string | null
+          extraction_method: string
+          extraction_status: string
           id: string
           organization_id: string
-          start_at: string
-          start_by: Database["public"]["Enums"]["timeclock_actor_enum"]
-          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          page_count: number
+          pages: Json
+          request_id: string
+          source_pdf_sha256: string
+          updated_at: string
+        }
+        Insert: {
+          char_count?: number
+          context_sha256?: string | null
+          created_at?: string
+          document_text?: string
+          extraction_error?: string | null
+          extraction_method?: string
+          extraction_status?: string
+          id?: string
+          organization_id?: string
+          page_count?: number
+          pages?: Json
+          request_id: string
+          source_pdf_sha256: string
+          updated_at?: string
+        }
+        Update: {
+          char_count?: number
+          context_sha256?: string | null
+          created_at?: string
+          document_text?: string
+          extraction_error?: string | null
+          extraction_method?: string
+          extraction_status?: string
+          id?: string
+          organization_id?: string
+          page_count?: number
+          pages?: Json
+          request_id?: string
+          source_pdf_sha256?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signer_ai_document_context_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_ai_document_context_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "signature_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signer_ai_messages: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          asked_ip: unknown
+          citations: Json
+          created_at: string
+          failure_reason: string | null
+          grounded: boolean | null
+          id: string
+          model: string | null
+          organization_id: string
+          question: string
+          refusal_reason: string | null
+          request_id: string
+          session_id: string
+          status: string
+          token_id: string
+          turn_index: number
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          asked_ip?: unknown
+          citations?: Json
+          created_at?: string
+          failure_reason?: string | null
+          grounded?: boolean | null
+          id?: string
+          model?: string | null
+          organization_id?: string
+          question: string
+          refusal_reason?: string | null
+          request_id: string
+          session_id: string
+          status?: string
+          token_id: string
+          turn_index: number
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          asked_ip?: unknown
+          citations?: Json
+          created_at?: string
+          failure_reason?: string | null
+          grounded?: boolean | null
+          id?: string
+          model?: string | null
+          organization_id?: string
+          question?: string
+          refusal_reason?: string | null
+          request_id?: string
+          session_id?: string
+          status?: string
+          token_id?: string
+          turn_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signer_ai_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_ai_messages_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_ai_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "signer_ai_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_ai_messages_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "signer_access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signer_ai_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_asked_at: string | null
+          organization_id: string
+          request_id: string
+          signer_id: string
+          token_id: string
+          turn_count: number
           updated_at: string
         }
         Insert: {
           created_at?: string
-          day_id?: string
-          duration_ms?: number | null
-          employee_id: string
-          end_at?: string | null
-          end_by?: Database["public"]["Enums"]["timeclock_actor_enum"] | null
-          entity_id: string
           id?: string
+          last_asked_at?: string | null
           organization_id?: string
-          start_at: string
-          start_by?: Database["public"]["Enums"]["timeclock_actor_enum"]
-          type: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          request_id: string
+          signer_id: string
+          token_id: string
+          turn_count?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
-          day_id?: string
-          duration_ms?: number | null
-          employee_id?: string
-          end_at?: string | null
-          end_by?: Database["public"]["Enums"]["timeclock_actor_enum"] | null
-          entity_id?: string
           id?: string
+          last_asked_at?: string | null
           organization_id?: string
-          start_at?: string
-          start_by?: Database["public"]["Enums"]["timeclock_actor_enum"]
-          type?: Database["public"]["Enums"]["timeclock_session_type_enum"]
+          request_id?: string
+          signer_id?: string
+          token_id?: string
+          turn_count?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "timeclock_sessions_day_id_fkey"
-            columns: ["day_id"]
+            foreignKeyName: "signer_ai_sessions_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "days"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_sessions_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: "signer_ai_sessions_request_id_fkey"
+            columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "signature_requests"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_sessions_entity_id_fkey"
-            columns: ["entity_id"]
+            foreignKeyName: "signer_ai_sessions_signer_id_fkey"
+            columns: ["signer_id"]
             isOneToOne: false
-            referencedRelation: "entities"
+            referencedRelation: "signature_request_signers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "timeclock_sessions_organization_id_fkey"
+            foreignKeyName: "signer_ai_sessions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "signer_access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signer_identity_checks: {
+        Row: {
+          expires_at: string | null
+          id: string
+          organization_id: string
+          provider: string
+          provider_session_id: string
+          rejection_reason: string | null
+          request_id: string
+          resolved_at: string | null
+          resolved_ip: unknown
+          score: number | null
+          signer_id: string
+          started_at: string
+          started_ip: unknown
+          status: Database["public"]["Enums"]["signer_identity_checks_status_enum"]
+          token_id: string | null
+        }
+        Insert: {
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          provider: string
+          provider_session_id: string
+          rejection_reason?: string | null
+          request_id: string
+          resolved_at?: string | null
+          resolved_ip?: unknown
+          score?: number | null
+          signer_id: string
+          started_at?: string
+          started_ip?: unknown
+          status?: Database["public"]["Enums"]["signer_identity_checks_status_enum"]
+          token_id?: string | null
+        }
+        Update: {
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          provider?: string
+          provider_session_id?: string
+          rejection_reason?: string | null
+          request_id?: string
+          resolved_at?: string | null
+          resolved_ip?: unknown
+          score?: number | null
+          signer_id?: string
+          started_at?: string
+          started_ip?: unknown
+          status?: Database["public"]["Enums"]["signer_identity_checks_status_enum"]
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signer_identity_checks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_identity_checks_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_identity_checks_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "signature_request_signers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_identity_checks_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "signer_access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signer_otp_challenges: {
+        Row: {
+          attempts: number
+          channel: string
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          organization_id: string
+          request_id: string
+          requested_ip: unknown
+          signer_id: string
+          token_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel?: string
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          organization_id?: string
+          request_id: string
+          requested_ip?: unknown
+          signer_id: string
+          token_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          organization_id?: string
+          request_id?: string
+          requested_ip?: unknown
+          signer_id?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signer_otp_challenges_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_otp_challenges_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_otp_challenges_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "signature_request_signers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signer_otp_challenges_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "signer_access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_signatures: {
+        Row: {
+          capture_method: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          created_at: string
+          file_id: string | null
+          id: string
+          is_default: boolean
+          name: string | null
+          r2_key: string
+          sha256: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          capture_method: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          created_at?: string
+          file_id?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string | null
+          r2_key: string
+          sha256?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          capture_method?: Database["public"]["Enums"]["signature_captures_capture_method_enum"]
+          created_at?: string
+          file_id?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string | null
+          r2_key?: string
+          sha256?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_signatures_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_signatures_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verify_rate_limits: {
+        Row: {
+          attempt_count: number
+          client_key: string
+          window_start: string
+        }
+        Insert: {
+          attempt_count?: number
+          client_key: string
+          window_start?: string
+        }
+        Update: {
+          attempt_count?: number
+          client_key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      webhook_deliveries: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          delivered_at: string | null
+          endpoint_id: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["webhook_endpoints_events_enum"]
+          id: string
+          last_error: string | null
+          last_status_code: number | null
+          next_attempt_at: string
+          organization_id: string
+          payload: Json
+          request_id: string | null
+          status: Database["public"]["Enums"]["webhook_deliveries_status_enum"]
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["webhook_endpoints_events_enum"]
+          id?: string
+          last_error?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          organization_id?: string
+          payload: Json
+          request_id?: string | null
+          status?: Database["public"]["Enums"]["webhook_deliveries_status_enum"]
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id?: string
+          event_id?: string
+          event_type?: Database["public"]["Enums"]["webhook_endpoints_events_enum"]
+          id?: string
+          last_error?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          organization_id?: string
+          payload?: Json
+          request_id?: string | null
+          status?: Database["public"]["Enums"]["webhook_deliveries_status_enum"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_endpoints: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          created_by_user_id: string | null
+          disabled_at: string | null
+          disabled_reason: string | null
+          events: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          id: string
+          is_enabled: boolean
+          name: string
+          organization_id: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          created_by_user_id?: string | null
+          disabled_at?: string | null
+          disabled_reason?: string | null
+          events: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          id?: string
+          is_enabled?: boolean
+          name: string
+          organization_id: string
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          created_by_user_id?: string | null
+          disabled_at?: string | null
+          disabled_reason?: string | null
+          events?: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          organization_id?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_endpoints_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whitelist: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          note: string | null
+          pattern: Database["public"]["Enums"]["whitelist_pattern_enum"]
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          note?: string | null
+          pattern: Database["public"]["Enums"]["whitelist_pattern_enum"]
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          note?: string | null
+          pattern?: Database["public"]["Enums"]["whitelist_pattern_enum"]
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -1625,49 +1907,103 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { invitation_token: string }; Returns: Json }
-      add_employee_column: {
-        Args: { p_col_name: string; p_col_type: string; p_entity_id: string }
-        Returns: undefined
-      }
-      approve_correction_task: {
-        Args: { p_action: string; p_correction_task_id: string }
-        Returns: Json
-      }
-      audit_employee_diff: {
+      api_idempotency_claim: {
         Args: {
-          p_employee_id: string
-          p_new: Json
-          p_old: Json
+          p_api_key_id: string
+          p_endpoint: string
+          p_fingerprint: string
+          p_key: string
           p_organization_id: string
-          p_skip_keys: string[]
         }
-        Returns: undefined
+        Returns: {
+          outcome: string
+          response_body: Json
+          response_status: number
+        }[]
       }
-      authorize: {
+      api_idempotency_complete: {
         Args: {
-          org_id: string
-          requested_permission: Database["public"]["Enums"]["app_permission"]
+          p_body: Json
+          p_endpoint: string
+          p_key: string
+          p_organization_id: string
+          p_status: number
         }
         Returns: boolean
+      }
+      api_idempotency_prune: {
+        Args: {
+          p_completed_older_than?: string
+          p_in_flight_older_than?: string
+        }
+        Returns: number
+      }
+      api_key_issue: {
+        Args: {
+          p_allowed_embed_origins?: string[]
+          p_expires_at?: string
+          p_name: string
+          p_organization_id: string
+          p_scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+        }
+        Returns: {
+          api_key: string
+          api_key_id: string
+          key_prefix: string
+        }[]
+      }
+      api_key_resolve: {
+        Args: { p_ip?: string; p_key_hash: string; p_max_per_hr?: number }
+        Returns: {
+          allowed_embed_origins: string[]
+          api_key_id: string
+          created_by_user_id: string
+          name: string
+          organization_id: string
+          scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+          throttled: boolean
+        }[]
+      }
+      api_key_revoke: { Args: { p_api_key_id: string }; Returns: boolean }
+      api_keys_list: {
+        Args: { p_organization_id: string }
+        Returns: {
+          allowed_embed_origins: string[]
+          created_at: string
+          created_by_user_id: string
+          expires_at: string
+          id: string
+          key_prefix: string
+          last_used_at: string
+          name: string
+          revoked_at: string
+          scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
+        }[]
       }
       clean_old_realtime_events: { Args: never; Returns: undefined }
       cleanup_expired_auth_tokens: { Args: never; Returns: undefined }
       create_organization: { Args: { org_name: string }; Returns: string }
+      cron_dispatch: { Args: { p_function_name: string }; Returns: number }
+      ensure_personal_organization: { Args: never; Returns: string }
+      files_content_type_for_key: {
+        Args: { p_r2_key: string }
+        Returns: string
+      }
+      files_ensure: {
+        Args: {
+          p_content_type?: string
+          p_organization_id?: string
+          p_r2_key: string
+          p_size?: number
+          p_uploaded_by?: string
+        }
+        Returns: string
+      }
       generate_id: { Args: { prefix: string }; Returns: string }
       get_invitation_by_token: {
         Args: { invitation_token: string }
         Returns: Json
       }
-      get_invitation_preview: {
-        Args: { p_token: string }
-        Returns: {
-          employee_email: string
-          organization_name: string
-          status: Database["public"]["Enums"]["onboarding_invitations_status_enum"]
-        }[]
-      }
-      get_managed_correction_task_ids: { Args: never; Returns: string[] }
-      get_my_department_ids: { Args: never; Returns: string[] }
       get_my_member_organizations: {
         Args: never
         Returns: {
@@ -1675,97 +2011,329 @@ export type Database = {
           name: string
         }[]
       }
-      get_or_create_day: {
-        Args: { p_date: string; p_tz: string }
-        Returns: string
-      }
+      get_my_org_capabilities: { Args: { org_id: string }; Returns: Json }
       get_organization_id_for_change: {
         Args: { p_record_data: Json; p_table_name: string }
         Returns: string
       }
+      get_organization_person: {
+        Args: { org_id: string; target_user_id: string }
+        Returns: Json
+      }
       get_organization_role: { Args: { org_id: string }; Returns: string }
-      get_timesheet_grid:
-        | {
-            Args: {
-              p_end_utc: string
-              p_entity_id: string
-              p_start_utc: string
-              p_timezone: string
-            }
-            Returns: {
-              break_ms: number
-              employee_id: string
-              work_date: string
-              worked_ms: number
-            }[]
-          }
-        | {
-            Args: {
-              p_employee_ids?: string[]
-              p_end_utc: string
-              p_entity_id: string
-              p_start_utc: string
-              p_timezone: string
-            }
-            Returns: {
-              break_ms: number
-              employee_id: string
-              work_date: string
-              worked_ms: number
-            }[]
-          }
+      has_org_permission: {
+        Args: { org_id: string; perm: string }
+        Returns: boolean
+      }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
-      is_invitation_recipient: {
-        Args: { p_invitation_id: string }
-        Returns: boolean
-      }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
-      owns_correction_task: {
-        Args: { p_correction_task_id: string }
-        Returns: boolean
+      is_whitelisted: { Args: never; Returns: boolean }
+      mask_email: { Args: { p_email: string }; Returns: string }
+      notifications_mark_all_read: {
+        Args: { p_organization_id?: string }
+        Returns: number
       }
-      provision_entity_employees_table: {
-        Args: { p_entity_id: string }
+      oauth_avatar_source: { Args: { p_user_id: string }; Returns: string }
+      remove_from_organization: {
+        Args: { org_id: string; target_user_id: string }
+        Returns: Json
+      }
+      set_default_signature: {
+        Args: { p_signature_id: string }
         Returns: undefined
       }
-      reorder_employee_views: { Args: { p_ids: string[] }; Returns: undefined }
-      seed_org_permissions: { Args: { org_id: string }; Returns: undefined }
-      timeclock_process_midnight: { Args: never; Returns: undefined }
+      set_member_permissions: {
+        Args: {
+          org_id: string
+          p_can_manage_templates: boolean
+          p_can_send_documents: boolean
+          target_user_id: string
+        }
+        Returns: Json
+      }
+      set_organization_role: {
+        Args: { new_role: string; org_id: string; target_user_id: string }
+        Returns: Json
+      }
+      signature_advance_after_signature: {
+        Args: { p_request_id: string; p_signer_id: string }
+        Returns: {
+          next_order: number
+          outcome: string
+        }[]
+      }
+      signature_audit_append: {
+        Args: {
+          p_actor_user_id: string
+          p_event_type: string
+          p_organization_id: string
+          p_payload: Json
+          p_request_id: string
+          p_signer_id: string
+        }
+        Returns: string
+      }
+      signature_audit_entry_hash: {
+        Args: {
+          p_actor_user_id: string
+          p_event_type: string
+          p_occurred_at: string
+          p_payload: Json
+          p_prev_hash: string
+          p_request_id: string
+          p_seq: number
+          p_signer_id: string
+        }
+        Returns: string
+      }
+      signature_claim_turn: {
+        Args: { p_request_id: string; p_signer_id: string }
+        Returns: boolean
+      }
+      signature_mark_viewed: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
+      signature_mark_viewed_by_signer: {
+        Args: { p_signer_id: string }
+        Returns: undefined
+      }
+      signature_release_finalize: {
+        Args: { p_request_id: string; p_signer_id: string }
+        Returns: boolean
+      }
+      signature_release_turn: {
+        Args: { p_request_id: string; p_signer_id: string }
+        Returns: undefined
+      }
+      signature_request_changes: {
+        Args: { p_reason: string; p_request_id: string; p_signer_id: string }
+        Returns: {
+          outcome: string
+          rewound_to: number
+          superseded_capture_id: string
+        }[]
+      }
+      signature_request_verify_by_hash: {
+        Args: { p_client_key?: string; p_max_per_hr?: number; p_sha256: string }
+        Returns: {
+          document_title: string
+          finished_at: string
+          matched_artifact: string
+          organization_name: string
+          signer_count: number
+          signers: Json
+        }[]
+      }
+      signature_verify_chain: {
+        Args: { p_request_id: string }
+        Returns: {
+          broken_at_seq: number
+          chain_intact: boolean
+          entries_checked: number
+        }[]
+      }
+      signature_verify_chain_for_member: {
+        Args: { p_request_id: string }
+        Returns: {
+          broken_at_seq: number
+          chain_intact: boolean
+          entries_checked: number
+        }[]
+      }
+      signer_ai_message_begin: {
+        Args: { p_ip?: string; p_question: string; p_token_id: string }
+        Returns: {
+          message_id: string
+          retry_after_seconds: number
+          session_id: string
+          status: string
+          turn_index: number
+          turns_remaining: number
+        }[]
+      }
+      signer_ai_message_complete: {
+        Args: {
+          p_answer: string
+          p_citations?: Json
+          p_grounded?: boolean
+          p_message_id: string
+          p_model?: string
+          p_refusal_reason?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      signer_ai_message_fail: {
+        Args: { p_message_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      signer_identity_record_verdict: {
+        Args: {
+          p_check_id: string
+          p_ip?: string
+          p_rejection_reason?: string
+          p_score?: number
+          p_status: string
+        }
+        Returns: {
+          provider: string
+          request_id: string
+          signer_id: string
+          status: string
+        }[]
+      }
+      signer_identity_start: {
+        Args: {
+          p_ip?: string
+          p_provider: string
+          p_provider_session_id: string
+          p_token_id: string
+          p_ttl_minutes?: number
+        }
+        Returns: {
+          check_id: string
+          expires_at: string
+          retry_after_seconds: number
+          status: string
+        }[]
+      }
+      signer_otp_issue: {
+        Args: { p_ip?: string; p_token_id: string; p_ttl_minutes?: number }
+        Returns: {
+          challenge_id: string
+          code: string
+          expires_at: string
+          retry_after_seconds: number
+          status: string
+        }[]
+      }
+      signer_otp_verify: {
+        Args: { p_code: string; p_ip?: string; p_token_id: string }
+        Returns: {
+          attempts_remaining: number
+          status: string
+        }[]
+      }
+      signer_token_consume: { Args: { p_token_id: string }; Returns: undefined }
+      signer_token_issue: {
+        Args: { p_purpose?: string; p_signer_id: string; p_ttl_hours?: number }
+        Returns: {
+          expires_at: string
+          token: string
+          token_id: string
+        }[]
+      }
+      signer_token_issue_embed: {
+        Args: {
+          p_max_uses?: number
+          p_origin: string
+          p_signer_id: string
+          p_ttl_seconds?: number
+        }
+        Returns: {
+          expires_at: string
+          token: string
+          token_id: string
+        }[]
+      }
+      signer_token_redeem: {
+        Args: { p_count_use?: boolean; p_ip?: string; p_token_hash: string }
+        Returns: {
+          organization_id: string
+          otp_verified_at: string
+          purpose: Database["public"]["Enums"]["signer_access_tokens_purpose_enum"]
+          request_id: string
+          signer_id: string
+          token_id: string
+          use_count: number
+        }[]
+      }
+      signer_token_revoke_for_request: {
+        Args: { p_request_id: string }
+        Returns: number
+      }
+      signer_token_revoke_for_signer: {
+        Args: { p_signer_id: string }
+        Returns: number
+      }
+      transfer_organization_ownership: {
+        Args: { new_owner_user_id: string; org_id: string }
+        Returns: Json
+      }
+      webhook_deliveries_list: {
+        Args: { p_endpoint_id: string; p_limit?: number }
+        Returns: {
+          attempt_count: number
+          created_at: string
+          delivered_at: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["webhook_endpoints_events_enum"]
+          id: string
+          last_error: string
+          last_status_code: number
+          next_attempt_at: string
+          request_id: string
+          status: Database["public"]["Enums"]["webhook_deliveries_status_enum"]
+        }[]
+      }
+      webhook_endpoint_create: {
+        Args: {
+          p_events: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          p_name: string
+          p_organization_id: string
+          p_url: string
+        }
+        Returns: {
+          endpoint_id: string
+          signing_secret: string
+        }[]
+      }
+      webhook_endpoint_delete: {
+        Args: { p_endpoint_id: string }
+        Returns: boolean
+      }
+      webhook_endpoint_rotate_secret: {
+        Args: { p_endpoint_id: string }
+        Returns: string
+      }
+      webhook_endpoint_update: {
+        Args: {
+          p_endpoint_id: string
+          p_events?: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          p_is_enabled?: boolean
+          p_name?: string
+          p_url?: string
+        }
+        Returns: boolean
+      }
+      webhook_endpoints_list: {
+        Args: { p_organization_id: string }
+        Returns: {
+          consecutive_failures: number
+          created_at: string
+          disabled_at: string
+          disabled_reason: string
+          events: Database["public"]["Enums"]["webhook_endpoints_events_enum"][]
+          failed_count: number
+          id: string
+          is_enabled: boolean
+          last_delivery_at: string
+          name: string
+          pending_count: number
+          url: string
+        }[]
+      }
+      webhook_event_for_audit_event: {
+        Args: { p_event_type: string }
+        Returns: Database["public"]["Enums"]["webhook_endpoints_events_enum"]
+      }
+      whitelist_matches: { Args: { p_email: string }; Returns: boolean }
     }
     Enums: {
-      app_permission:
-        | "manage_organization"
-        | "manage_members"
-        | "manage_roles"
-        | "view_all_employees"
-        | "manage_employees"
-        | "view_department_employees"
-        | "manage_departments"
-        | "view_own_profile"
-        | "edit_own_profile"
+      api_keys_scopes_enum: "member" | "send_documents" | "manage_templates"
       contract_template_type_enum: "tiptap" | "pdf"
-      contracts_status_enum: "draft" | "sent" | "filled" | "active" | "voided"
-      correction_admin_decision_enum: "approved" | "rejected"
-      correction_dept_decision_enum: "approved" | "rejected"
-      correction_task_status_enum:
-        | "pending"
-        | "manager_approved"
-        | "approved"
-        | "rejected"
-        | "cancelled"
-      employee_column_type:
-        | "text"
-        | "number"
-        | "date"
-        | "boolean"
-        | "multi_select"
-        | "single_select"
-        | "file"
-      entities_correction_approval_mode_enum:
-        | "hr_only"
-        | "manager_only"
-        | "both"
       iana_timezone:
         | "Africa/Abidjan"
         | "Africa/Accra"
@@ -2321,21 +2889,86 @@ export type Database = {
         | "UTC"
         | "W-SU"
         | "WET"
-      onboarding_invitations_status_enum:
-        | "sent"
-        | "accepted"
-        | "expired"
-        | "revoked"
-        | "approved"
-        | "pending_placement"
+      notifications_type_enum:
+        | "admin_invitation"
+        | "employee_onboarding_invitation"
+        | "signature_request_invitation"
+        | "signature_request_copy"
+        | "signature_request_declined"
+        | "signature_request_reminder"
+        | "signature_request_expired"
+        | "signature_request_changes_requested"
+        | "envelope_completed"
+        | "envelope_voided"
+        | "envelope_signed_by_party"
+        | "organization_invitation"
+        | "webhook_endpoint_disabled"
       realtime_table_events_event_type_enum: "INSERT" | "UPDATE" | "DELETE"
-      timeclock_actor_enum: "employee" | "system"
-      timeclock_event_type_enum:
-        | "clock_in"
-        | "clock_out"
-        | "lunch_start"
-        | "lunch_end"
-      timeclock_session_type_enum: "work" | "break"
+      signature_audit_log_event_type_enum:
+        | "request_created"
+        | "request_sent"
+        | "signer_notified"
+        | "signer_viewed"
+        | "signer_signed"
+        | "signer_declined"
+        | "request_completed"
+        | "request_cancelled"
+        | "document_burned"
+        | "integrity_verified"
+        | "signer_token_issued"
+        | "signer_token_redeemed"
+        | "signer_access_denied"
+        | "signer_fields_saved"
+        | "document_signed"
+        | "request_expired"
+        | "signer_reminded"
+        | "cc_notified"
+        | "sender_requested_changes"
+        | "capture_superseded"
+        | "signer_token_revoked"
+        | "request_updated"
+        | "signer_otp_issued"
+        | "signer_otp_verified"
+        | "signer_otp_failed"
+        | "signer_identity_started"
+        | "signer_identity_verified"
+        | "signer_identity_failed"
+        | "certificate_generated"
+        | "signer_ai_question_asked"
+      signature_captures_capture_method_enum: "drawn" | "uploaded" | "typed"
+      signature_request_signers_recipient_type_enum: "signer" | "cc"
+      signature_request_signers_status_enum:
+        | "pending"
+        | "notified"
+        | "viewed"
+        | "signed"
+        | "declined"
+        | "changes_requested"
+      signature_requests_signer_auth_enum: "account" | "email_otp"
+      signature_requests_status_enum:
+        | "draft"
+        | "in_progress"
+        | "completed"
+        | "declined"
+        | "cancelled"
+        | "expired"
+      signer_access_tokens_purpose_enum: "sign" | "view"
+      signer_identity_checks_status_enum: "pending" | "approved" | "rejected"
+      webhook_deliveries_status_enum:
+        | "pending"
+        | "delivering"
+        | "delivered"
+        | "failed"
+      webhook_endpoints_events_enum:
+        | "envelope.sent"
+        | "envelope.recipient_viewed"
+        | "envelope.recipient_signed"
+        | "envelope.recipient_declined"
+        | "envelope.changes_requested"
+        | "envelope.completed"
+        | "envelope.expired"
+        | "envelope.voided"
+      whitelist_pattern_enum: "exact" | "domain" | "wildcard"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2466,42 +3099,8 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_permission: [
-        "manage_organization",
-        "manage_members",
-        "manage_roles",
-        "view_all_employees",
-        "manage_employees",
-        "view_department_employees",
-        "manage_departments",
-        "view_own_profile",
-        "edit_own_profile",
-      ],
+      api_keys_scopes_enum: ["member", "send_documents", "manage_templates"],
       contract_template_type_enum: ["tiptap", "pdf"],
-      contracts_status_enum: ["draft", "sent", "filled", "active", "voided"],
-      correction_admin_decision_enum: ["approved", "rejected"],
-      correction_dept_decision_enum: ["approved", "rejected"],
-      correction_task_status_enum: [
-        "pending",
-        "manager_approved",
-        "approved",
-        "rejected",
-        "cancelled",
-      ],
-      employee_column_type: [
-        "text",
-        "number",
-        "date",
-        "boolean",
-        "multi_select",
-        "single_select",
-        "file",
-      ],
-      entities_correction_approval_mode_enum: [
-        "hr_only",
-        "manager_only",
-        "both",
-      ],
       iana_timezone: [
         "Africa/Abidjan",
         "Africa/Accra",
@@ -3058,23 +3657,92 @@ export const Constants = {
         "W-SU",
         "WET",
       ],
-      onboarding_invitations_status_enum: [
-        "sent",
-        "accepted",
-        "expired",
-        "revoked",
-        "approved",
-        "pending_placement",
+      notifications_type_enum: [
+        "admin_invitation",
+        "employee_onboarding_invitation",
+        "signature_request_invitation",
+        "signature_request_copy",
+        "signature_request_declined",
+        "signature_request_reminder",
+        "signature_request_expired",
+        "signature_request_changes_requested",
+        "envelope_completed",
+        "envelope_voided",
+        "envelope_signed_by_party",
+        "organization_invitation",
+        "webhook_endpoint_disabled",
       ],
       realtime_table_events_event_type_enum: ["INSERT", "UPDATE", "DELETE"],
-      timeclock_actor_enum: ["employee", "system"],
-      timeclock_event_type_enum: [
-        "clock_in",
-        "clock_out",
-        "lunch_start",
-        "lunch_end",
+      signature_audit_log_event_type_enum: [
+        "request_created",
+        "request_sent",
+        "signer_notified",
+        "signer_viewed",
+        "signer_signed",
+        "signer_declined",
+        "request_completed",
+        "request_cancelled",
+        "document_burned",
+        "integrity_verified",
+        "signer_token_issued",
+        "signer_token_redeemed",
+        "signer_access_denied",
+        "signer_fields_saved",
+        "document_signed",
+        "request_expired",
+        "signer_reminded",
+        "cc_notified",
+        "sender_requested_changes",
+        "capture_superseded",
+        "signer_token_revoked",
+        "request_updated",
+        "signer_otp_issued",
+        "signer_otp_verified",
+        "signer_otp_failed",
+        "signer_identity_started",
+        "signer_identity_verified",
+        "signer_identity_failed",
+        "certificate_generated",
+        "signer_ai_question_asked",
       ],
-      timeclock_session_type_enum: ["work", "break"],
+      signature_captures_capture_method_enum: ["drawn", "uploaded", "typed"],
+      signature_request_signers_recipient_type_enum: ["signer", "cc"],
+      signature_request_signers_status_enum: [
+        "pending",
+        "notified",
+        "viewed",
+        "signed",
+        "declined",
+        "changes_requested",
+      ],
+      signature_requests_signer_auth_enum: ["account", "email_otp"],
+      signature_requests_status_enum: [
+        "draft",
+        "in_progress",
+        "completed",
+        "declined",
+        "cancelled",
+        "expired",
+      ],
+      signer_access_tokens_purpose_enum: ["sign", "view"],
+      signer_identity_checks_status_enum: ["pending", "approved", "rejected"],
+      webhook_deliveries_status_enum: [
+        "pending",
+        "delivering",
+        "delivered",
+        "failed",
+      ],
+      webhook_endpoints_events_enum: [
+        "envelope.sent",
+        "envelope.recipient_viewed",
+        "envelope.recipient_signed",
+        "envelope.recipient_declined",
+        "envelope.changes_requested",
+        "envelope.completed",
+        "envelope.expired",
+        "envelope.voided",
+      ],
+      whitelist_pattern_enum: ["exact", "domain", "wildcard"],
     },
   },
 } as const

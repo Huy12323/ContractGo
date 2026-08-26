@@ -1,3 +1,9 @@
+# NOTE (ContractGo rebrand, Phase C): project_id stays "aiur-hr" deliberately.
+# The Supabase CLI derives the local Docker stack names from it (supabase_db_aiur-hr,
+# supabase_kong_aiur-hr, …) and labels containers com.supabase.cli.project=<id>.
+# Changing it does not rename the stack — `supabase start` would spin up a fresh EMPTY
+# one and orphan the existing local database, discarding every applied migration.
+# Renaming requires a dump/restore and belongs with the infra rename decision (/pm).
 project_id = "aiur-hr"
 
 [api]
@@ -40,7 +46,10 @@ file_size_limit = "50MiB"
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173/auth/callback"]
+additional_redirect_urls = [
+  "http://localhost:5173/auth/callback",
+  "https://hr.aiursoftware.com/auth/callback",
+]
 jwt_expiry = 3600
 enable_signup = true
 enable_anonymous_sign_ins = false
@@ -51,8 +60,16 @@ double_confirm_changes = true
 enable_confirmations = false  # verification managed by profiles.email_verified + our edge functions
 max_frequency = "5s"
 
+# CG-028. `redirect_uri` here is GoTrue's OWN endpoint — the one registered in the
+# Google Cloud Console as an authorized redirect URI — NOT the app's
+# /auth/callback, which is the hop after it and is authorized by
+# `additional_redirect_urls` above.
+#
+# LOCAL ONLY. This file configures the CLI stack; production is self-hosted
+# GoTrue and reads GOTRUE_EXTERNAL_GOOGLE_* from the server env instead — see
+# docs/deployment.md. Flipping `enabled` here does nothing to prod.
 [auth.external.google]
-enabled = false
+enabled = true
 client_id = "env(GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_CLIENT_SECRET)"
 redirect_uri = "http://localhost:54321/auth/v1/callback"
@@ -64,13 +81,263 @@ policy = "per_worker"
 [analytics]
 enabled = false
 
-[functions.employee-management_create-column]
+# ============================================================
+# PUBLIC SIGNING SURFACE — verify_jwt = false
+# ============================================================
+#
+# These are the ONLY functions that accept an unauthenticated request. A signer
+# arrives from an emailed link, and the token in the POST body — not a JWT — is
+# what says WHICH signer on WHICH request is calling;
+# `_shared/signerAuth.ts::resolveSignerToken` is the mandatory first statement of
+# every one of them.
+#
+# `signing_submit` and `signing_decline` ADDITIONALLY require the caller to prove
+# who they are, and they still sit here rather than under `verify_jwt = true`.
+# Since CG-031 WHICH proof that is belongs to the sender, pinned on the request:
+# a session on the address the document names, or a one-time passcode emailed to
+# it. `assertSignerIdentity` resolves the two — see the header of
+# `_shared/signerAuth.ts`.
+#
+# `verify_jwt = true` would be wrong for BOTH arms, for two different reasons.
+# For the account arm it would prove only that some session exists, which is the
+# less interesting half: the session has to be matched against THIS link's
+# signer, and only the function can do that. For the passcode arm there is no
+# session at all and there must not be — a recipient signing straight from the
+# email has no account, which is the entire point of the mode — so the platform
+# check would reject every legitimate caller at the door.
+#
+# `signing_session_open` requires no proof at all: a signer must be able to READ
+# a document before deciding whether to authenticate for it, and a CC observer
+# never authenticates. `signing_otp_send` and `signing_otp_verify` are how the
+# passcode arm is satisfied, so they cannot themselves demand a session either;
+# both call `resolveSignerToken` first and `assertCanAct` second, and neither
+# spends one of the token's uses.
+#
+# `signing_document_download` is public for the plainest reason of the set: its
+# caller is a recipient taking a copy of a document they have just signed, and
+# most of them have no account by construction. It is the narrowest of these —
+# it refuses any signer whose status is not `signed`, it only ever reads, and the
+# credential it runs on is the short-lived `view` token `signing_submit` mints
+# once the acting token has been spent.
+#
+# [ekyc] `signing_identity_start` and `signing_identity_verify` (CG-033) are the
+# same shape for the same reason: they are how the IDENTITY arm is satisfied, so
+# they cannot themselves demand a session — an identity check is precisely the
+# mechanism for a recipient who has no account. Both call `resolveSignerToken`
+# first and `assertCanAct` second, and neither spends one of the token's uses.
+# That last property matters more here than it does for the passcode pair: the
+# verify endpoint is POLLED while the vendor works, so use-counting would exhaust
+# a signer's hundred uses in minutes — and with a real vendor, a leaked link
+# calling `start` in a loop would spend the sender's money. The in-statement
+# throttle inside `signer_identity_start` is the only cap on that, deliberately.
+#
+# ENUMERATED EXPLICITLY, NEVER DISABLED GLOBALLY. `verify_jwt` can be turned off
+# for the whole project in one line, which would silently expose every existing
+# function — including the ones that write with service_role privileges — to
+# anonymous callers. Listing each public function individually means adding one
+# is a deliberate, reviewable edit.
+
+[functions.signing_session_open]
 enabled = true
-verify_jwt = true
-import_map = "./functions/employee-management_create-column/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/employee-management_create-column/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/employee-management_create-column/*.html" ]
+verify_jwt = false
+import_map = "./functions/signing_session_open/deno.json"
+entrypoint = "./functions/signing_session_open/index.ts"
+
+[functions.signing_submit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_submit/deno.json"
+entrypoint = "./functions/signing_submit/index.ts"
+
+[functions.signing_document_download]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_document_download/deno.json"
+entrypoint = "./functions/signing_document_download/index.ts"
+
+[functions.signing_decline]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_decline/deno.json"
+entrypoint = "./functions/signing_decline/index.ts"
+
+[functions.signing_otp_send]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_otp_send/deno.json"
+entrypoint = "./functions/signing_otp_send/index.ts"
+
+[functions.signing_otp_verify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_otp_verify/deno.json"
+entrypoint = "./functions/signing_otp_verify/index.ts"
+
+# [ekyc] CG-033. Both blocks go together when eKYC is removed.
+[functions.signing_identity_start]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_identity_start/deno.json"
+entrypoint = "./functions/signing_identity_start/index.ts"
+
+[functions.signing_identity_verify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_identity_verify/deno.json"
+entrypoint = "./functions/signing_identity_verify/index.ts"
+
+# CG-049. The AI reading assistant. It belongs on this list for the same reason
+# `signing_otp_send` does: the caller is an external recipient holding an emailed
+# link and nothing else, `resolveSignerToken` is its mandatory first statement,
+# and it does NOT count a use of that link — chatting about a document is not the
+# document being opened, and a leaked link firing questions must not exhaust the
+# real signer's hundred uses.
+#
+# IT IS THE FIRST PUBLIC FUNCTION WHOSE COST LIMIT IS NOT PER-CREDENTIAL. Every
+# other endpoint here spends only the caller's own allowance when abused; this
+# one spends a shared upstream quota that every tenant's signers draw on. The
+# per-token caps are therefore backed by an org-daily and a deployment-daily cap,
+# all enforced inside `signer_ai_message_begin` — see the CG-049 migration.
+[functions.signing_ai_ask]
+enabled = true
+verify_jwt = false
+import_map = "./functions/signing_ai_ask/deno.json"
+entrypoint = "./functions/signing_ai_ask/index.ts"
+
+# ============================================================
+# PUBLIC VERIFICATION SURFACE — verify_jwt = false
+# ============================================================
+#
+# CG-043. A different caller again: not a signer holding a link, but ANYONE
+# holding a finished document — a counterparty, their lawyer, a regulator. They
+# have no ContractGo account and never will, so this cannot demand a session for
+# the same reason the signing surface cannot.
+#
+# What stands in for one is the SHA-256 the caller presents. It cannot be minted
+# or guessed and can only be produced by someone who actually holds the file, so
+# possession of the digest proves possession of the document — which is what
+# licenses the disclosure set. Everything returned is something the holder can
+# already read off the page in front of them; email addresses are masked in SQL
+# so no caller can forget to.
+#
+# It calls a service_role-only routine and is throttled inside that routine, in one
+# statement, and writes NOTHING to the audit chain: verifying is a read, and
+# letting anonymous traffic append to an append-only evidence log would both
+# serialize the signing surface against strangers and drown the entries that
+# matter. Taking a COPY of the document is the act worth recording, and
+# envelopes_download-signed already records it.
+#
+# ENUMERATED EXPLICITLY, NEVER DISABLED GLOBALLY — see the note above.
+
+[functions.verify_document]
+enabled = true
+verify_jwt = false
+import_map = "./functions/verify_document/deno.json"
+entrypoint = "./functions/verify_document/index.ts"
+
+# ============================================================
+# SCHEDULED SURFACE — verify_jwt = false
+# ============================================================
+#
+# A different caller shape from the two above, listed here for the same reason
+# they are: `net.http_post` fires these from inside Postgres and carries no JWT,
+# so there is nothing for `verify_jwt` to check. Their credential is the
+# `x-cron-secret` header, and `_shared/cronAuth.ts::assertCronSecret` is the
+# mandatory first statement of each — the position `resolveSignerToken` holds in
+# the signing functions.
+#
+# These take NO input. Everything they act on they select for themselves, so
+# there is no body a caller could use to widen their reach even holding the
+# secret.
+
+[functions.envelopes_cron_expire]
+enabled = true
+verify_jwt = false
+import_map = "./functions/envelopes_cron_expire/deno.json"
+entrypoint = "./functions/envelopes_cron_expire/index.ts"
+
+[functions.envelopes_cron_remind]
+enabled = true
+verify_jwt = false
+import_map = "./functions/envelopes_cron_remind/deno.json"
+entrypoint = "./functions/envelopes_cron_remind/index.ts"
+
+# ============================================================
+# MACHINE SURFACE — verify_jwt = false  (CG-044, v1.4.0)
+# ============================================================
+#
+# A THIRD caller shape. `verify_jwt` checks for a Supabase user JWT; an API
+# client has no user and no session, so there is nothing for it to check and it
+# would reject every request before the function ran. The credential is instead
+# an `Authorization: Bearer cgk_…` API key, and
+# `_shared/apiAuth.ts::resolveApiClient` is the MANDATORY FIRST STATEMENT of each
+# function below — the position `resolveSignerToken` holds in the signing
+# functions and `assertCronSecret` holds in the scheduled ones.
+#
+# `verify_jwt = false` HERE DOES NOT MEAN UNAUTHENTICATED. It means the gateway
+# is not the thing doing the authenticating. Every function below refuses before
+# it reads its body unless the key resolves live, un-revoked, un-expired, bound
+# to the organization named in the request, and carrying the scope that function
+# requires. An unknown, revoked, expired or foreign key all produce one identical
+# 401 so the endpoint cannot be used to probe which keys or organizations exist.
+#
+# WHAT AN API KEY CANNOT DO, enforced in the schema rather than here:
+# `api_keys_scopes_enum` has no `admin` value, so no key can be granted member
+# management, ownership transfer or organization deletion — see CG-044's header.
+#
+# ENUMERATED EXPLICITLY, NEVER DISABLED GLOBALLY — see the note in the public
+# section above. Adding a sixth `api_*` function means adding a block here, and
+# that edit is the review.
+
+[functions.api_envelopes_create]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_envelopes_create/deno.json"
+entrypoint = "./functions/api_envelopes_create/index.ts"
+
+[functions.api_envelopes_get]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_envelopes_get/deno.json"
+entrypoint = "./functions/api_envelopes_get/index.ts"
+
+[functions.api_envelopes_void]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_envelopes_void/deno.json"
+entrypoint = "./functions/api_envelopes_void/index.ts"
+
+[functions.api_envelopes_document-url]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_envelopes_document-url/deno.json"
+entrypoint = "./functions/api_envelopes_document-url/index.ts"
+
+[functions.api_envelopes_embed-url]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_envelopes_embed-url/deno.json"
+entrypoint = "./functions/api_envelopes_embed-url/index.ts"
+
+[functions.api_templates_list]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api_templates_list/deno.json"
+entrypoint = "./functions/api_templates_list/index.ts"
+
+# CG-045/CG-046 (v1.4.0 Phase D). The webhook delivery pump — the same caller
+# shape as the two envelope jobs above: `net.http_post` from inside Postgres,
+# no JWT, `x-cron-secret` as the whole of the authorization.
+#
+# It runs EVERY MINUTE rather than hourly, because the retry ladder's first rung
+# is 60 seconds and a coarser tick would make "retry in 1 minute" a lie. Like the
+# other two it takes NO input: it selects its own work, so there is nothing a
+# caller could use to widen its reach even holding the secret.
+#
+# `webhooks_test-send` is deliberately NOT listed — it wants a JWT.
+
+[functions.webhooks_deliver-pending]
+enabled = true
+verify_jwt = false
+import_map = "./functions/webhooks_deliver-pending/deno.json"
+entrypoint = "./functions/webhooks_deliver-pending/index.ts"

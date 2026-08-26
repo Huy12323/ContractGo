@@ -14,15 +14,66 @@ function jsonResponse(body, status) {
     });
 }
 
+/**
+ * The public, UNAUTHENTICATED branch — an avatar is served to anyone who asks.
+ * That makes the shapes matched here a security boundary rather than a routing
+ * convenience, so each is enumerated exactly and by segment count. A loose
+ * `startsWith("users/")` here would serve signatures to the world.
+ *
+ * Three shapes, because CG-036 refoldered avatars and existing objects were
+ * deliberately NOT moved:
+ *
+ *   users/{id}/avatar-{ts}-{uid}.{ext}              legacy, pre-CG-036
+ *   users/{id}/avatars/{ts}-{uid}.{ext}             current
+ *   users/{id}/avatars/thumbnails/{ts}-{uid}.webp   current, derived
+ *
+ * The thumbnail is public for the same reason its parent is: it is a smaller copy
+ * of an image already served without a token, so requiring one would protect
+ * nothing while breaking every `<img>` that renders it.
+ *
+ * Note `segments[2] === "avatars"` and not `startsWith("avatar")` — the latter
+ * would also match `users/{id}/avatar-x/...`, an attacker-chosen deep path.
+ */
 function isAvatarPath(r2Key) {
     if (!r2Key.startsWith("users/")) return false;
     const segments = r2Key.split("/");
-    return segments.length === 3 && segments[2].startsWith("avatar-");
+    if (segments.length === 3) return segments[2].startsWith("avatar-");
+    if (segments.length === 4) return segments[2] === "avatars";
+    if (segments.length === 5) {
+        return segments[2] === "avatars" && segments[3] === "thumbnails";
+    }
+    return false;
+}
+
+/**
+ * CG-029: `users/{user_id}/signatures/{uuid}.png`.
+ *
+ * A sibling of the avatar namespace in the key space and its exact opposite in
+ * posture. An avatar is served to anyone who asks; a signature is forgeable
+ * material, so this path requires a token whose `userId` claim matches the id in
+ * the path — see the auth branch in `fetch` below.
+ *
+ * The segment count is checked rather than a `startsWith` on the prefix, so a key
+ * like `users/x/signatures/a/b` cannot match and then be served under a token
+ * minted for a different depth.
+ */
+function isUserSignaturePath(r2Key) {
+    if (!r2Key.startsWith("users/")) return false;
+    const segments = r2Key.split("/");
+    return segments.length === 4 && segments[2] === "signatures";
 }
 
 function getCacheStrategy(r2Key) {
     if (isAvatarPath(r2Key)) {
         return { shared: true, ttl: 3600 };
+    }
+    // BEFORE the extension check below, which would otherwise match `.png` and
+    // put a signature in `caches.default` — a SHARED cache, keyed by path with
+    // the token stripped. That would make the object retrievable by URL alone,
+    // without a token, for a week: exactly the property this namespace exists to
+    // deny. Private and short-lived instead.
+    if (isUserSignaturePath(r2Key)) {
+        return { shared: false, ttl: 300 };
     }
     const ext = (r2Key.split(".").pop() || "").toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "mp4", "webm", "mov"].includes(ext)) {
@@ -95,7 +146,8 @@ export default {
                 return await serveFromR2(r2Key, env, ctx, url);
             }
 
-            if (!r2Key.startsWith("orgs/")) {
+            const isSignature = isUserSignaturePath(r2Key);
+            if (!isSignature && !r2Key.startsWith("orgs/")) {
                 return jsonResponse({ error: "Unknown path namespace" }, 403);
             }
 
@@ -122,7 +174,22 @@ export default {
             if (payload.env !== env.ENVIRONMENT) {
                 return jsonResponse({ error: "Token env mismatch" }, 401);
             }
-            if (!payload.orgId) {
+            // Which claim carries the authorization depends on the namespace,
+            // because the two namespaces are scoped to different things: an
+            // `orgs/**` object belongs to an organization, a signature belongs to
+            // a person. Checking `orgId` on a signature would be checking a claim
+            // that is legitimately absent, and checking it on nothing at all is
+            // how a token minted for one user serves another's mark.
+            if (isSignature) {
+                // The token is bound to the exact key by the `payload.r2Key`
+                // check above, so this second comparison is what stops a user
+                // from being issued a token for their OWN signature and it also
+                // covering someone else's — the id in the path must be theirs.
+                const ownerId = r2Key.split("/")[1];
+                if (!payload.userId || payload.userId !== ownerId) {
+                    return jsonResponse({ error: "Token/owner mismatch" }, 401);
+                }
+            } else if (!payload.orgId) {
                 return jsonResponse({ error: "Missing org claim" }, 401);
             }
 

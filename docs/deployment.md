@@ -1,6 +1,6 @@
 # Deployment Guide
 
-End-to-end guide for deploying AIUR HR to production (self-hosted Supabase on Hetzner + Cloudflare R2 Worker).
+End-to-end guide for deploying ContractGo to production (self-hosted Supabase on Hetzner + Cloudflare R2 Worker).
 
 ---
 
@@ -131,6 +131,86 @@ On Supabase Cloud, `supabase secrets set X=...` pushes secrets to functions. **T
 Then reference it from Deno as `Deno.env.get("MY_NEW_KEY")`.
 
 For consistency, also add the var to the `[SUPABASE_FUNCTIONS]` section of `.env.example` and `.env.prod` so it's documented for future devs — even though the root `.env.prod` isn't what the server reads.
+
+---
+
+## Email delivery (Resend)
+
+All outbound mail goes through one edge function, `shared--send-email`. Nothing else talks to a mail provider — `auth_send-verification`, `organizations_send-invitation` and every envelope notification in `_shared/envelopeNotify.ts` call it over HTTP with the service-role key.
+
+Set these on the server, via the two-step process above (server `.env` **and** the `functions.environment:` block, then `docker compose up -d functions`):
+
+| Var | Production value |
+|---|---|
+| `EMAIL_DRIVER` | `resend` |
+| `RESEND_API_KEY` | From Resend → API Keys → Create, *Sending access* |
+| `RESEND_SENDER_EMAIL` | An address on a **verified sending domain** |
+| `RESEND_SENDER_NAME` | `ContractGo` |
+| `OTP_DRIVER` | Leave unset (defaults to `email`) |
+
+**`OTP_DRIVER=mock` must never be set on a deployed server**, and unlike the other three signing drivers this one is safe to leave unset — it defaults to `email` for exactly that reason (CG-031). The mock logs the passcode to the server and reports success, so a production stack running it would tell every recipient of an `email_otp` envelope that a code had been sent, send none, and then refuse their signature. It reuses `shared--send-email`, so it needs no configuration of its own beyond the mail settings above.
+
+**`EMAIL_ALLOWLIST` must be empty in staging and production.** It is a comma-separated list of the only recipients that get real mail; anyone else is logged to the console and the caller receives `200 {"status":"filtered"}` instead of a delivery failure. It exists so a dev stack on the `resend.dev` test sender can still run signup and invitations end to end. Empty means no filtering — a stale allowlist on a real deployment would silently drop mail to actual users, so it is opt-in only.
+
+**`onboarding@resend.dev` is not viable in production.** It is Resend's shared test sender: it skips domain verification, but only delivers to the address that owns the Resend account, and 403s every other recipient. `shared--send-email` returns that as a 502, which `auth_send-verification` and `organizations_send-invitation` treat as a hard failure — so signup confirmation and invitations would break for every real user. Verify a domain before going live.
+
+**`DEV_SIGNING_LINKS` must never be set on a deployed server.** It unlocks `envelopes_dev-signing-link`, which hands a recipient's signing link to the *sender*. That link is a bearer credential that speaks as the signer, so setting it lets a sender sign on a counterparty's behalf and hollows out the audit trail. It is absent-by-default and ships commented out in `.env.example`; keep it that way outside a developer machine. The same applies to `EMAIL_DRIVER=console`, whose log line contains the signing link verbatim.
+
+---
+
+## AI document assistant (CG-049)
+
+The reading assistant beside the contract on the signing surface. One edge function, `signing_ai_ask`, is the only thing that talks to a model; the driver seam is `_shared/ai.ts` and mirrors the signing and storage seams.
+
+Set these on the server via the two-step process above (server `.env` **and** the `functions.environment:` block, then `docker compose up -d functions`):
+
+| Var | Production value |
+|---|---|
+| `AI_DRIVER` | `gemini`, or `off` to disable the feature entirely |
+| `GEMINI_API_KEY` | From <https://aistudio.google.com/apikey> |
+| `GEMINI_MODEL` | Leave unset (defaults to `gemini-3.6-flash`) |
+
+**The free tier's request-per-day allowance is a *project* resource, not a per-user one.** That is the fact that shapes the whole feature's operations story. A signing link is a bearer credential that gets forwarded and scanned, so a public endpoint holding an LLM key is a free-proxy risk — and unlike every other public signing function, abuse here spends something *every tenant's signers draw on*. Per-credential throttling alone cannot protect it.
+
+So there are six caps, and **they live in SQL, inside `signer_ai_message_begin`** (see the CG-049 migration): 5-second cooldown, 15/hour and 30/lifetime per signing link, 120 per envelope, 500 per organization per day, and a **deployment-wide daily cap set to roughly 60% of the real upstream RPD**. Changing any of them takes a migration, deliberately — a limit you can change without one is a limit nobody reviews. If you switch to a model with a different RPD, **update the deployment-wide cap to match**; leaving it high turns an upstream 429 into a mid-ceremony failure, which is precisely what the headroom exists to prevent.
+
+**Turning it off.** Two switches, at two scopes, and they are not interchangeable:
+
+- `AI_DRIVER=off` — deployment-wide. The endpoint 503s before it touches the database and `signing_session_open` stops advertising the panel.
+- `UPDATE public.organizations SET ai_assistant_enabled = false WHERE id = '…'` — one tenant, no deploy. Default is `true`.
+
+**The transcript is not sender-visible, and that is a product decision rather than a missing feature.** `signer_ai_messages` has RLS on with zero policies and no view, no RPC and no certificate line reads it. A signer's questions are their own words about why they hesitate, and the Certificate of Completion goes to the counterparty. The audit chain gets exactly one `signer_ai_question_asked` entry per signing link, with no question and no answer text. Do not add a policy "so support can see it" without reading PHASE 7 of the migration first.
+
+**Scanned contracts get no assistant.** `unpdf` extracts a text layer; a scan has none, so the extraction is recorded as `insufficient_text` and the panel stops appearing for that envelope. This is intended — an ungrounded model guessing at a contract it cannot read is the worst outcome available here.
+
+---
+
+## Enabling Google sign-in (CG-028)
+
+`frontend/vite/supabase/config.toml` configures the **local** CLI stack only. Production runs self-hosted GoTrue, which reads its provider config from the server env — so shipping the code does not turn the feature on in production. Three steps:
+
+**1. Google Cloud Console** — one OAuth 2.0 *Web application* client serves both environments. Under **Authorized redirect URIs**, list GoTrue's own callback (not the app's):
+
+```
+http://localhost:54321/auth/v1/callback              # local CLI stack
+https://aiurhr-sb.aiursoftware.com/auth/v1/callback  # production Kong → auth
+```
+
+**2. On the server**, add to `/supabases/aiur--hr/.env` and make sure `docker-compose.yml`'s `auth.environment:` block references each one (same quirk as edge-function vars above — `.env` does not auto-propagate):
+
+```
+GOTRUE_EXTERNAL_GOOGLE_ENABLED=true
+GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID=<client id>
+GOTRUE_EXTERNAL_GOOGLE_SECRET=<client secret>
+GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI=https://aiurhr-sb.aiursoftware.com/auth/v1/callback
+GOTRUE_URI_ALLOW_LIST=https://hr.aiursoftware.com/**
+```
+
+`GOTRUE_URI_ALLOW_LIST` is the production equivalent of `additional_redirect_urls` and **must** cover `https://hr.aiursoftware.com/auth/callback`. If it doesn't, GoTrue drops the app's `redirect_to` and sends the user to `SITE_URL` instead — the flow appears to work but always lands on `/`.
+
+**3. Restart**: `cd /supabases/aiur--hr && docker compose up -d auth`.
+
+Nothing is needed on the Cloudflare Pages side: the client id is never exposed to the browser, so there is no new `VITE_` var.
 
 ---
 
