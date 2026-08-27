@@ -10,6 +10,7 @@
 import { Alert, Button, Card, Descriptions, Typography, theme } from "antd";
 import { FileTextOutlined } from "@ant-design/icons";
 import { App_SigningConsentGate } from "@/components/signing/App_SigningConsentGate";
+import { PageSign_SenderHeader } from "@/pages/Page_Sign/PageSign_SenderHeader";
 import type { Signing_Session } from "@/hooks/useQ_Signing_Session";
 
 // No account gate here, and none is needed: `Page_Sign` refuses to render ANY
@@ -42,6 +43,7 @@ export const PageSign_Welcome = ({ session, consent, onConsentChange, onContinue
                 gap: token.marginMD,
             }}
         >
+            <PageSign_SenderHeader branding={session.branding} />
             <Card>
                 <div style={{ display: "flex", flexDirection: "column", gap: token.marginMD }}>
                     <div style={{ display: "flex", alignItems: "center", gap: token.marginSM }}>

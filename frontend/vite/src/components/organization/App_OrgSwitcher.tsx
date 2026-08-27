@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useNavigate, useMatch } from "@tanstack/react-router";
+import { Link, useNavigate, useMatch } from "@tanstack/react-router";
 import { useQ_Tables_MyOrganizations } from "@/hooks/useQ_Tables_MyOrganizations";
 import { Typography, Dropdown, Avatar, Button, theme } from "antd";
 import {
@@ -8,7 +7,6 @@ import {
     CaretUpOutlined,
     CaretDownOutlined,
 } from "@ant-design/icons";
-import { App_OrgSettingsModal } from "@/components/organization/App_OrgSettingsModal";
 import type { MenuProps } from "antd";
 
 interface App_OrgSwitcherProps {
@@ -23,8 +21,6 @@ export const App_OrgSwitcher = ({ collapsed }: App_OrgSwitcherProps) => {
     const orgMatch = useMatch({ from: "/_protected/$organizationId", shouldThrow: false });
     const currentOrgId = orgMatch?.params?.organizationId;
     const currentOrg = qOrganizations.organizations.find((o) => o.id === currentOrgId);
-
-    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const items: MenuProps["items"] = qOrganizations.organizations.map((org) => ({
         key: org.id,
@@ -122,25 +118,31 @@ export const App_OrgSwitcher = ({ collapsed }: App_OrgSwitcherProps) => {
                     </div>
                 </Dropdown>
 
+                {/* CG-050: a deep link, not a modal. `App_OrgSettingsModal` is
+                    gone — the settings surface is a route with seven tabs, and a
+                    gear that opened a dialog over the top of it would be a second
+                    place to change the same things.
+
+                    Wrapped in a `<Link>` rather than given an imperative
+                    `onClick` handler for the same reason the tab labels are
+                    links: middle-click opens it in a new tab, hover previews the
+                    destination, and the back button behaves. */}
                 {!collapsed && currentOrg && (
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<SettingOutlined style={{ fontSize: 13 }} />}
-                        onClick={() => setSettingsOpen(true)}
-                        style={{ flexShrink: 0, color: token.colorTextSecondary }}
-                    />
+                    <Link
+                        to="/$organizationId/settings"
+                        params={{ organizationId: currentOrg.id }}
+                        style={{ flexShrink: 0, display: "inline-flex" }}
+                    >
+                        <Button
+                            type="text"
+                            size="small"
+                            title="Organization settings"
+                            icon={<SettingOutlined style={{ fontSize: 13 }} />}
+                            style={{ color: token.colorTextSecondary }}
+                        />
+                    </Link>
                 )}
             </div>
-
-            {currentOrg && (
-                <App_OrgSettingsModal
-                    open={settingsOpen}
-                    onClose={() => setSettingsOpen(false)}
-                    organizationId={currentOrg.id}
-                    organizationName={currentOrg.name}
-                />
-            )}
         </>
     );
 };

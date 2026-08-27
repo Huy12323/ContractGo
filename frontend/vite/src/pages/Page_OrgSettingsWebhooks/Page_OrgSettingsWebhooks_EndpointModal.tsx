@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Checkbox, Form, Input, Modal, Typography, theme } from "antd";
-import { Page_SettingsApiKeys_RevealPanel } from "@/pages/Page_SettingsApiKeys/Page_SettingsApiKeys_RevealPanel";
+import { Page_OrgSettingsApiKeys_RevealPanel } from "@/pages/Page_OrgSettingsApiKeys/Page_OrgSettingsApiKeys_RevealPanel";
 import type { Webhook_Event } from "@/hooks/useM_Webhooks_Create";
 import type { Tables_WebhookEndpoints_Row } from "@/hooks/useQ_Tables_WebhookEndpoints";
 
@@ -43,7 +43,7 @@ const EVENT_ORDER: Webhook_Event[] = [
 
 type FormValues = { name: string; url: string; events: Webhook_Event[] };
 
-export const Page_SettingsWebhooks_EndpointModal = ({
+export const Page_OrgSettingsWebhooks_EndpointModal = ({
     open,
     editing,
     isSubmitting,
@@ -99,7 +99,7 @@ export const Page_SettingsWebhooks_EndpointModal = ({
             destroyOnHidden
         >
             {issuedSecret ? (
-                <Page_SettingsApiKeys_RevealPanel
+                <Page_OrgSettingsApiKeys_RevealPanel
                     label="Signing secret"
                     value={issuedSecret}
                     warning="Your server needs this to verify that a webhook really came from us. This is the only time it will be shown — if you lose it you must rotate the secret, which stops deliveries working until your server is updated."

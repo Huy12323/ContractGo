@@ -1,4 +1,4 @@
-import { ENVs } from "@/utils/ENVs/ENVs";
+import { Utils_Files_PublicUrl } from "@/utils/Utils_Files_PublicUrl";
 
 /**
  * The one place that turns a profile row into an <Avatar src>.
@@ -34,16 +34,11 @@ import { ENVs } from "@/utils/ENVs/ENVs";
  * not on the mirror's allow-list.
  */
 /**
- * Must match `STORAGE_LOCAL_PUBLIC_BUCKET`'s default in
- * `supabase/functions/_shared/storage.ts`. Two runtimes, no shared module — so
- * the coupling is stated here rather than left to be discovered.
+ * The driver branch and the bucket-name coupling now live in
+ * `Utils_Files_PublicUrl` — CG-050 added a second public namespace (org branding)
+ * and one implementation must serve both.
  */
-const LOCAL_PUBLIC_BUCKET = "files-public";
-
-const publicObjectUrl = (r2Key: string): string =>
-    ENVs.ViteStorageDriver === "local"
-        ? `${ENVs.ViteSupabaseUrl}/storage/v1/object/public/${LOCAL_PUBLIC_BUCKET}/${r2Key}`
-        : `${ENVs.ViteR2WorkerUrl}/${r2Key}`;
+const publicObjectUrl = Utils_Files_PublicUrl;
 
 export const Utils_Avatar_Src = (
     profile:

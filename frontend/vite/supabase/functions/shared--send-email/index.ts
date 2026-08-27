@@ -1,4 +1,10 @@
-import { mirrorEmailToNotification, type NotifyHints } from "../_shared/notify.ts";
+import {
+    getNotifyAdminClient,
+    mirrorEmailToNotification,
+    type NotifyHints,
+    type NotifyResult,
+} from "../_shared/notify.ts";
+import { getStorageDriver } from "../_shared/storage.ts";
 
 function requireEnv(name: string): string {
     const value = Deno.env.get(name);
@@ -23,36 +29,6 @@ type EmailDriverName = "resend" | "console";
 
 function getEmailDriverName(): EmailDriverName {
     return Deno.env.get("EMAIL_DRIVER") === "console" ? "console" : "resend";
-}
-
-// --- Recipient allowlist (development) ---
-//
-// Resend's shared test sender `onboarding@resend.dev` delivers ONLY to the
-// address owning the Resend account and 403s everyone else. Left alone, that
-// 403 becomes a 502 here, which `auth_send-verification` and
-// `organizations_send-invitation` treat as a hard failure — so with real
-// credentials but no verified domain, signing up or inviting anyone but the
-// account owner breaks outright. Being unable to mail a fictional recipient is
-// expected in dev; failing the operation because of it is not.
-//
-// So when `EMAIL_ALLOWLIST` is set, addresses outside it are diverted to the
-// console rather than attempted: the caller's flow completes, the message is
-// still inspectable, and the in-app notification is still mirrored.
-//
-// UNSET IS THE PRODUCTION SETTING and means "no filtering" — the fail-safe
-// direction. An allowlist that silently swallowed real mail in production would
-// be far worse than the 502 it exists to avoid, so it can only ever be opted
-// INTO, never inherited by forgetting to configure it.
-function getEmailAllowlist(): string[] {
-    return (Deno.env.get("EMAIL_ALLOWLIST") ?? "")
-        .split(",")
-        .map((entry) => entry.trim().toLowerCase())
-        .filter(Boolean);
-}
-
-function isAllowedRecipient(to: string): boolean {
-    const allowlist = getEmailAllowlist();
-    return allowlist.length === 0 || allowlist.includes(to.trim().toLowerCase());
 }
 
 // --- Scenario Registry ---
@@ -84,16 +60,112 @@ type EmailScenario =
 
 interface ScenarioConfig {
     subject: string;
-    template: string;
+    template: EmailTemplate;
     requiredFields: string[];
 }
 
+/**
+ * A template is now a TITLE PLUS A BODY, not a finished document.
+ *
+ * ═══ WHY THIS CHANGED (CG-050) ═══
+ *
+ * The shell used to be applied at MODULE LOAD — `TEMPLATES` held fully rendered
+ * HTML strings — which is precisely why per-organization branding could not
+ * reach it: by the time a request knew which organization it was for, the
+ * document had been built minutes or hours earlier and cached in the isolate.
+ * Splitting title from body lets the shell be applied at REQUEST time, once the
+ * brand is known.
+ *
+ * THE RISK IS WORTH NAMING. This moved rendering for EVERY outbound email in the
+ * product, including password recovery. The unbranded path (`brand === null`)
+ * must render byte-identically to what shipped before — that is the invariant to
+ * check first if anything about mail looks wrong after this change.
+ */
+type EmailTemplate = { title: string; body: string };
+
 // --- Inline Templates (Supabase edge runtime doesn't preserve non-TS files) ---
 
-const TEMPLATE_SHELL = (title: string, body: string) =>
-    `<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${title}</title><style>body{margin:0;padding:0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#eef2ff}.container{max-width:480px;margin:40px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid #e8e8e8}.header{background:#6366f1;padding:32px 24px;text-align:center}.logo{width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;color:#fff}.header h1{color:#fff;font-size:18px;font-weight:700;margin:0;letter-spacing:.5px}.content{padding:32px 28px}.content h2{color:#1a1a1a;font-size:20px;font-weight:600;margin:0 0 12px}.content p{color:#555;font-size:15px;line-height:1.6;margin:0 0 16px}.btn{display:inline-block;padding:12px 28px;background:#6366f1;color:#fff!important;text-decoration:none!important;border-radius:6px;font-weight:600;font-size:15px}.btn-wrap{text-align:center;margin:24px 0}.divider{height:1px;background:#e8e8e8;margin:24px 0}.muted{color:#999;font-size:13px;line-height:1.5}.footer{background:#fafafa;padding:20px 28px;text-align:center;border-top:1px solid #e8e8e8}.footer p{color:#999;font-size:12px;margin:4px 0}</style></head><body><div class="container"><div class="header"><div class="logo">&#128221;</div><h1>ContractGo</h1></div><div class="content">${body}</div><div class="footer"><p>&copy; 2026 ContractGo. All rights reserved.</p></div></div></body></html>`;
+/**
+ * Kept as the authoring call so the template table below reads unchanged. It no
+ * longer renders — it just pairs a title with a body for `renderShell`.
+ */
+const TEMPLATE_SHELL = (title: string, body: string): EmailTemplate => ({ title, body });
 
-const TEMPLATES: Record<EmailScenario, string> = {
+/** The product's own look. What every organization is until it chooses otherwise. */
+const DEFAULT_BRAND_COLOR = "#6366f1";
+const DEFAULT_BRAND_BG = "#eef2ff";
+
+type EmailBrand = {
+    orgName: string;
+    /** `#RRGGBB` or null for the product palette. */
+    brandColor: string | null;
+    /** Absolute public URL, or null for the default 📝 mark. */
+    logoUrl: string | null;
+    /**
+     * Display name for the `from:` header, or null for the product default.
+     *
+     * On the brand rather than looked up separately because it is the same
+     * decision as the logo and the colour — "who does this mail look like it is
+     * from" — and it is loaded by the same single query.
+     */
+    senderName: string | null;
+};
+
+/**
+ * `interpolate` escapes nothing, which is fine while every placeholder is
+ * server-generated. A brand value is the first that is TENANT-CONTROLLED, so it
+ * is escaped here. The database has a CHECK refusing the dangerous characters in
+ * `email_sender_name` too — this is the second layer, and it covers the org NAME
+ * as well, which has no such CHECK.
+ */
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+/**
+ * Wraps a body in the ContractGo email chrome, branded if the organization has
+ * chosen a look.
+ *
+ * ═══ COLOURS GO INLINE, NOT ONLY IN `<style>` ═══
+ *
+ * Several mail clients drop the stylesheet entirely. The `<style>` block is kept
+ * because it carries layout that has always worked, but every BRAND colour is
+ * also written onto the element — so a client that ignores the stylesheet
+ * degrades to readable rather than to unstyled.
+ *
+ * ═══ THE LOGO KEEPS THE 📝 FALLBACK IN ITS `alt` ═══
+ *
+ * Remote images are blocked by default in a lot of clients, so `alt` is not a
+ * courtesy here — it is what carries the sender's identity when the image never
+ * loads. That is also why the org name is printed as text beside it rather than
+ * being baked into the logo.
+ */
+function renderShell(template: EmailTemplate, brand: EmailBrand | null): string {
+    const accent = brand?.brandColor ?? DEFAULT_BRAND_COLOR;
+    const headerName = brand ? escapeHtml(brand.orgName) : "ContractGo";
+    const logoUrl = brand?.logoUrl ?? null;
+
+    const logoMark = logoUrl
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${headerName}" style="max-width:160px;max-height:48px;margin-bottom:12px"/>`
+        : `<div class="logo" style="width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;color:#fff">&#128221;</div>`;
+
+    // A branded email still says who actually operates the service — a recipient
+    // who has never heard of ContractGo needs to be able to tell what they are
+    // looking at, and a completely white-labelled mail from an unknown sender is
+    // a phishing shape.
+    const footerLine = brand
+        ? `<p>Sent by ${headerName} via ContractGo.</p><p>&copy; 2026 ContractGo. All rights reserved.</p>`
+        : `<p>&copy; 2026 ContractGo. All rights reserved.</p>`;
+
+    return `<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${template.title}</title><style>body{margin:0;padding:0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:${DEFAULT_BRAND_BG}}.container{max-width:480px;margin:40px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid #e8e8e8}.header{background:${accent};padding:32px 24px;text-align:center}.logo{width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;color:#fff}.header h1{color:#fff;font-size:18px;font-weight:700;margin:0;letter-spacing:.5px}.content{padding:32px 28px}.content h2{color:#1a1a1a;font-size:20px;font-weight:600;margin:0 0 12px}.content p{color:#555;font-size:15px;line-height:1.6;margin:0 0 16px}.btn{display:inline-block;padding:12px 28px;background:${accent};color:#fff!important;text-decoration:none!important;border-radius:6px;font-weight:600;font-size:15px}.btn-wrap{text-align:center;margin:24px 0}.divider{height:1px;background:#e8e8e8;margin:24px 0}.muted{color:#999;font-size:13px;line-height:1.5}.footer{background:#fafafa;padding:20px 28px;text-align:center;border-top:1px solid #e8e8e8}.footer p{color:#999;font-size:12px;margin:4px 0}</style></head><body style="margin:0;padding:0;background-color:${DEFAULT_BRAND_BG}"><div class="container"><div class="header" style="background:${accent};padding:32px 24px;text-align:center">${logoMark}<h1 style="color:#fff;font-size:18px;font-weight:700;margin:0;letter-spacing:.5px">${headerName}</h1></div><div class="content">${template.body}</div><div class="footer">${footerLine}</div></div></body></html>`;
+}
+
+const TEMPLATES: Record<EmailScenario, EmailTemplate> = {
     auth_confirmation: TEMPLATE_SHELL(
         "Verify your email - ContractGo",
         `<h2>Verify your email</h2><p>Hi {{name}}, thanks for signing up! Click the button below to verify your email address.</p><div class="btn-wrap"><a href="{{confirmationUrl}}" class="btn" style="color:#fff!important;text-decoration:none!important">Verify Email Address</a></div><div class="divider"></div><p class="muted">This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.</p>`
@@ -271,6 +343,92 @@ function interpolate(template: string, vars: Record<string, string>): string {
     return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
 }
 
+/**
+ * Scenarios that are NEVER branded, whatever `organization_id` says.
+ *
+ * These concern a CONTRACTGO ACCOUNT, not a tenant. They arrive before the
+ * recipient has any relationship with an organization — often before they have
+ * an account at all — and dressing a password-reset mail in a customer's logo
+ * would be actively misleading about who is asking for the credential.
+ */
+const NEVER_BRANDED: ReadonlySet<EmailScenario> = new Set<EmailScenario>([
+    "auth_confirmation",
+    "auth_recovery",
+]);
+
+/**
+ * Loads an organization's branding, or null.
+ *
+ * ═══ FAILURE IS SILENT AND THAT IS THE POINT ═══
+ *
+ * Mail here is best-effort: an UNBRANDED INVITATION BEATS AN UNSENT ONE. Every
+ * failure path — no id, an id that does not resolve, a database error, a logo
+ * whose `files` row has gone — returns null and the message renders in the
+ * product's own look, exactly as every message did before CG-050.
+ *
+ * Uses the already-cached `getNotifyAdminClient()` rather than building a second
+ * service-role client per request.
+ */
+async function loadBrand(
+    scenario: EmailScenario,
+    organizationId: string | undefined
+): Promise<EmailBrand | null> {
+    if (!organizationId || NEVER_BRANDED.has(scenario)) return null;
+
+    try {
+        const admin = getNotifyAdminClient();
+        const { data, error } = await admin
+            .from("organizations")
+            .select(
+                "name, brand_color, email_sender_name, logo_file_id, files:logo_file_id (r2_key)"
+            )
+            .eq("id", organizationId)
+            .maybeSingle();
+
+        if (error || !data) return null;
+
+        const file = Array.isArray(data.files) ? data.files[0] : data.files;
+        const r2Key = (file as { r2_key?: string } | null)?.r2_key ?? null;
+
+        let logoUrl: string | null = null;
+        if (r2Key) {
+            // Unsigned, permanent. A signed URL cannot work in mail — the client
+            // holds no credential and the message is opened weeks later — and a
+            // TTL long enough to survive that is a bearer credential living in a
+            // mail archive. See the CG-050 migration header.
+            try {
+                logoUrl = getStorageDriver().publicUrl(r2Key);
+            } catch (err) {
+                // A missing R2_WORKER_URL must not cost the whole email.
+                console.error("shared--send-email: could not build logo URL:", err);
+            }
+        }
+
+        return {
+            orgName: (data.name as string) ?? "",
+            brandColor: (data.brand_color as string | null) ?? null,
+            logoUrl,
+            senderName: (data.email_sender_name as string | null) ?? null,
+        };
+    } catch (err) {
+        console.error("shared--send-email: branding lookup failed (non-fatal):", err);
+        return null;
+    }
+}
+
+/**
+ * Sanitizes a tenant-chosen display name for the `from:` header.
+ *
+ * The database CHECK on `email_sender_name` already refuses `\r`, `\n`, `<`,
+ * `>`, `"` and `,`. This strips them again anyway, because the cost of being
+ * wrong is SMTP header injection and the cost of being right twice is one
+ * `replace`. A value that ends up empty falls back to the configured default.
+ */
+function sanitizeSenderName(name: string | null | undefined): string {
+    const cleaned = (name ?? "").replace(/[\r\n<>",]/g, "").trim();
+    return cleaned.length > 0 ? cleaned.slice(0, 64) : requireEnv("RESEND_SENDER_NAME");
+}
+
 // --- Handler ---
 
 const corsHeaders = {
@@ -305,11 +463,23 @@ Deno.serve(async (req) => {
     try {
         // `notify` is optional and additive (CG-018): callers that do not send it
         // still mirror, they just produce a row with no org, no request and no link.
-        const { scenario, to, payload, notify } = (await req.json()) as {
+        const { scenario, to, payload, notify, organization_id } = (await req.json()) as {
             scenario: string;
             to: string;
             payload: Record<string, string>;
             notify?: NotifyHints;
+            /**
+             * CG-050. Which organization's branding to render, if any.
+             *
+             * A TOP-LEVEL FIELD, deliberately NOT read from `notify.organizationId`.
+             * `_shared/signing.email.ts` omits the whole `notify` block for
+             * `signature_request_passcode`, because a live credential must not be
+             * mirrored to the notification bell. Riding branding on `notify` would
+             * silently turn that mirror opt-out into a branding opt-out, and the
+             * passcode mail — one of the few a signer definitely opens — would be
+             * the one email that lost its sender's identity.
+             */
+            organization_id?: string;
         };
 
         if (!scenario || !(scenario in SCENARIOS)) {
@@ -327,75 +497,159 @@ Deno.serve(async (req) => {
             return jsonResponse({ error: "Missing payload fields", missing }, 400);
         }
 
-        const html = interpolate(config.template, payload);
+        const brand = await loadBrand(scenario as EmailScenario, organization_id);
+
+        const html = interpolate(renderShell(config.template, brand), payload);
+        // Null brand (no org, or an account email) falls back to the configured
+        // product sender name — see `sanitizeSenderName`.
+        const senderName = sanitizeSenderName(brand?.senderName);
+        // SUBJECTS ARE NEVER BRANDED. They already name the organization where it
+        // matters ("You're invited to join {{orgName}}"), and a tenant-controlled
+        // subject line is a spam-filter and phishing surface for no gain.
         const subject = interpolate(config.subject, payload);
 
-        // CG-018. Runs only on a path that has already succeeded, and is never
-        // observable in the response: the mail HAS left, and surfacing a mirror
-        // failure as a non-200 would invite the caller to send it a second time.
-        // `mirrorEmailToNotification` does not throw; the try/catch is belt and
-        // braces for the import itself.
-        const mirrorNotification = async () => {
+        // CG-018. Never observable in the response on the success path: the mail
+        // HAS left, and surfacing a mirror failure as a non-200 would invite the
+        // caller to send it a second time. `mirrorEmailToNotification` does not
+        // throw; the try/catch is belt and braces for the import itself.
+        //
+        // The result IS returned, because the DELIVERY FAILURE path needs it —
+        // whether an in-app row exists is what decides between "undelivered but
+        // the recipient can still act" and a hard 502. See `deliveryFailed`.
+        const mirrorNotification = async (): Promise<NotifyResult> => {
             try {
-                await mirrorEmailToNotification(scenario, to, payload, notify);
+                return await mirrorEmailToNotification(scenario, to, payload, notify);
             } catch (err) {
                 console.error("shared--send-email: notification mirror failed:", err);
+                return { created: false, reason: "error" };
             }
         };
 
-        // The links are logged in full and deliberately so — both paths that reach
-        // here only run where the developer is already the intended recipient. This
+        // The links are logged in full and deliberately so — the console driver
+        // only runs where the developer is already the intended recipient. This
         // must never happen in staging or production, where the same log line would
         // be a live signing credential in a log aggregator.
-        const logToConsole = (reason: "console" | "filtered") =>
+        const logToConsole = () =>
             console.log(
-                `[email:${reason}] to=${to} scenario=${scenario}\n` +
+                `[email:console] to=${to} scenario=${scenario}\n` +
                     `  subject: ${subject}\n` +
                     Object.entries(payload)
                         .map(([key, value]) => `  ${key}: ${value}`)
                         .join("\n")
             );
 
+        // The recovery path for a send that did NOT happen. Losing a signing mail
+        // is not losing a message: the link inside it is the recipient's only way
+        // into the document, and the plaintext token exists exactly once (CG-005)
+        // — so once this request returns there is nothing left anywhere that can
+        // reproduce it, and the only remedy is to resend the whole document and
+        // revoke the link the party may already hold.
+        //
+        // It prints ONLY the link-bearing fields — never the passcode, never the
+        // rest of the payload — and only on a delivery that failed. That is the
+        // narrowest form of the trade-off `logToConsole` documents above: yes,
+        // this puts a live credential in the log aggregator on the failure path,
+        // which is the price of an operator who can hand the party their link.
+        const logLinksOnFailure = (reason: string) => {
+            const links = Object.entries(payload ?? {}).filter(([key]) => /(Link|Url)$/.test(key));
+            if (links.length === 0) return;
+            console.error(
+                `[email:failed] ${reason} — to=${to} scenario=${scenario}; NOT delivered:\n` +
+                    links.map(([key, value]) => `  ${key}: ${value}`).join("\n")
+            );
+        };
+
+        /**
+         * A send that did not happen, handled the way the removed EMAIL_ALLOWLIST
+         * path used to handle a recipient it could not reach.
+         *
+         * ═══ WHY A FAILED SEND STILL MIRRORS ═══
+         *
+         * The bell is the SECOND delivery channel, not a receipt for the first.
+         * With the shared `onboarding@resend.dev` sender — the dev default — every
+         * address but the Resend account owner's is refused, so leaving the mirror
+         * on the success path alone meant a 502 and NOTHING anywhere: no mail, no
+         * notification, and an invitation or reminder that vanished. Mirroring here
+         * puts it back in the one place the recipient can still find it.
+         *
+         * ═══ WHY THE STATUS CODE THEN DEPENDS ON THE MIRROR ═══
+         *
+         * `auth_confirmation`, `auth_recovery` and `signature_request_passcode` are
+         * deliberately NOT mirrored (see `_shared/notify.ts`): they reach someone
+         * who has no bell to open, or carry a live credential. For those, mail is
+         * the ONLY channel, so a failed send is a real failure and must stay a 502 —
+         * `auth_send-verification` surfacing "we couldn't send your verification
+         * email" is correct. When a row WAS created the operation genuinely
+         * half-succeeded, so it returns 200 with a distinct `status`, exactly as the
+         * old allowlist path returned `filtered`.
+         */
+        const deliveryFailed = async (reason: string, detail: string, status: number) => {
+            logLinksOnFailure(reason);
+            const mirrored = await mirrorNotification();
+            if (!mirrored.created) {
+                return jsonResponse({ error: "Email delivery failed", details: detail }, status);
+            }
+            console.warn(
+                `[email:undelivered] to=${to} scenario=${scenario} — ${reason}; ` +
+                    `delivered in-app as notification ${mirrored.id} instead.`
+            );
+            return jsonResponse(
+                {
+                    id: `undelivered_${scenario}`,
+                    status: "undelivered",
+                    notification_id: mirrored.id,
+                    details: detail,
+                },
+                200
+            );
+        };
+
         if (getEmailDriverName() === "console") {
-            logToConsole("console");
+            logToConsole();
             // Mirrored on the console path too, for the same reason the console driver
             // exists at all: without it the in-app inbox is undevelopable locally.
             await mirrorNotification();
             return jsonResponse({ id: `console_${scenario}`, status: "logged" }, 200);
         }
 
-        // Driver is `resend`, but this recipient is outside the allowlist. 200 with a
-        // DISTINCT status rather than an error: the caller's operation genuinely
-        // succeeded — the invitation row exists, the token was minted — and the only
-        // thing that did not happen is delivery to an address this environment was
-        // never able to reach. `status` is what tells the two apart.
-        if (!isAllowedRecipient(to)) {
-            logToConsole("filtered");
-            console.warn(
-                `[email:filtered] ${to} is not in EMAIL_ALLOWLIST — logged instead of sent.`
-            );
-            await mirrorNotification();
-            return jsonResponse({ id: `filtered_${scenario}`, status: "filtered" }, 200);
+        // Caught here rather than left to the outer handler so the link still
+        // gets logged when the provider is unreachable or a Resend env var is
+        // missing — the two failures a fresh deployment actually hits, and the
+        // ones where nothing was even attempted, so nothing was delivered.
+        let resendRes: Response;
+        try {
+            resendRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${requireEnv("RESEND_API_KEY")}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    // CG-050: the DISPLAY NAME is the organization's, the ADDRESS
+                    // never changes. That address is the domain Resend verified,
+                    // and moving it breaks SPF/DKIM — which means the mail stops
+                    // arriving, not just stops looking right. A per-tenant sending
+                    // domain is a separate feature with its own verification flow.
+                    from: `${senderName} <${requireEnv("RESEND_SENDER_EMAIL")}>`,
+                    to: [to],
+                    subject,
+                    html,
+                }),
+            });
+        } catch (err) {
+            const detail = err instanceof Error ? err.message : String(err);
+            console.error("Resend request threw:", err);
+            return await deliveryFailed(`Resend request threw (${detail})`, detail, 502);
         }
-
-        const resendRes = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${requireEnv("RESEND_API_KEY")}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: `${requireEnv("RESEND_SENDER_NAME")} <${requireEnv("RESEND_SENDER_EMAIL")}>`,
-                to: [to],
-                subject,
-                html,
-            }),
-        });
 
         if (!resendRes.ok) {
             const resendError = await resendRes.text();
             console.error("Resend error:", resendError);
-            return jsonResponse({ error: "Email delivery failed", details: resendError }, 502);
+            return await deliveryFailed(
+                `Resend rejected the message (${resendRes.status})`,
+                resendError,
+                502
+            );
         }
 
         const resendData = await resendRes.json();

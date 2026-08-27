@@ -731,32 +731,60 @@ export type Database = {
       organizations: {
         Row: {
           ai_assistant_enabled: boolean
+          brand_color: string | null
           created_at: string
+          default_expiry_days: number | null
+          default_reminder_days: number[]
+          default_signer_auth: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          email_sender_name: string | null
           id: string
           is_personal: boolean
+          logo_file_id: string | null
           name: string
           owner_id: string
+          timezone: Database["public"]["Enums"]["iana_timezone"]
           updated_at: string
         }
         Insert: {
           ai_assistant_enabled?: boolean
+          brand_color?: string | null
           created_at?: string
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
+          default_signer_auth?: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          email_sender_name?: string | null
           id?: string
           is_personal?: boolean
+          logo_file_id?: string | null
           name: string
           owner_id: string
+          timezone?: Database["public"]["Enums"]["iana_timezone"]
           updated_at?: string
         }
         Update: {
           ai_assistant_enabled?: boolean
+          brand_color?: string | null
           created_at?: string
+          default_expiry_days?: number | null
+          default_reminder_days?: number[]
+          default_signer_auth?: Database["public"]["Enums"]["signature_requests_signer_auth_enum"]
+          email_sender_name?: string | null
           id?: string
           is_personal?: boolean
+          logo_file_id?: string | null
           name?: string
           owner_id?: string
+          timezone?: Database["public"]["Enums"]["iana_timezone"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_logo_file_id_fkey"
+            columns: ["logo_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organizations_owner_id_fkey"
             columns: ["owner_id"]

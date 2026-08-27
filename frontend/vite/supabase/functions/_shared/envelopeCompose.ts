@@ -162,12 +162,25 @@ export type SignerAuth = "account" | "email_otp";
  * setting; and refusing here produces a sentence the sender can read instead of
  * a Postgres enum-constraint error surfacing as a 500.
  *
+ * CG-050 added the ORG DEFAULT as the middle rung: explicit body > organization
+ * > 'account'. It is a parameter with a default rather than a lookup inside this
+ * function, so the function stays pure and every existing call — and the whole
+ * existing test file — keeps its meaning unchanged. The org's value comes free
+ * on `ctx.organization`, widened out of a select that already ran.
+ *
+ * Note the org default does NOT weaken the fail-closed rule below it: an org
+ * that never chose still resolves to 'account', because that column's own
+ * database default is 'account'.
+ *
  * Pure, so it is unit-testable without a client — see
  * `tests/unit/edge/envelopeCompose.signerAuth.test.ts`.
  */
-export function resolveSignerAuth(body: ComposeBody): SignerAuth {
+export function resolveSignerAuth(
+    body: ComposeBody,
+    orgDefault: SignerAuth = "account"
+): SignerAuth {
     const value = body.signer_auth;
-    if (value === undefined || value === null) return "account";
+    if (value === undefined || value === null) return orgDefault;
     if (value === "account" || value === "email_otp") return value;
     throw new Error(
         `Unknown signer_auth ${JSON.stringify(value)}. Expected "account" or "email_otp".`
@@ -773,6 +786,49 @@ const MAX_EXPIRY_DAYS = 365;
  *    tie fires, so they are collapsed here rather than left to surprise someone
  *    reading the column.
  */
+/**
+ * Folds the ORG's house defaults in under the template version's (CG-050).
+ *
+ * Precedence, and every rung is deliberate:
+ *
+ *   expiry     body (incl. explicit null = never) > version > ORG > never
+ *   reminders  body (incl. explicit [] = none)    > version IF NON-EMPTY > ORG > {}
+ *
+ * `resolveSchedule` itself does NOT change — only what is handed to it. That
+ * matters: it is the function with the clock rules and the stranded-reminder
+ * check in it, and CG-013's reasoning about those is untouched by adding a
+ * fallback one level up.
+ *
+ * ═══ WHY REMINDERS SAY "IF NON-EMPTY" AND EXPIRY DOES NOT ═══
+ *
+ * `contract_template_versions.default_expiry_days` is NULLABLE, so a version can
+ * say "I have no opinion" and the org is asked next. `default_reminder_days` is
+ * `NOT NULL DEFAULT '{}'` (CG-013), so it CANNOT distinguish "never configured"
+ * from "explicitly no reminders" — every version ever created has `{}` unless
+ * someone typed something.
+ *
+ * Treating `{}` as "no opinion" is therefore the only reading that makes an org
+ * default reachable at all, and it is resolved toward inheritance on purpose. It
+ * does cost one thing: a template author cannot express "this template
+ * specifically should never remind" while the org does. A sender can still do it
+ * per-envelope with an explicit `reminder_days: []`, which outranks everything
+ * here. If that limitation ever actually bites, the fix is dropping the NOT NULL
+ * — which means touching the template Insert types and CG-039's version-copy
+ * trigger, and is not worth doing speculatively.
+ */
+export function mergeScheduleDefaults(
+    version: { default_expiry_days: number | null; default_reminder_days: number[] },
+    organization?: { default_expiry_days: number | null; default_reminder_days: number[] }
+): { defaultExpiryDays: number | null; defaultReminderDays: number[] } {
+    return {
+        defaultExpiryDays: version.default_expiry_days ?? organization?.default_expiry_days ?? null,
+        defaultReminderDays:
+            version.default_reminder_days.length > 0
+                ? version.default_reminder_days
+                : (organization?.default_reminder_days ?? []),
+    };
+}
+
 export function resolveSchedule(
     body: ComposeBody,
     defaults: {

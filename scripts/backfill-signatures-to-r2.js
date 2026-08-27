@@ -105,10 +105,10 @@ async function main() {
     }
 
     const legacy = (contracts ?? []).filter(
-        (c) => c.signature_path && !c.signature_path.startsWith("orgs/"),
+        (c) => c.signature_path && !c.signature_path.startsWith("orgs/")
     );
     console.log(
-        `[migrate-signatures] ${contracts?.length ?? 0} contracts with signatures, ${legacy.length} legacy (Supabase Storage)`,
+        `[migrate-signatures] ${contracts?.length ?? 0} contracts with signatures, ${legacy.length} legacy (Supabase Storage)`
     );
 
     if (legacy.length === 0) {
@@ -131,7 +131,9 @@ async function main() {
         // 1. Download from Supabase Storage
         const download = await supabase.storage.from("org-files").download(legacyPath);
         if (download.error || !download.data) {
-            console.error(`    download failed: ${download.error?.message ?? "no data"} — skipping`);
+            console.error(
+                `    download failed: ${download.error?.message ?? "no data"} — skipping`
+            );
             skipped++;
             continue;
         }
@@ -145,7 +147,7 @@ async function main() {
                     Key: newKey,
                     Body: bytes,
                     ContentType: "image/png",
-                }),
+                })
             );
         } catch (err) {
             console.error(`    R2 put failed:`, err.message);
@@ -162,9 +164,7 @@ async function main() {
             console.error(`    DB update failed:`, updateRes.error.message);
             // Roll back the R2 put so we don't orphan
             try {
-                await s3.send(
-                    new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: newKey }),
-                );
+                await s3.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: newKey }));
             } catch {}
             skipped++;
             continue;
@@ -172,13 +172,9 @@ async function main() {
 
         // 4. (Optional) remove from Supabase Storage
         if (DELETE_SOURCE) {
-            const removeRes = await supabase.storage
-                .from("org-files")
-                .remove([legacyPath]);
+            const removeRes = await supabase.storage.from("org-files").remove([legacyPath]);
             if (removeRes.error) {
-                console.warn(
-                    `    storage remove failed (non-fatal): ${removeRes.error.message}`,
-                );
+                console.warn(`    storage remove failed (non-fatal): ${removeRes.error.message}`);
             }
         }
 
@@ -186,7 +182,7 @@ async function main() {
     }
 
     console.log(
-        `[migrate-signatures] done — migrated ${migrated}, skipped ${skipped}${DELETE_SOURCE ? "" : " (source copies retained)"}`,
+        `[migrate-signatures] done — migrated ${migrated}, skipped ${skipped}${DELETE_SOURCE ? "" : " (source copies retained)"}`
     );
 }
 

@@ -76,8 +76,22 @@ import type { AiFieldDescriptor, AiPage } from "../_shared/aiPrompt.ts";
 import { extractDocumentText } from "../_shared/pdfText.ts";
 import type { Rpc_SignerAiMessageBegin } from "../_shared/rpcRows.ts";
 
-/** How long the signer waits before we give up and hand back the turn. */
-const MODEL_TIMEOUT_MS = 20_000;
+/**
+ * How long the signer waits before we give up and hand back the turn.
+ *
+ * 45s, up from 20s. The 20s deadline was set against a model that usually
+ * answers in two or three, and it holds right up until the upstream has a slow
+ * minute — measured against this endpoint's own model, an identical trivial
+ * request came back in 1.2s, then 19.4s, then 2.8s. A ceiling inside that spread
+ * does not cap the wait, it converts an answer that WAS coming into a failure,
+ * and the signer's only recourse is to ask the same question again and pay the
+ * same lottery.
+ *
+ * The cost of the higher number is bounded: nothing here holds a lock, the turn
+ * is refunded either way, and the signer sees a pending state the whole time.
+ * The cost of the lower one is a feature that looks broken on a bad connection.
+ */
+const MODEL_TIMEOUT_MS = 45_000;
 
 /** How many prior exchanges are replayed. Six is roughly a screen of context. */
 const HISTORY_TURNS = 6;
@@ -93,8 +107,14 @@ type SnapshotField = {
     page: number;
 };
 
+type SnapshotRole = {
+    id: string;
+    name: string;
+};
+
 type Snapshot = {
     layout?: SnapshotField[];
+    signer_roles?: SnapshotRole[];
     pdf_file_path?: string | null;
 };
 
@@ -234,6 +254,7 @@ servePublicSigningFunction("signing_ai_ask", async (body, req) => {
             pages: context.pages,
             fields: describeFields(ctx),
             entries: describeEntries(ctx),
+            details: await describeRequest(ctx),
             question,
             nonce,
         });
@@ -255,7 +276,8 @@ servePublicSigningFunction("signing_ai_ask", async (body, req) => {
             context.document_text,
             context.pages,
             built.includedPages,
-            nonce
+            nonce,
+            built.detailsText
         );
 
         if (verified.leaked) {
@@ -363,13 +385,25 @@ async function handleDriverFailure(
         );
     }
 
-    await refund(result.reason);
+    // The detail rides along into `failure_reason`. A console line is the FIRST
+    // thing lost when the edge runtime restarts — which is exactly when a
+    // configuration fault gets investigated, and the reason a `config` row in
+    // `signer_ai_messages` was once unexplainable an hour after it happened. The
+    // column outlives the log; `signer_ai_message_fail` truncates at 200.
+    await refund(result.detail ? `${result.reason}: ${result.detail}` : result.reason);
 
     if (result.reason === "config") {
         // OUR fault: a bad key, a disabled API, a model name that does not
         // exist. Loud in the log, opaque to the signer.
         console.error(`signing_ai_ask: AI configuration fault — ${result.detail}`);
-        throw new SignerAuthError(500, "Internal error");
+        // NOT "Internal error". Nothing about the signer's request was wrong and
+        // there is nothing for them to fix, so the honest thing to show is the
+        // same "unavailable, try again" every other outage shows — telling them
+        // the deployment is misconfigured helps nobody and names our internals.
+        return jsonResponse(
+            { error: "The document assistant is unavailable right now. Please try again." },
+            503
+        );
     }
     if (result.detail) console.warn(`signing_ai_ask: ${result.reason} — ${result.detail}`);
 
@@ -480,6 +514,65 @@ async function loadHistory(
     return (data ?? [])
         .reverse()
         .map((row) => ({ question: row.question as string, answer: (row.answer ?? "") as string }));
+}
+
+/**
+ * What the PLATFORM knows about this request — the facts the signing page shows
+ * around the document, which the document itself often never states.
+ *
+ * "What org sent this to me?" was answered "the document does not say", with the
+ * sender's name rendered two inches away on the same screen. It was a true
+ * statement about the PDF and a useless one to the reader; an offer letter
+ * naming no employer in its body is completely ordinary.
+ *
+ * ═══ WHAT GOES IN, AND WHAT MAY NEVER ═══
+ *
+ * Only what this signer is already looking at: the sender's organization name,
+ * the title, their own name, the role they sign as, and whether others sign
+ * first. NOT the email address — `aiPrompt.ts`'s trust boundary rules out
+ * addresses, ids, tokens and R2 keys, and nothing here needs one. The
+ * organization NAME is tenant-authored, so it is fenced with everything else:
+ * being true does not make it safe to obey.
+ *
+ * ONE EXTRA QUERY, on a path that already does an RPC, a context read, a history
+ * read and a model call. Failure is silent — a missing sender name costs one
+ * answer, not the question.
+ */
+async function describeRequest(
+    ctx: Awaited<ReturnType<typeof resolveSignerToken>>
+): Promise<Record<string, string>> {
+    const details: Record<string, string> = {};
+
+    try {
+        const { data: org } = await ctx.admin
+            .from("organizations")
+            .select("name")
+            .eq("id", ctx.request.organization_id)
+            .maybeSingle();
+        const name = (org?.name as string | null)?.trim();
+        // The same words the page prints above the document, so a signer who
+        // reads the answer and looks up sees one fact, not two phrasings of it.
+        if (name) details["Sent to you by"] = name;
+    } catch (err) {
+        console.error("signing_ai_ask: sender lookup failed (non-fatal):", err);
+    }
+
+    details["Document title"] = ctx.request.title;
+    if (ctx.signer.signer_name) details["You are"] = ctx.signer.signer_name;
+
+    const snapshot = (ctx.request.template_snapshot ?? {}) as Snapshot;
+    const roles = Array.isArray(snapshot.signer_roles) ? snapshot.signer_roles : [];
+    const role = roles.find((entry) => entry.id === ctx.signer.role_id);
+    if (role?.name) details["Your role"] = role.name;
+
+    // `cc` is the one recipient type that cannot act, and "why can't I sign
+    // this?" is a question the document can never answer.
+    details["Your part"] =
+        ctx.signer.recipient_type === "cc"
+            ? "you were sent a copy for your records — you are not being asked to sign"
+            : "you have been asked to sign this document";
+
+    return details;
 }
 
 /**

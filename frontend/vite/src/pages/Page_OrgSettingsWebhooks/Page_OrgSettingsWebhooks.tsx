@@ -23,9 +23,9 @@ import {
     RedoOutlined,
     SendOutlined,
 } from "@ant-design/icons";
-import { Page_SettingsWebhooks_EndpointModal } from "./Page_SettingsWebhooks_EndpointModal";
-import { Page_SettingsWebhooks_DeliveriesDrawer } from "./Page_SettingsWebhooks_DeliveriesDrawer";
-import { Page_SettingsApiKeys_RevealPanel } from "@/pages/Page_SettingsApiKeys/Page_SettingsApiKeys_RevealPanel";
+import { Page_OrgSettingsWebhooks_EndpointModal } from "./Page_OrgSettingsWebhooks_EndpointModal";
+import { Page_OrgSettingsWebhooks_DeliveriesDrawer } from "./Page_OrgSettingsWebhooks_DeliveriesDrawer";
+import { Page_OrgSettingsApiKeys_RevealPanel } from "@/pages/Page_OrgSettingsApiKeys/Page_OrgSettingsApiKeys_RevealPanel";
 import {
     useQ_Tables_WebhookEndpoints,
     type Tables_WebhookEndpoints_Row,
@@ -64,16 +64,16 @@ import { Modal } from "antd";
  * switched off, and telling someone only after it goes dark is telling them too
  * late.
  */
-export const Page_SettingsWebhooks = () => {
+export const Page_OrgSettingsWebhooks = () => {
     const { token } = theme.useToken();
     const { organizationId } = useParams({
-        from: "/_protected/$organizationId/settings/webhooks",
+        from: "/_protected/$organizationId/settings/_integrations/webhooks",
     });
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Tables_WebhookEndpoints_Row | null>(null);
     const [drawerFor, setDrawerFor] = useState<Tables_WebhookEndpoints_Row | null>(null);
-    /** See `Page_SettingsApiKeys` — held here and nowhere else, dies with the modal. */
+    /** See `Page_OrgSettingsApiKeys` — held here and nowhere else, dies with the modal. */
     const [issuedSecret, setIssuedSecret] = useState<string | null>(null);
     const [rotatedSecret, setRotatedSecret] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<Webhook_TestSend_Result | null>(null);
@@ -378,7 +378,7 @@ export const Page_SettingsWebhooks = () => {
                 </Space>
             )}
 
-            <Page_SettingsWebhooks_EndpointModal
+            <Page_OrgSettingsWebhooks_EndpointModal
                 open={modalOpen}
                 editing={editing}
                 isSubmitting={mCreate.mutation.isPending || mUpdate.mutation.isPending}
@@ -402,7 +402,7 @@ export const Page_SettingsWebhooks = () => {
                 destroyOnHidden
             >
                 {rotatedSecret && (
-                    <Page_SettingsApiKeys_RevealPanel
+                    <Page_OrgSettingsApiKeys_RevealPanel
                         label="Signing secret"
                         value={rotatedSecret}
                         warning="Deliveries to this endpoint are failing right now and will keep failing until your server is using this new secret. The old one has already stopped working."
@@ -484,7 +484,7 @@ export const Page_SettingsWebhooks = () => {
                 )}
             </Modal>
 
-            <Page_SettingsWebhooks_DeliveriesDrawer
+            <Page_OrgSettingsWebhooks_DeliveriesDrawer
                 endpoint={drawerFor}
                 onClose={() => setDrawerFor(null)}
             />

@@ -975,7 +975,7 @@ export type SignerAuditEventType =
     | "signer_declined"
     | "signer_token_redeemed"
     // Already a value of the DB enum, and already written by the SENDER side
-    // (`envelopes_dev-signing-link`, `envelopes_remind`). It was absent from this
+    // (`envelopes_remind`, `envelopes_resend`). It was absent from this
     // union only because no signer-side function minted a credential until
     // `signing_submit` began issuing the post-signature download token — the same
     // shape of omission CG-031's passcode events had, and a type-only fix.

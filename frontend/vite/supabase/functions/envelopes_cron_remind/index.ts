@@ -79,7 +79,7 @@ serveCronFunction("envelopes_cron_remind", async () => {
         // widens the select to `string` and collapses the row type.
         .from("signature_requests")
         .select(
-            "id, organization_id, title, current_order, sent_at, expires_at, reminder_days, organizations(name), signature_request_signers(id, last_reminded_at, signer_order, recipient_type, status)"
+            "id, organization_id, title, current_order, sent_at, expires_at, reminder_days, organizations(name, timezone), signature_request_signers(id, last_reminded_at, signer_order, recipient_type, status)"
         )
         .eq("status", "in_progress")
         .not("sent_at", "is", null)
@@ -135,12 +135,19 @@ serveCronFunction("envelopes_cron_remind", async () => {
         // the assertion has to go through `unknown`.
         const organizationName =
             (request.organizations as unknown as { name: string } | null)?.name ?? "";
+        // CG-050. Presentation only — it renders the deadline line. Read from the
+        // SAME embed as the name, so it costs nothing. The pinned columns this
+        // cron schedules from (`reminder_days`, `expires_at`) are untouched.
+        const organizationTimezone = (
+            request.organizations as unknown as { timezone?: string } | null
+        )?.timezone;
 
         const outcomes = await remindSignersAtOrder({
             admin,
             requestId: request.id,
             organizationId: request.organization_id,
             organizationName,
+            organizationTimezone,
             documentTitle: request.title,
             order: request.current_order,
             sentAt: request.sent_at,

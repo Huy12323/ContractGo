@@ -180,6 +180,14 @@ serveSenderFunction("organizations_send-invitation", async (body, req) => {
                 inviterLine: inviterName ? `${inviterName} invited you. ` : "",
                 invitationLink,
             },
+            // CG-050. TOP-LEVEL, and this call site is the clearest illustration
+            // of why it could not ride on `notify`: the `notify` block below
+            // deliberately omits `organizationId`, for a reason that is about
+            // WHERE A NOTIFICATION ROW IS FILED and has nothing to do with whose
+            // logo belongs on the message. The invitee is not a member yet — but
+            // the invitation is unmistakably FROM this organization, and it is
+            // the first thing they ever see of it.
+            organization_id: organizationId,
             // CG-018. Deliberately NO `organizationId`: the invitee is not a
             // member of this organization yet — that is what the invitation
             // is for — so stamping it would file the notification under an

@@ -45,7 +45,7 @@ const STATUS_TAG: Record<string, { color: string; label: string; help: string }>
     },
 };
 
-export const Page_SettingsWebhooks_DeliveriesDrawer = ({
+export const Page_OrgSettingsWebhooks_DeliveriesDrawer = ({
     endpoint,
     onClose,
 }: {

@@ -123,6 +123,16 @@ export type OtpDriver = {
         documentTitle: string;
         signerName: string;
         organizationName: string;
+        /**
+         * CG-050. Which organization's branding the message wears.
+         *
+         * On the seam beside `organizationName` for the same reason that is here:
+         * a passcode has to identify its sender in every channel. It is the ID
+         * rather than the branding itself because a future SMS driver would use
+         * it differently — a sender ID, not a logo — and the driver is the right
+         * place to decide what "branded" means for its channel.
+         */
+        organizationId: string;
         expiresInMinutes: number;
     }): Promise<void>;
 };

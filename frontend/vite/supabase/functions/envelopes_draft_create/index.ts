@@ -49,6 +49,7 @@ import {
     isCc,
     isEmptyRecipient,
     resolveRequireIdentityCheck, // [ekyc]
+    mergeScheduleDefaults,
     resolveSchedule,
     resolveSignerAuth,
     resolveTemplateAndVersion,
@@ -69,8 +70,7 @@ serveSenderFunction("envelopes_draft_create", async (rawBody, req) => {
     let schedule;
     try {
         schedule = resolveSchedule(body, {
-            defaultExpiryDays: resolved.version.default_expiry_days,
-            defaultReminderDays: resolved.version.default_reminder_days,
+            ...mergeScheduleDefaults(resolved.version, ctx.organization),
             sentAt: new Date(),
             // The relative checks only. A draft's deadline is an absolute instant,
             // so one that sits for a month has a deadline in the past through no
@@ -111,7 +111,7 @@ serveSenderFunction("envelopes_draft_create", async (rawBody, req) => {
             // CG-031. Saved on the draft so resuming it restores the sender's
             // choice; re-resolved at promotion like everything else, so the send
             // reflects what is on screen rather than what was last autosaved.
-            signer_auth: resolveSignerAuth(body),
+            signer_auth: resolveSignerAuth(body, ctx.organization.default_signer_auth),
             require_identity_check: resolveRequireIdentityCheck(body), // [ekyc]
             created_by: userId,
         })

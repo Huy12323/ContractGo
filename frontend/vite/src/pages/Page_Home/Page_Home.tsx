@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Typography, Button, Input, Spin, Empty, Dropdown, theme } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { Building2, MoreHorizontal, Users } from "lucide-react";
 import { useQ_Tables_MyOrganizations } from "@/hooks/useQ_Tables_MyOrganizations";
 import type { Tables_MyOrganizations_QueryData } from "@/hooks/useQ_Tables_MyOrganizations";
 import { useQ_Tables_MyRole } from "@/hooks/useQ_Tables_MyRole";
-import { App_OrgSettingsModal } from "@/components/organization/App_OrgSettingsModal";
 import { App_CreateOrgModal } from "@/components/organization/App_CreateOrgModal";
 import { useApp_Breakpoint } from "@/hooks/useApp_Breakpoint";
 import { PageHome_MyDocuments } from "@/pages/Page_Home/PageHome_MyDocuments";
@@ -151,8 +150,8 @@ function PageHome_OrgRow({
 }) {
     const { token } = theme.useToken();
     const { isMobile } = useApp_Breakpoint();
+    const navigate = useNavigate();
     const qRole = useQ_Tables_MyRole({ organizationId: org.id });
-    const [settingsOpen, setSettingsOpen] = useState(false);
 
     return (
         <>
@@ -220,9 +219,20 @@ function PageHome_OrgRow({
                     >
                         <Dropdown
                             menu={{
+                                // CG-050: navigates to the settings route rather
+                                // than opening `App_OrgSettingsModal`, which is
+                                // gone. A dropdown item cannot be a `<Link>`
+                                // without fighting antd's own click handling, so
+                                // this one stays imperative — unlike the gear in
+                                // the org switcher, which is a real link.
                                 items: [{ key: "settings", label: "Settings" }],
                                 onClick: ({ key }) => {
-                                    if (key === "settings") setSettingsOpen(true);
+                                    if (key === "settings") {
+                                        navigate({
+                                            to: "/$organizationId/settings",
+                                            params: { organizationId: org.id },
+                                        });
+                                    }
                                 },
                             }}
                             trigger={["click"]}
@@ -238,13 +248,6 @@ function PageHome_OrgRow({
                     </div>
                 )}
             </Link>
-
-            <App_OrgSettingsModal
-                open={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                organizationId={org.id}
-                organizationName={org.name}
-            />
         </>
     );
 }

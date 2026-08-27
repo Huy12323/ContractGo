@@ -39,12 +39,18 @@ import { Route as ProtectedOrganizationIdEnvelopesIndexRouteImport } from './rou
 import { Route as ProtectedOrganizationIdArchiveIndexRouteImport } from './routes/_protected/$organizationId/archive/index'
 import { Route as ProtectedMeDocumentsNewRouteImport } from './routes/_protected/me/documents/new'
 import { Route as ProtectedOrganizationIdTemplatesTemplateIdRouteImport } from './routes/_protected/$organizationId/templates/$templateId'
-import { Route as ProtectedOrganizationIdSettingsWebhooksRouteImport } from './routes/_protected/$organizationId/settings/webhooks'
-import { Route as ProtectedOrganizationIdSettingsApiKeysRouteImport } from './routes/_protected/$organizationId/settings/api-keys'
+import { Route as ProtectedOrganizationIdSettingsGeneralRouteImport } from './routes/_protected/$organizationId/settings/general'
+import { Route as ProtectedOrganizationIdSettingsDocumentsRouteImport } from './routes/_protected/$organizationId/settings/documents'
+import { Route as ProtectedOrganizationIdSettingsDangerRouteImport } from './routes/_protected/$organizationId/settings/danger'
+import { Route as ProtectedOrganizationIdSettingsBrandingRouteImport } from './routes/_protected/$organizationId/settings/branding'
+import { Route as ProtectedOrganizationIdSettingsBillingRouteImport } from './routes/_protected/$organizationId/settings/billing'
 import { Route as ProtectedOrganizationIdEnvelopesNewRouteImport } from './routes/_protected/$organizationId/envelopes/new'
+import { Route as ProtectedOrganizationIdSettingsIntegrationsRouteRouteImport } from './routes/_protected/$organizationId/settings/_integrations/route'
 import { Route as ProtectedMeDocumentsEnvelopeIdIndexRouteImport } from './routes/_protected/me/documents/$envelopeId.index'
 import { Route as ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRouteImport } from './routes/_protected/$organizationId/envelopes/$envelopeId.index'
 import { Route as ProtectedMeDocumentsEnvelopeIdEditRouteImport } from './routes/_protected/me/documents/$envelopeId.edit'
+import { Route as ProtectedOrganizationIdSettingsIntegrationsWebhooksRouteImport } from './routes/_protected/$organizationId/settings/_integrations/webhooks'
+import { Route as ProtectedOrganizationIdSettingsIntegrationsApiKeysRouteImport } from './routes/_protected/$organizationId/settings/_integrations/api-keys'
 import { Route as ProtectedOrganizationIdEnvelopesEnvelopeIdEditRouteImport } from './routes/_protected/$organizationId/envelopes/$envelopeId.edit'
 
 const EmbedRouteRoute = EmbedRouteRouteImport.update({
@@ -205,16 +211,34 @@ const ProtectedOrganizationIdTemplatesTemplateIdRoute =
     path: '/templates/$templateId',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
   } as any)
-const ProtectedOrganizationIdSettingsWebhooksRoute =
-  ProtectedOrganizationIdSettingsWebhooksRouteImport.update({
-    id: '/webhooks',
-    path: '/webhooks',
+const ProtectedOrganizationIdSettingsGeneralRoute =
+  ProtectedOrganizationIdSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
     getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
   } as any)
-const ProtectedOrganizationIdSettingsApiKeysRoute =
-  ProtectedOrganizationIdSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
+const ProtectedOrganizationIdSettingsDocumentsRoute =
+  ProtectedOrganizationIdSettingsDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsDangerRoute =
+  ProtectedOrganizationIdSettingsDangerRouteImport.update({
+    id: '/danger',
+    path: '/danger',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsBrandingRoute =
+  ProtectedOrganizationIdSettingsBrandingRouteImport.update({
+    id: '/branding',
+    path: '/branding',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsBillingRoute =
+  ProtectedOrganizationIdSettingsBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
     getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
   } as any)
 const ProtectedOrganizationIdEnvelopesNewRoute =
@@ -222,6 +246,11 @@ const ProtectedOrganizationIdEnvelopesNewRoute =
     id: '/envelopes/new',
     path: '/envelopes/new',
     getParentRoute: () => ProtectedOrganizationIdRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsIntegrationsRouteRoute =
+  ProtectedOrganizationIdSettingsIntegrationsRouteRouteImport.update({
+    id: '/_integrations',
+    getParentRoute: () => ProtectedOrganizationIdSettingsRouteRoute,
   } as any)
 const ProtectedMeDocumentsEnvelopeIdIndexRoute =
   ProtectedMeDocumentsEnvelopeIdIndexRouteImport.update({
@@ -240,6 +269,18 @@ const ProtectedMeDocumentsEnvelopeIdEditRoute =
     id: '/documents/$envelopeId/edit',
     path: '/documents/$envelopeId/edit',
     getParentRoute: () => ProtectedMeRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute =
+  ProtectedOrganizationIdSettingsIntegrationsWebhooksRouteImport.update({
+    id: '/webhooks',
+    path: '/webhooks',
+    getParentRoute: () => ProtectedOrganizationIdSettingsIntegrationsRouteRoute,
+  } as any)
+const ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute =
+  ProtectedOrganizationIdSettingsIntegrationsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => ProtectedOrganizationIdSettingsIntegrationsRouteRoute,
   } as any)
 const ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute =
   ProtectedOrganizationIdEnvelopesEnvelopeIdEditRouteImport.update({
@@ -263,13 +304,16 @@ export interface FileRoutesByFullPath {
   '/settings': typeof ProtectedSettingsRoute
   '/verify': typeof PublicVerifyRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsRouteRouteWithChildren
+  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren
   '/sign/$accessToken': typeof PublicSignAccessTokenRoute
   '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
   '/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
-  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
-  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/$organizationId/settings/billing': typeof ProtectedOrganizationIdSettingsBillingRoute
+  '/$organizationId/settings/branding': typeof ProtectedOrganizationIdSettingsBrandingRoute
+  '/$organizationId/settings/danger': typeof ProtectedOrganizationIdSettingsDangerRoute
+  '/$organizationId/settings/documents': typeof ProtectedOrganizationIdSettingsDocumentsRoute
+  '/$organizationId/settings/general': typeof ProtectedOrganizationIdSettingsGeneralRoute
   '/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
   '/me/documents/new': typeof ProtectedMeDocumentsNewRoute
   '/$organizationId/archive/': typeof ProtectedOrganizationIdArchiveIndexRoute
@@ -280,6 +324,8 @@ export interface FileRoutesByFullPath {
   '/$organizationId/templates/': typeof ProtectedOrganizationIdTemplatesIndexRoute
   '/me/documents/': typeof ProtectedMeDocumentsIndexRoute
   '/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute
+  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute
   '/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
   '/$organizationId/envelopes/$envelopeId/': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
   '/me/documents/$envelopeId/': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
@@ -301,19 +347,24 @@ export interface FileRoutesByTo {
   '/sign/$accessToken': typeof PublicSignAccessTokenRoute
   '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/$organizationId': typeof ProtectedOrganizationIdIndexRoute
+  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsIndexRoute
   '/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
-  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
-  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/$organizationId/settings/billing': typeof ProtectedOrganizationIdSettingsBillingRoute
+  '/$organizationId/settings/branding': typeof ProtectedOrganizationIdSettingsBrandingRoute
+  '/$organizationId/settings/danger': typeof ProtectedOrganizationIdSettingsDangerRoute
+  '/$organizationId/settings/documents': typeof ProtectedOrganizationIdSettingsDocumentsRoute
+  '/$organizationId/settings/general': typeof ProtectedOrganizationIdSettingsGeneralRoute
   '/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
   '/me/documents/new': typeof ProtectedMeDocumentsNewRoute
   '/$organizationId/archive': typeof ProtectedOrganizationIdArchiveIndexRoute
   '/$organizationId/envelopes': typeof ProtectedOrganizationIdEnvelopesIndexRoute
   '/$organizationId/notifications': typeof ProtectedOrganizationIdNotificationsIndexRoute
   '/$organizationId/people': typeof ProtectedOrganizationIdPeopleIndexRoute
-  '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsIndexRoute
   '/$organizationId/templates': typeof ProtectedOrganizationIdTemplatesIndexRoute
   '/me/documents': typeof ProtectedMeDocumentsIndexRoute
   '/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute
+  '/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute
   '/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
   '/$organizationId/envelopes/$envelopeId': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
   '/me/documents/$envelopeId': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
@@ -341,9 +392,13 @@ export interface FileRoutesById {
   '/_public/sign/$accessToken': typeof PublicSignAccessTokenRoute
   '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
   '/_protected/$organizationId/': typeof ProtectedOrganizationIdIndexRoute
+  '/_protected/$organizationId/settings/_integrations': typeof ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren
   '/_protected/$organizationId/envelopes/new': typeof ProtectedOrganizationIdEnvelopesNewRoute
-  '/_protected/$organizationId/settings/api-keys': typeof ProtectedOrganizationIdSettingsApiKeysRoute
-  '/_protected/$organizationId/settings/webhooks': typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  '/_protected/$organizationId/settings/billing': typeof ProtectedOrganizationIdSettingsBillingRoute
+  '/_protected/$organizationId/settings/branding': typeof ProtectedOrganizationIdSettingsBrandingRoute
+  '/_protected/$organizationId/settings/danger': typeof ProtectedOrganizationIdSettingsDangerRoute
+  '/_protected/$organizationId/settings/documents': typeof ProtectedOrganizationIdSettingsDocumentsRoute
+  '/_protected/$organizationId/settings/general': typeof ProtectedOrganizationIdSettingsGeneralRoute
   '/_protected/$organizationId/templates/$templateId': typeof ProtectedOrganizationIdTemplatesTemplateIdRoute
   '/_protected/me/documents/new': typeof ProtectedMeDocumentsNewRoute
   '/_protected/$organizationId/archive/': typeof ProtectedOrganizationIdArchiveIndexRoute
@@ -354,6 +409,8 @@ export interface FileRoutesById {
   '/_protected/$organizationId/templates/': typeof ProtectedOrganizationIdTemplatesIndexRoute
   '/_protected/me/documents/': typeof ProtectedMeDocumentsIndexRoute
   '/_protected/$organizationId/envelopes/$envelopeId/edit': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute
+  '/_protected/$organizationId/settings/_integrations/api-keys': typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute
+  '/_protected/$organizationId/settings/_integrations/webhooks': typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute
   '/_protected/me/documents/$envelopeId/edit': typeof ProtectedMeDocumentsEnvelopeIdEditRoute
   '/_protected/$organizationId/envelopes/$envelopeId/': typeof ProtectedOrganizationIdEnvelopesEnvelopeIdIndexRoute
   '/_protected/me/documents/$envelopeId/': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
@@ -380,8 +437,11 @@ export interface FileRouteTypes {
     | '/embed/sign/$accessToken'
     | '/$organizationId/'
     | '/$organizationId/envelopes/new'
-    | '/$organizationId/settings/api-keys'
-    | '/$organizationId/settings/webhooks'
+    | '/$organizationId/settings/billing'
+    | '/$organizationId/settings/branding'
+    | '/$organizationId/settings/danger'
+    | '/$organizationId/settings/documents'
+    | '/$organizationId/settings/general'
     | '/$organizationId/templates/$templateId'
     | '/me/documents/new'
     | '/$organizationId/archive/'
@@ -392,6 +452,8 @@ export interface FileRouteTypes {
     | '/$organizationId/templates/'
     | '/me/documents/'
     | '/$organizationId/envelopes/$envelopeId/edit'
+    | '/$organizationId/settings/api-keys'
+    | '/$organizationId/settings/webhooks'
     | '/me/documents/$envelopeId/edit'
     | '/$organizationId/envelopes/$envelopeId/'
     | '/me/documents/$envelopeId/'
@@ -413,19 +475,24 @@ export interface FileRouteTypes {
     | '/sign/$accessToken'
     | '/embed/sign/$accessToken'
     | '/$organizationId'
+    | '/$organizationId/settings'
     | '/$organizationId/envelopes/new'
-    | '/$organizationId/settings/api-keys'
-    | '/$organizationId/settings/webhooks'
+    | '/$organizationId/settings/billing'
+    | '/$organizationId/settings/branding'
+    | '/$organizationId/settings/danger'
+    | '/$organizationId/settings/documents'
+    | '/$organizationId/settings/general'
     | '/$organizationId/templates/$templateId'
     | '/me/documents/new'
     | '/$organizationId/archive'
     | '/$organizationId/envelopes'
     | '/$organizationId/notifications'
     | '/$organizationId/people'
-    | '/$organizationId/settings'
     | '/$organizationId/templates'
     | '/me/documents'
     | '/$organizationId/envelopes/$envelopeId/edit'
+    | '/$organizationId/settings/api-keys'
+    | '/$organizationId/settings/webhooks'
     | '/me/documents/$envelopeId/edit'
     | '/$organizationId/envelopes/$envelopeId'
     | '/me/documents/$envelopeId'
@@ -452,9 +519,13 @@ export interface FileRouteTypes {
     | '/_public/sign/$accessToken'
     | '/embed/sign/$accessToken'
     | '/_protected/$organizationId/'
+    | '/_protected/$organizationId/settings/_integrations'
     | '/_protected/$organizationId/envelopes/new'
-    | '/_protected/$organizationId/settings/api-keys'
-    | '/_protected/$organizationId/settings/webhooks'
+    | '/_protected/$organizationId/settings/billing'
+    | '/_protected/$organizationId/settings/branding'
+    | '/_protected/$organizationId/settings/danger'
+    | '/_protected/$organizationId/settings/documents'
+    | '/_protected/$organizationId/settings/general'
     | '/_protected/$organizationId/templates/$templateId'
     | '/_protected/me/documents/new'
     | '/_protected/$organizationId/archive/'
@@ -465,6 +536,8 @@ export interface FileRouteTypes {
     | '/_protected/$organizationId/templates/'
     | '/_protected/me/documents/'
     | '/_protected/$organizationId/envelopes/$envelopeId/edit'
+    | '/_protected/$organizationId/settings/_integrations/api-keys'
+    | '/_protected/$organizationId/settings/_integrations/webhooks'
     | '/_protected/me/documents/$envelopeId/edit'
     | '/_protected/$organizationId/envelopes/$envelopeId/'
     | '/_protected/me/documents/$envelopeId/'
@@ -690,18 +763,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedOrganizationIdTemplatesTemplateIdRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
     }
-    '/_protected/$organizationId/settings/webhooks': {
-      id: '/_protected/$organizationId/settings/webhooks'
-      path: '/webhooks'
-      fullPath: '/$organizationId/settings/webhooks'
-      preLoaderRoute: typeof ProtectedOrganizationIdSettingsWebhooksRouteImport
+    '/_protected/$organizationId/settings/general': {
+      id: '/_protected/$organizationId/settings/general'
+      path: '/general'
+      fullPath: '/$organizationId/settings/general'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsGeneralRouteImport
       parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
     }
-    '/_protected/$organizationId/settings/api-keys': {
-      id: '/_protected/$organizationId/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/$organizationId/settings/api-keys'
-      preLoaderRoute: typeof ProtectedOrganizationIdSettingsApiKeysRouteImport
+    '/_protected/$organizationId/settings/documents': {
+      id: '/_protected/$organizationId/settings/documents'
+      path: '/documents'
+      fullPath: '/$organizationId/settings/documents'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsDocumentsRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/settings/danger': {
+      id: '/_protected/$organizationId/settings/danger'
+      path: '/danger'
+      fullPath: '/$organizationId/settings/danger'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsDangerRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/settings/branding': {
+      id: '/_protected/$organizationId/settings/branding'
+      path: '/branding'
+      fullPath: '/$organizationId/settings/branding'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsBrandingRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
+    }
+    '/_protected/$organizationId/settings/billing': {
+      id: '/_protected/$organizationId/settings/billing'
+      path: '/billing'
+      fullPath: '/$organizationId/settings/billing'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsBillingRouteImport
       parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
     }
     '/_protected/$organizationId/envelopes/new': {
@@ -710,6 +804,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$organizationId/envelopes/new'
       preLoaderRoute: typeof ProtectedOrganizationIdEnvelopesNewRouteImport
       parentRoute: typeof ProtectedOrganizationIdRouteRoute
+    }
+    '/_protected/$organizationId/settings/_integrations': {
+      id: '/_protected/$organizationId/settings/_integrations'
+      path: ''
+      fullPath: '/$organizationId/settings'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsIntegrationsRouteRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsRouteRoute
     }
     '/_protected/me/documents/$envelopeId/': {
       id: '/_protected/me/documents/$envelopeId/'
@@ -731,6 +832,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/me/documents/$envelopeId/edit'
       preLoaderRoute: typeof ProtectedMeDocumentsEnvelopeIdEditRouteImport
       parentRoute: typeof ProtectedMeRouteRoute
+    }
+    '/_protected/$organizationId/settings/_integrations/webhooks': {
+      id: '/_protected/$organizationId/settings/_integrations/webhooks'
+      path: '/webhooks'
+      fullPath: '/$organizationId/settings/webhooks'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsIntegrationsRouteRoute
+    }
+    '/_protected/$organizationId/settings/_integrations/api-keys': {
+      id: '/_protected/$organizationId/settings/_integrations/api-keys'
+      path: '/api-keys'
+      fullPath: '/$organizationId/settings/api-keys'
+      preLoaderRoute: typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRouteImport
+      parentRoute: typeof ProtectedOrganizationIdSettingsIntegrationsRouteRoute
     }
     '/_protected/$organizationId/envelopes/$envelopeId/edit': {
       id: '/_protected/$organizationId/envelopes/$envelopeId/edit'
@@ -766,18 +881,48 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface ProtectedOrganizationIdSettingsIntegrationsRouteRouteChildren {
+  ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute: typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute
+  ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute: typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute
+}
+
+const ProtectedOrganizationIdSettingsIntegrationsRouteRouteChildren: ProtectedOrganizationIdSettingsIntegrationsRouteRouteChildren =
+  {
+    ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute:
+      ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute,
+    ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute:
+      ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute,
+  }
+
+const ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren =
+  ProtectedOrganizationIdSettingsIntegrationsRouteRoute._addFileChildren(
+    ProtectedOrganizationIdSettingsIntegrationsRouteRouteChildren,
+  )
+
 interface ProtectedOrganizationIdSettingsRouteRouteChildren {
-  ProtectedOrganizationIdSettingsApiKeysRoute: typeof ProtectedOrganizationIdSettingsApiKeysRoute
-  ProtectedOrganizationIdSettingsWebhooksRoute: typeof ProtectedOrganizationIdSettingsWebhooksRoute
+  ProtectedOrganizationIdSettingsIntegrationsRouteRoute: typeof ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren
+  ProtectedOrganizationIdSettingsBillingRoute: typeof ProtectedOrganizationIdSettingsBillingRoute
+  ProtectedOrganizationIdSettingsBrandingRoute: typeof ProtectedOrganizationIdSettingsBrandingRoute
+  ProtectedOrganizationIdSettingsDangerRoute: typeof ProtectedOrganizationIdSettingsDangerRoute
+  ProtectedOrganizationIdSettingsDocumentsRoute: typeof ProtectedOrganizationIdSettingsDocumentsRoute
+  ProtectedOrganizationIdSettingsGeneralRoute: typeof ProtectedOrganizationIdSettingsGeneralRoute
   ProtectedOrganizationIdSettingsIndexRoute: typeof ProtectedOrganizationIdSettingsIndexRoute
 }
 
 const ProtectedOrganizationIdSettingsRouteRouteChildren: ProtectedOrganizationIdSettingsRouteRouteChildren =
   {
-    ProtectedOrganizationIdSettingsApiKeysRoute:
-      ProtectedOrganizationIdSettingsApiKeysRoute,
-    ProtectedOrganizationIdSettingsWebhooksRoute:
-      ProtectedOrganizationIdSettingsWebhooksRoute,
+    ProtectedOrganizationIdSettingsIntegrationsRouteRoute:
+      ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren,
+    ProtectedOrganizationIdSettingsBillingRoute:
+      ProtectedOrganizationIdSettingsBillingRoute,
+    ProtectedOrganizationIdSettingsBrandingRoute:
+      ProtectedOrganizationIdSettingsBrandingRoute,
+    ProtectedOrganizationIdSettingsDangerRoute:
+      ProtectedOrganizationIdSettingsDangerRoute,
+    ProtectedOrganizationIdSettingsDocumentsRoute:
+      ProtectedOrganizationIdSettingsDocumentsRoute,
+    ProtectedOrganizationIdSettingsGeneralRoute:
+      ProtectedOrganizationIdSettingsGeneralRoute,
     ProtectedOrganizationIdSettingsIndexRoute:
       ProtectedOrganizationIdSettingsIndexRoute,
   }

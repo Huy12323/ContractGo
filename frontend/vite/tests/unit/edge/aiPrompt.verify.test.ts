@@ -323,3 +323,72 @@ describe("verifyAnswer — hostile input", () => {
         expect(result.citations[0].page).toBe(1);
     });
 });
+
+/**
+ * DETAILS — page 0.
+ *
+ * The block that answers "who sent me this", which the contract body routinely
+ * does not. It earns no exemption from the quote rule: it is a source the server
+ * composed, checked by the same verbatim substring test as any page, and the
+ * cases below are the two that matter — a real detail survives, and a page-0
+ * citation is worthless when no DETAILS block was sent.
+ */
+describe("verifyAnswer — DETAILS citations", () => {
+    const DETAILS = "Sent to you by: Northwind Legal\nDocument title: Offer Letter";
+
+    it("keeps a verbatim quote from the details block, cited as page 0", () => {
+        const result = verifyAnswer(
+            answer({
+                answer: "Northwind Legal sent you this document.",
+                grounded: true,
+                citations: [{ page: 0, quote: "Sent to you by: Northwind Legal" }],
+            }),
+            documentText,
+            pages,
+            ALL_PAGES,
+            NONCE,
+            DETAILS
+        );
+
+        expect(result.status).toBe("answered");
+        expect(result.grounded).toBe(true);
+        expect(result.citations).toEqual([{ page: 0, quote: "Sent to you by: Northwind Legal" }]);
+    });
+
+    it("drops an invented sender even when a details block was sent", () => {
+        // The failure this is really guarding: an injected instruction in the PDF
+        // telling the model to name a different, more trustworthy sender.
+        const result = verifyAnswer(
+            answer({
+                answer: "This was sent to you by your bank.",
+                grounded: true,
+                citations: [{ page: 0, quote: "Sent to you by: First National Bank" }],
+            }),
+            documentText,
+            pages,
+            ALL_PAGES,
+            NONCE,
+            DETAILS
+        );
+
+        expect(result.status).toBe("refused");
+        expect(result.answer).toBe(UNGROUNDED_ANSWER);
+    });
+
+    it("drops a page 0 citation when no details block was sent at all", () => {
+        const result = verifyAnswer(
+            answer({
+                answer: "Northwind Legal sent you this document.",
+                grounded: true,
+                citations: [{ page: 0, quote: "Sent to you by: Northwind Legal" }],
+            }),
+            documentText,
+            pages,
+            ALL_PAGES,
+            NONCE
+        );
+
+        expect(result.status).toBe("refused");
+        expect(result.answer).toBe(UNGROUNDED_ANSWER);
+    });
+});

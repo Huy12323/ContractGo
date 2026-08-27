@@ -55,9 +55,7 @@ const raw = fs.readFileSync(planPath, "utf8");
 // section title; the plan-file convention is `## Context` but we tolerate
 // `## context` too.
 
-const stripped = raw
-    .replace(/\n##\s+Context\b[\s\S]*?(?=\n##\s|$)/i, "")
-    .trimEnd();
+const stripped = raw.replace(/\n##\s+Context\b[\s\S]*?(?=\n##\s|$)/i, "").trimEnd();
 
 // ─── Step 2: Markdown → HTML ───────────────────────────────────────────────
 
@@ -69,9 +67,7 @@ const base = path.basename(planPath, ".md");
 const identMatch = base.match(/^([A-Z][A-Z0-9_]*-\d+)/);
 if (!identMatch) {
     console.error(`Could not parse identifier from filename: ${base}`);
-    console.error(
-        "Plan files must start with {PROJECT_IDENTIFIER}-N (e.g. SPARK-3854-slug.md).",
-    );
+    console.error("Plan files must start with {PROJECT_IDENTIFIER}-N (e.g. SPARK-3854-slug.md).");
     process.exit(1);
 }
 const ident = identMatch[1];
@@ -242,10 +238,7 @@ function inline(text) {
     // render as literal text. Rule: the opening `_` must be preceded by
     // start-of-string or a non-word char, and the closing `_` must be
     // followed by a non-word char or end-of-string. (CommonMark §6.2.)
-    s = s.replace(
-        /(^|[^\w_])_(?=[^\s_])([^_]+?)_(?=[^\w]|$)/g,
-        "$1<em>$2</em>",
-    );
+    s = s.replace(/(^|[^\w_])_(?=[^\s_])([^_]+?)_(?=[^\w]|$)/g, "$1<em>$2</em>");
 
     // Restore code spans (escape inside).
     s = s.replace(/\x00CODE(\d+)\x00/g, (_, idx) => {

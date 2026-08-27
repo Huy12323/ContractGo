@@ -43,10 +43,27 @@ export type UseM_Files_Upload_Params_UserSignature = {
     user_id: string;
 };
 
+// CG-050's org branding logo. Keyed under `orgs/{org_id}/branding/…` — an
+// organization scope like a template PDF, but with the AVATAR's read posture:
+// the Worker serves this one namespace under `orgs/` with no token, because its
+// audiences are an anonymous signer and an email client and neither can present
+// one. So callers build the URL from `r2_key` (`Utils_Files_PublicUrl`) rather
+// than signing it, and `files_r2_sign-read-url` refuses the resource outright.
+//
+// The edge function requires OWNER, not admin — matching the RLS on
+// `organizations`, so an upload can never succeed where the follow-up write of
+// `logo_file_id` would be refused.
+export type UseM_Files_Upload_Params_OrganizationLogo = {
+    resource_type: "organization_logo";
+    file: File;
+    organization_id: string;
+};
+
 export type UseM_Files_Upload_Params =
     | UseM_Files_Upload_Params_ContractTemplatePdf
     | UseM_Files_Upload_Params_UserAvatar
-    | UseM_Files_Upload_Params_UserSignature;
+    | UseM_Files_Upload_Params_UserSignature
+    | UseM_Files_Upload_Params_OrganizationLogo;
 
 export type UseM_Files_Upload_Result = {
     /**
@@ -79,6 +96,15 @@ const buildUploadStartBody = (
         return {
             resource_type: params.resource_type,
             user_id: params.user_id,
+            file_name,
+            content_type,
+            size,
+        };
+    }
+    if (params.resource_type === "organization_logo") {
+        return {
+            resource_type: "organization_logo" as const,
+            organization_id: params.organization_id,
             file_name,
             content_type,
             size,
@@ -247,6 +273,12 @@ const generateThumbnail = async ({
         // function rejects `is_thumbnail` for this resource type outright — so
         // asking would be a guaranteed round trip to a 400.
         if (params.resource_type === "user_signature") return null;
+
+        // Same reason, sharper consequence (CG-050). The Worker's
+        // `isOrgBrandingPath` matches EXACTLY four segments, so a thumbnail at
+        // five would upload successfully and then 403 forever on read. The edge
+        // function rejects `is_thumbnail` here too.
+        if (params.resource_type === "organization_logo") return null;
 
         if (file.type.startsWith("image/")) {
             return await generateImageThumbnail({ file, fileId, params });

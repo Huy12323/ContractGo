@@ -13,52 +13,56 @@
 
 type Options = {
     /** Max dimension in px on the longer edge. Aspect ratio preserved, no upscale. Default 200. */
-    maxDim?: number
+    maxDim?: number;
     /** WebP quality 0..1. Default 0.8. */
-    quality?: number
-}
+    quality?: number;
+};
 
 const loadImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
-        const img = new Image()
-        img.onload = () => resolve(img)
-        img.onerror = () => reject(new Error('image decode failed'))
-        img.src = url
-    })
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("image decode failed"));
+        img.src = url;
+    });
 
-const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> =>
+const canvasToBlob = (
+    canvas: HTMLCanvasElement,
+    type: string,
+    quality: number
+): Promise<Blob | null> =>
     new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), type, quality)
-    })
+        canvas.toBlob((blob) => resolve(blob), type, quality);
+    });
 
 export const Utils_Files_ImageThumbnail = async (
     file: File,
-    opts?: Options,
+    opts?: Options
 ): Promise<Blob | null> => {
-    if (!file.type.startsWith('image/')) return null
+    if (!file.type.startsWith("image/")) return null;
 
-    const maxDim = opts?.maxDim ?? 200
-    const quality = opts?.quality ?? 0.8
+    const maxDim = opts?.maxDim ?? 200;
+    const quality = opts?.quality ?? 0.8;
 
-    const objectUrl = URL.createObjectURL(file)
+    const objectUrl = URL.createObjectURL(file);
     try {
-        const img = await loadImage(objectUrl)
+        const img = await loadImage(objectUrl);
         // Preserve aspect ratio; cap at 1 so we never upscale a small source.
-        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight))
-        const targetW = Math.max(1, Math.round(img.naturalWidth * scale))
-        const targetH = Math.max(1, Math.round(img.naturalHeight * scale))
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const targetW = Math.max(1, Math.round(img.naturalWidth * scale));
+        const targetH = Math.max(1, Math.round(img.naturalHeight * scale));
 
-        const canvas = document.createElement('canvas')
-        canvas.width = targetW
-        canvas.height = targetH
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return null
-        ctx.drawImage(img, 0, 0, targetW, targetH)
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.drawImage(img, 0, 0, targetW, targetH);
 
-        return await canvasToBlob(canvas, 'image/webp', quality)
+        return await canvasToBlob(canvas, "image/webp", quality);
     } catch {
-        return null
+        return null;
     } finally {
-        URL.revokeObjectURL(objectUrl)
+        URL.revokeObjectURL(objectUrl);
     }
-}
+};

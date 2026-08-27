@@ -240,11 +240,25 @@ get theirs:
 Notes that save an integration:
 
 - `title` defaults to the template's name.
-- `expires_at` / `reminder_days` omitted take the template version's defaults.
-  `expires_at: null` explicitly means _no expiry_.
+- `expires_at` / `reminder_days` omitted take the template version's defaults,
+  and fall back to the **organization's document defaults** when the version has
+  none. `expires_at: null` explicitly means _no expiry_, and `reminder_days: []`
+  explicitly means _no reminders_ — an explicit value always outranks both
+  defaults.
 - `signer_auth` is `"account"` (the signer must log in) or `"email_otp"` (a code
   to their mailbox). **`email_otp` is the one that suits embedded signing** — see
   [Embedded signing](embedding.md).
+
+  **Omitting it applies the organization's default**, set under Settings →
+  Document defaults, which is `account` unless an owner has changed it. This
+  applies to the API exactly as it does to the dashboard — so if envelopes
+  created through your integration start requiring a different proof from
+  recipients without your code changing, check that setting first. Send
+  `signer_auth` explicitly if your integration needs a value that cannot move
+  underneath it.
+- Branding (logo, accent colour, email sender name) is an **organization**
+  setting, not a per-request field. Documents created through the API carry the
+  same branding as ones created in the dashboard.
 - CC observers are copied when the document **completes**. There is no
   copy-on-send toggle here.
 - Recipients at the same role `order` sign in parallel; different orders sign in

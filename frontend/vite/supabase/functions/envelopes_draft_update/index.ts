@@ -43,6 +43,7 @@ import {
     hashSourcePdf,
     isEmptyRecipient,
     resolveRequireIdentityCheck, // [ekyc]
+    mergeScheduleDefaults,
     resolveSchedule,
     resolveSignerAuth,
     resolveTemplateAndVersion,
@@ -99,8 +100,7 @@ serveSenderFunction("envelopes_draft_update", async (rawBody, req) => {
     let schedule;
     try {
         schedule = resolveSchedule(body, {
-            defaultExpiryDays: resolved.version.default_expiry_days,
-            defaultReminderDays: resolved.version.default_reminder_days,
+            ...mergeScheduleDefaults(resolved.version, ctx.organization),
             sentAt: new Date(),
             strict: false,
         });
@@ -111,7 +111,7 @@ serveSenderFunction("envelopes_draft_update", async (rawBody, req) => {
     let signerAuth;
     let requireIdentityCheck; // [ekyc]
     try {
-        signerAuth = resolveSignerAuth(body);
+        signerAuth = resolveSignerAuth(body, ctx.organization.default_signer_auth);
         requireIdentityCheck = resolveRequireIdentityCheck(body); // [ekyc]
     } catch (err) {
         return jsonResponse({ error: (err as Error).message }, 400);

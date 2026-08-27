@@ -2,7 +2,9 @@
 // Canonical modern names with country names + GMT offsets
 // Total: 316 timezones
 
-export const const_TimezoneOptions = [
+import type { Supabase_Enums } from "@/types/supabase.types";
+
+export const const_OrganizationsTimezoneOptions = [
     { label: "UTC (GMT)", value: "UTC" },
     {
         label: "Pacific/Midway - United States Minor Outlying Islands (GMT-11)",
@@ -351,4 +353,20 @@ export const const_TimezoneOptions = [
     { label: "Pacific/Kiritimati - Kiribati (GMT+14)", value: "Pacific/Kiritimati" },
 ] as const;
 
-export type TimezoneValue = (typeof const_TimezoneOptions)[number]["value"];
+export type TimezoneValue = (typeof const_OrganizationsTimezoneOptions)[number]["value"];
+
+/**
+ * The generated list above is CANONICAL names only (316); `public.iana_timezone`
+ * carries canonical names AND legacy aliases (554), so it is deliberately the
+ * wider set — an org already storing `Asia/Saigon` stays valid, it just isn't
+ * offered as a new choice.
+ *
+ * This assertion is the guard that matters: every value we OFFER must be a value
+ * the column ACCEPTS. Without it, a regenerated tzdb list introducing a name
+ * Postgres has never heard of would typecheck perfectly and fail at save time
+ * with a 400 from PostgREST. Widening the enum is a migration; this line makes
+ * forgetting one a build error.
+ */
+const _timezoneValuesExistInEnum: Supabase_Enums<"iana_timezone">[] =
+    const_OrganizationsTimezoneOptions.map((option) => option.value);
+void _timezoneValuesExistInEnum;

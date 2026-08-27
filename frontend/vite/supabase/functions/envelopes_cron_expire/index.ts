@@ -49,7 +49,10 @@ serveCronFunction("envelopes_cron_expire", async () => {
 
     const { data: due, error } = await admin
         .from("signature_requests")
-        .select("id, organization_id, title, created_by, expires_at")
+        // `organizations(timezone)` embedded by CG-050 to render the expiry date
+        // in the sender's own zone. Presentation only: the row's own pinned
+        // `expires_at` is still what decides that it expired.
+        .select("id, organization_id, title, created_by, expires_at, organizations(timezone)")
         .eq("status", "in_progress")
         .not("expires_at", "is", null)
         .lte("expires_at", now)
@@ -166,6 +169,8 @@ serveCronFunction("envelopes_cron_expire", async () => {
             createdBy: request.created_by,
             expiredAt: now,
             outstanding: outstanding ?? [],
+            organizationTimezone: (request.organizations as unknown as { timezone?: string } | null)
+                ?.timezone,
         });
         if (mailError) {
             console.error(`Notifying the sender of ${request.id}'s expiry failed:`, mailError);

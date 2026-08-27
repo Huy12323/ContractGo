@@ -60,11 +60,12 @@
 -- So to test the full flow end to end: send an envelope, create an account on
 -- the recipient's email (the sign step's "Sign in to continue" leads to the
 -- login page, which offers sign-up and carries the return path), then open the
--- recipient's link from the document detail page — the "Signing link" action
--- beside each recipient, which exists only while DEV_SIGNING_LINKS=enabled
--- (`envelopes_dev-signing-link`). The same link is also printed to the
+-- recipient's link as the RECIPIENT: sign in on that account and use
+-- `signing_link_for_me` (the notification/document row that opens the signing
+-- surface), which mints their own credential from their own session. There is
+-- deliberately no sender-side way to read it. The link is also printed to the
 -- edge-function log when EMAIL_DRIVER=console; under EMAIL_DRIVER=resend it is
--- only in the recipient's inbox, which is what the "Signing link" action is for.
+-- only in the recipient's inbox.
 
 DO $$
 DECLARE
