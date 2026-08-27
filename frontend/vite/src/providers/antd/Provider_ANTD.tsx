@@ -1,6 +1,7 @@
 import { App, ConfigProvider, theme as antdTheme } from "antd";
 
-export const BG_GRADIENT = 'linear-gradient(160deg, #e2e8f3 0%, #f0f5ff 30%, #fff1f0 70%, #e6f7ff 100%)';
+export const BG_GRADIENT =
+    "linear-gradient(160deg, #e2e8f3 0%, #f0f5ff 30%, #fff1f0 70%, #e6f7ff 100%)";
 
 const themeConfig = {
     algorithm: antdTheme.defaultAlgorithm,
@@ -15,10 +16,10 @@ const themeConfig = {
         colorSuccessBg: "#ecfdf5",
         colorSuccessText: "#166534",
         colorWarning: "#c48a3c", // ochre / mustard
-        colorError: "#a73939",   // deep rose / burgundy
+        colorError: "#a73939", // deep rose / burgundy
         colorErrorBg: "#fef2f2",
         colorErrorText: "#991b1b",
-        colorInfo: "#818cf8",    // soft indigo — secondary accent
+        colorInfo: "#818cf8", // soft indigo — secondary accent
         colorBorder: "#E5E5E5",
         colorFillAlter: "#F6F8FC",
         colorPrimaryBg: "#eef2ff",

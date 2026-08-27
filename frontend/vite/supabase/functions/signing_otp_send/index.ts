@@ -144,6 +144,7 @@ servePublicSigningFunction("signing_otp_send", async (body, req) => {
             documentTitle: ctx.request.title,
             signerName: ctx.signer.signer_name,
             organizationName: org?.name ?? "ContractGo",
+            organizationId: ctx.request.organization_id,
             expiresInMinutes: OTP_TTL_MINUTES,
         });
     } catch (err) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Checkbox, DatePicker, Form, Input, Modal, Typography, theme } from "antd";
 import type { Dayjs } from "dayjs";
-import { Page_SettingsApiKeys_RevealPanel } from "./Page_SettingsApiKeys_RevealPanel";
+import { Page_OrgSettingsApiKeys_RevealPanel } from "./Page_OrgSettingsApiKeys_RevealPanel";
 import type { ApiKey_Scope } from "@/hooks/useM_ApiKeys_Issue";
 
 /**
@@ -51,7 +51,7 @@ type FormValues = {
     expiresAt: Dayjs | null;
 };
 
-export const Page_SettingsApiKeys_CreateModal = ({
+export const Page_OrgSettingsApiKeys_CreateModal = ({
     open,
     isSubmitting,
     issuedKey,
@@ -114,7 +114,7 @@ export const Page_SettingsApiKeys_CreateModal = ({
             destroyOnHidden
         >
             {issuedKey ? (
-                <Page_SettingsApiKeys_RevealPanel
+                <Page_OrgSettingsApiKeys_RevealPanel
                     label="API key"
                     value={issuedKey}
                     warning="This is the only time it will be shown. If you lose it, revoke this key and create another — there is no way to recover it."

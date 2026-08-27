@@ -21,8 +21,6 @@
  *   - Edge functions served (`pnpm dev:ef`) — this script calls eight of them.
  *   - `STORAGE_DRIVER=local`, so PDFs land in the Supabase Storage bucket `files`
  *     and no Cloudflare Worker or R2 account is needed.
- *   - `DEV_SIGNING_LINKS=enabled`, which is what makes `envelopes_dev-signing-link`
- *     willing to hand us a signer's token.
  *   - Mail: the demo recipients are fictional, so under `EMAIL_DRIVER=resend`
  *     every send is a delivery FAILURE (and with the `resend.dev` test sender,
  *     a 403 for any address but the account owner's). That is harmless here —
@@ -455,28 +453,24 @@ const recipientsFor = (spec, people) =>
         }));
 
 /** Fill every field this signer owns, then sign or decline. */
-const actAsSigner = async (sender, ctx, envelopeId, signer, action) => {
-    const { data: signerRows, error } = await sender
-        .from("signature_request_signers")
-        .select("id, signer_email, role_id, signer_order")
-        .eq("request_id", envelopeId)
-        .eq("recipient_type", "signer")
-        .order("signer_order");
-    if (error) throw new Error(`load signers: ${error.message}`);
-
-    const row = signerRows.find((r) => r.signer_email === signer.email);
-    if (!row) throw new Error(`no signer row for ${signer.email}`);
-
-    const link = await invoke(sender, "envelopes_dev-signing-link", {
-        organization_id: ctx.organizationId,
-        envelope_id: envelopeId,
-        signer_id: row.id,
-    });
-    const accessToken = new URL(link.url).pathname.split("/").pop();
-
+const actAsSigner = async (envelopeId, signer, action) => {
+    // The signer mints their OWN link, from their own session — there is no
+    // sender-side way to obtain it, and that is the point: a credential that
+    // speaks as the signer must never reach the sender. `signing_link_for_me`
+    // checks the caller holds a session on the address the document names, which
+    // is a stricter test than the emailed link makes.
     const sb = await signIn(signer.email);
     const auth = await sb.auth.getSession();
     const headers = { Authorization: `Bearer ${auth.data.session.access_token}` };
+
+    const link = await invoke(sb, "signing_link_for_me", { request_id: envelopeId }, headers);
+    // `in_app` means this party has nothing left to do (already signed, declined,
+    // or the document closed) and no token is minted. Reaching it here would mean
+    // the script is acting twice for one signer, so it is a bug, not a branch.
+    if (link.mode !== "sign_link") {
+        throw new Error(`signing_link_for_me returned ${link.mode} for ${signer.email}`);
+    }
+    const accessToken = new URL(link.url).pathname.split("/").pop();
 
     const session = await invoke(
         sb,
@@ -613,7 +607,7 @@ const main = async () => {
             log(`  in progress: ${title} (${sent.id})`);
             return;
         }
-        const outcome = await actAsSigner(sender, ctx, sent.id, then.by, then.action);
+        const outcome = await actAsSigner(sent.id, then.by, then.action);
         log(`  ${outcome}: ${title} (${sent.id})`);
     };
 

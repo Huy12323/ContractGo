@@ -75,8 +75,7 @@ const IDENTITY_TTL_MINUTES = 30;
  * it is a development one.
  *
  * FAILS CLOSED, deliberately unlike `storage.ts`'s `ENVIRONMENT || "development"`.
- * `envelopes_dev-signing-link` makes the argument in full: `ENVIRONMENT`'s
- * template default is `development`, so a gate that treats "unset" as
+ * `ENVIRONMENT`'s template default is `development`, so a gate that treats "unset" as
  * development is no gate at all — a production deploy that forgot the variable
  * would silently accept the mock. Requiring an explicit development-ish value
  * inverts that: forgetting refuses, which is the safe direction for a mechanism

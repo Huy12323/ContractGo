@@ -15,7 +15,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { KeyOutlined, PlusOutlined, StopOutlined } from "@ant-design/icons";
-import { Page_SettingsApiKeys_CreateModal } from "./Page_SettingsApiKeys_CreateModal";
+import { Page_OrgSettingsApiKeys_CreateModal } from "./Page_OrgSettingsApiKeys_CreateModal";
 import { useQ_Tables_ApiKeys, type Tables_ApiKeys_Row } from "@/hooks/useQ_Tables_ApiKeys";
 import { useM_ApiKeys_Issue } from "@/hooks/useM_ApiKeys_Issue";
 import { useM_ApiKeys_Revoke } from "@/hooks/useM_ApiKeys_Revoke";
@@ -48,11 +48,11 @@ import { useApp_Breakpoint } from "@/hooks/useApp_Breakpoint";
  * its own. Collapsing them into "inactive" would lose the difference at exactly
  * the moment someone is asking why an integration stopped.
  */
-export const Page_SettingsApiKeys = () => {
+export const Page_OrgSettingsApiKeys = () => {
     const { token } = theme.useToken();
     const { isMobile } = useApp_Breakpoint();
     const { organizationId } = useParams({
-        from: "/_protected/$organizationId/settings/api-keys",
+        from: "/_protected/$organizationId/settings/_integrations/api-keys",
     });
 
     const [createOpen, setCreateOpen] = useState(false);
@@ -270,7 +270,7 @@ export const Page_SettingsApiKeys = () => {
                 />
             )}
 
-            <Page_SettingsApiKeys_CreateModal
+            <Page_OrgSettingsApiKeys_CreateModal
                 open={createOpen}
                 isSubmitting={mIssue.mutation.isPending}
                 issuedKey={issuedKey}

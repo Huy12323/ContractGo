@@ -162,6 +162,26 @@ export type Signing_Session = {
      * `identity_check` already follow.
      */
     assistant_enabled?: boolean;
+    /**
+     * CG-050. WHO SENT THIS DOCUMENT.
+     *
+     * The signing page carried no sender identity at all before this — a
+     * counterparty opening a contract could not tell at a glance whether it came
+     * from the firm they were expecting.
+     *
+     * A PRESENTATION HINT AND NOTHING MORE. It must never gate behaviour: a
+     * missing block, an empty name or a garbage `brand_color` all have to leave
+     * the ceremony fully working, falling back to the product's own look.
+     * Optional for the same reason `embed_origin` is — a browser can be holding a
+     * page from before this shipped.
+     */
+    branding?: {
+        org_name: string;
+        /** Public, unsigned URL. Null when the organization has no logo. */
+        logo_url: string | null;
+        /** `#RRGGBB`, or null for the product palette. */
+        brand_color: string | null;
+    } | null;
     embed_origin?: string | null;
     /**
      * The finished, burned document — present only once EVERY party has signed.

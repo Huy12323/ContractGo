@@ -33,7 +33,9 @@ const VALID_TASKS = ["push", "functions", "deploy"];
 const [env, task = "deploy"] = process.argv.slice(2);
 
 if (!env || !ENV_ALIASES[env]) {
-    console.error(`Usage: node scripts/sb-remote-push.js <staging|production> <push|functions|deploy>`);
+    console.error(
+        `Usage: node scripts/sb-remote-push.js <staging|production> <push|functions|deploy>`
+    );
     process.exit(1);
 }
 if (!VALID_TASKS.includes(task)) {
@@ -60,11 +62,16 @@ const {
 
 const requiredForPush = { SUPABASE_DB_URL };
 const requiredForFunctions = { DEPLOY_SSH_TARGET, DEPLOY_REMOTE_FUNCTIONS_PATH };
-const required = task === "push" ? requiredForPush
-    : task === "functions" ? requiredForFunctions
-    : { ...requiredForPush, ...requiredForFunctions };
+const required =
+    task === "push"
+        ? requiredForPush
+        : task === "functions"
+          ? requiredForFunctions
+          : { ...requiredForPush, ...requiredForFunctions };
 
-const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
+const missing = Object.entries(required)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
 if (missing.length) {
     console.error(`Missing required vars in .env.${envSuffix}: ${missing.join(", ")}`);
     console.error("See docs/deployment.md for setup instructions.");
@@ -87,8 +94,8 @@ if (task === "functions" || task === "deploy") {
     const sshCmd = `ssh ${DEPLOY_SSH_OPTS} ${DEPLOY_SSH_TARGET}`.replace(/\s+/g, " ").trim();
     run(
         `tar cf - --exclude='main' --exclude='.env' --exclude='.env.*' ` +
-        `-C supabase/functions . | ` +
-        `${sshCmd} "cd '${DEPLOY_REMOTE_FUNCTIONS_PATH}' && tar xf -"`
+            `-C supabase/functions . | ` +
+            `${sshCmd} "cd '${DEPLOY_REMOTE_FUNCTIONS_PATH}' && tar xf -"`
     );
 }
 

@@ -59,6 +59,42 @@ describe("resolveSignerAuth", () => {
 });
 
 /**
+ * CG-050 added the ORG DEFAULT between the request body and the hard-coded
+ * fallback: body > organization > 'account'.
+ */
+describe("resolveSignerAuth — organization default", () => {
+    it("uses the org default when the body says nothing", () => {
+        expect(resolveSignerAuth({} as never, "email_otp")).toBe("email_otp");
+        expect(resolveSignerAuth({ signer_auth: null } as never, "email_otp")).toBe("email_otp");
+    });
+
+    it("lets an explicit choice outrank the org default in both directions", () => {
+        // Both directions matter. An org defaulting to passcodes must still be
+        // able to send an account-bound document, and vice versa — a house
+        // policy is a starting point, not a ceiling.
+        expect(resolveSignerAuth({ signer_auth: "account" } as never, "email_otp")).toBe("account");
+        expect(resolveSignerAuth({ signer_auth: "email_otp" } as never, "account")).toBe(
+            "email_otp"
+        );
+    });
+
+    it("still fails closed to 'account' when no org default is supplied", () => {
+        // The parameter's default. Every pre-CG-050 call site keeps its exact
+        // previous meaning, which is what let this ship without touching them.
+        expect(resolveSignerAuth({} as never)).toBe("account");
+    });
+
+    it("does not let the org default rescue an unrecognised value", () => {
+        // An org default is a fallback for ABSENCE, never for NONSENSE. Coercing
+        // a typo to the house policy would be the exact silent-choice failure
+        // the base function throws to avoid.
+        expect(() => resolveSignerAuth({ signer_auth: "none" } as never, "email_otp")).toThrow(
+            /Unknown signer_auth/
+        );
+    });
+});
+
+/**
  * CG-032. Its sibling above, one level down — and the one behaviour that must
  * NOT match: an absent value here means INHERIT, not "account". Defaulting to
  * the stricter option the way `resolveSignerAuth` does would silently override

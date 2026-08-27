@@ -40,7 +40,7 @@ function psqlExec(sqlText) {
             encoding: "utf-8",
             input: sqlText,
             maxBuffer: 256 * 1024 * 1024,
-        },
+        }
     );
 }
 
@@ -133,7 +133,7 @@ function main() {
     }
 
     console.log(
-        `[ahr1791] Updates queued: ${templateUpdates.length} templates, ${versionUpdates.length} versions`,
+        `[ahr1791] Updates queued: ${templateUpdates.length} templates, ${versionUpdates.length} versions`
     );
 
     if (DRY_RUN) {
@@ -156,7 +156,7 @@ function main() {
         const layoutLit = sqlEscape(JSON.stringify(u.cleanedLayout));
         const keysLit = sqlEscape(JSON.stringify(u.keys));
         parts.push(
-            `UPDATE public.contract_template_versions SET layout = '${layoutLit}'::jsonb, attachment_field_keys = '${keysLit}'::jsonb WHERE id = '${u.id}';`,
+            `UPDATE public.contract_template_versions SET layout = '${layoutLit}'::jsonb, attachment_field_keys = '${keysLit}'::jsonb WHERE id = '${u.id}';`
         );
     }
 
@@ -187,14 +187,16 @@ UPDATE public.contract_template_versions
         const layoutLit = sqlEscape(JSON.stringify(u.cleanedLayout));
         const keysLit = sqlEscape(JSON.stringify(u.keys));
         parts.push(
-            `UPDATE public.contract_templates SET layout = '${layoutLit}'::jsonb, attachment_field_keys = '${keysLit}'::jsonb WHERE id = '${u.id}';`,
+            `UPDATE public.contract_templates SET layout = '${layoutLit}'::jsonb, attachment_field_keys = '${keysLit}'::jsonb WHERE id = '${u.id}';`
         );
     }
 
     parts.push("COMMIT;");
 
     const sql = parts.join("\n");
-    console.log(`[ahr1791] Applying ${templateUpdates.length + versionUpdates.length + 1} statements in a single transaction...`);
+    console.log(
+        `[ahr1791] Applying ${templateUpdates.length + versionUpdates.length + 1} statements in a single transaction...`
+    );
     psqlExec(sql);
     console.log("[ahr1791] Backfill complete");
 }

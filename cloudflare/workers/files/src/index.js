@@ -46,6 +46,36 @@ function isAvatarPath(r2Key) {
 }
 
 /**
+ * CG-050: `orgs/{org_id}/branding/{ts}-{uid}.{ext}` — exactly four segments.
+ *
+ * A deliberate hole in the `orgs/` token gate below, and the only one. Everything
+ * else under `orgs/` is a customer document and requires a signed token; a
+ * branding logo is the opposite kind of object, because its two audiences
+ * structurally CANNOT present one:
+ *
+ *   - an ANONYMOUS signer, who has a signing token for an envelope and no
+ *     session at all, and
+ *   - an EMAIL CLIENT, fetching `<img src>` from a message opened weeks later.
+ *
+ * The alternative — a very-long-TTL signed URL baked into outbound mail — is
+ * strictly worse: a bearer credential that lives forever in a mail archive. So a
+ * logo takes the avatar posture instead: unauthenticated read, unguessable key,
+ * and nothing sensitive behind it. The org id in the path is not a secret; the
+ * `{ts}-{uid}` filename is what makes the object unenumerable.
+ *
+ * Exactly four segments, and `segments[2] === "branding"` rather than a
+ * `startsWith` — the same discipline `isAvatarPath` documents above, for the same
+ * reason. A prefix test would also match `orgs/{id}/branding-x/{doc}.pdf`, an
+ * attacker-chosen deep path, and would hand out signed documents for free.
+ * There are no thumbnails in this namespace, so there is no five-segment case.
+ */
+function isOrgBrandingPath(r2Key) {
+    if (!r2Key.startsWith("orgs/")) return false;
+    const segments = r2Key.split("/");
+    return segments.length === 4 && segments[2] === "branding";
+}
+
+/**
  * CG-029: `users/{user_id}/signatures/{uuid}.png`.
  *
  * A sibling of the avatar namespace in the key space and its exact opposite in
@@ -142,7 +172,9 @@ export default {
         }
 
         try {
-            if (isAvatarPath(r2Key)) {
+            // The two unauthenticated namespaces, checked BEFORE the `orgs/`
+            // token gate below — that gate is what they are exceptions to.
+            if (isAvatarPath(r2Key) || isOrgBrandingPath(r2Key)) {
                 return await serveFromR2(r2Key, env, ctx, url);
             }
 

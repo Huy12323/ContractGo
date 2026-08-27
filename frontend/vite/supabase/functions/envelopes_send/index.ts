@@ -61,6 +61,7 @@ import {
     isCc,
     isEmptyRecipient,
     resolveRequireIdentityCheck, // [ekyc]
+    mergeScheduleDefaults,
     resolveSchedule,
     resolveSignerAuth,
     resolveTemplateAndVersion,
@@ -97,8 +98,7 @@ serveSenderFunction("envelopes_send", async (rawBody, req) => {
     let schedule;
     try {
         schedule = resolveSchedule(body, {
-            defaultExpiryDays: resolved.version.default_expiry_days,
-            defaultReminderDays: resolved.version.default_reminder_days,
+            ...mergeScheduleDefaults(resolved.version, ctx.organization),
             sentAt,
             // The full clock checks. A stale draft whose deadline has passed is
             // refused HERE and not at save time — see `resolveSchedule`'s note.
@@ -113,7 +113,7 @@ serveSenderFunction("envelopes_send", async (rawBody, req) => {
     // constraint three writes later.
     let signerAuth;
     try {
-        signerAuth = resolveSignerAuth(body);
+        signerAuth = resolveSignerAuth(body, ctx.organization.default_signer_auth);
     } catch (err) {
         return jsonResponse({ error: (err as Error).message }, 400);
     }

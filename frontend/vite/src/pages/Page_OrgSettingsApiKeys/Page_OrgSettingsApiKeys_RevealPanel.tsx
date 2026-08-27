@@ -31,7 +31,7 @@ import { CheckOutlined, CopyOutlined } from "@ant-design/icons";
  * query cache, a store, or `localStorage`. It dies with the modal, which is the
  * intended lifetime.
  */
-export const Page_SettingsApiKeys_RevealPanel = ({
+export const Page_OrgSettingsApiKeys_RevealPanel = ({
     label,
     value,
     warning,

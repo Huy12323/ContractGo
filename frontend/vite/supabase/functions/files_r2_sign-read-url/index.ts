@@ -49,10 +49,17 @@ const TOKEN_TTL_SECONDS = 7 * 24 * 3600;
 serveSenderFunction("files_r2_sign-read-url", async (body, req) => {
     const { resource_type } = body as { resource_type?: string };
 
-    if (resource_type === "user_avatar") {
+    if (resource_type === "user_avatar" || resource_type === "organization_logo") {
+        // CG-050 adds the logo to this refusal for the same reason the avatar is
+        // here, plus a sharper one. A signed URL for a logo would be actively
+        // harmful: the logo's audiences are an anonymous signer and an email
+        // client, so the only way to make a signed URL work in mail is a TTL long
+        // enough that the URL becomes a permanent bearer credential sitting in a
+        // mail archive. Build it from `r2_key` — the Worker serves it unauthenticated.
         throw new SenderAuthError(
             400,
-            "Avatar URLs are constructed directly by the client from r2_key — no sign call needed"
+            `${resource_type} URLs are constructed directly by the client from r2_key — ` +
+                "no sign call needed"
         );
     }
     // CG-029. Unlike an avatar, a saved signature CANNOT be addressed by

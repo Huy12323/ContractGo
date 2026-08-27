@@ -49,6 +49,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Result, Skeleton, Steps, theme } from "antd";
 import { PageSign_Welcome } from "./PageSign_Welcome";
+import { PageSign_BrandProvider } from "./PageSign_BrandProvider";
 import { PageSign_Filler } from "./PageSign_Filler";
 import { PageSign_SignStep } from "./PageSign_SignStep";
 import { PageSign_Complete } from "./PageSign_Complete";
@@ -580,45 +581,48 @@ export const Page_Sign = ({ accessToken, embedded = false }: Props) => {
     const stepIndex = utils_PageSign_StepIndex(step, needsIdentity);
 
     return (
-        <div
-            style={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                gap: isMobile ? token.marginXS : token.marginMD,
-                minHeight: 0,
-            }}
-        >
-            {/* `progressDot` on a phone. Three titles across 390px either wrap to
+        // CG-050. The sender's accent colour, scoped to the ceremony and nowhere
+        // else — see `PageSign_BrandProvider` on why this is a NESTED provider.
+        <PageSign_BrandProvider brandColor={session.branding?.brand_color}>
+            <div
+                style={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: isMobile ? token.marginXS : token.marginMD,
+                    minHeight: 0,
+                }}
+            >
+                {/* `progressDot` on a phone. Three titles across 390px either wrap to
                 three lines of chrome above a document that has none to spare, or
                 truncate to "Compl…" — and the step the signer is ON is named by the
                 content below it anyway. */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: token.marginSM,
-                    flexShrink: 0,
-                }}
-            >
-                <Steps
-                    size="small"
-                    progressDot={isMobile}
-                    responsive={false}
-                    current={stepIndex}
-                    items={utils_PageSign_Steps(needsIdentity)}
-                    style={{ flex: 1, minWidth: 0, maxWidth: 640 }}
-                />
-                {/* CG-049. In the header row and not a floating button: a FAB
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: token.marginSM,
+                        flexShrink: 0,
+                    }}
+                >
+                    <Steps
+                        size="small"
+                        progressDot={isMobile}
+                        responsive={false}
+                        current={stepIndex}
+                        items={utils_PageSign_Steps(needsIdentity)}
+                        style={{ flex: 1, minWidth: 0, maxWidth: 640 }}
+                    />
+                    {/* CG-049. In the header row and not a floating button: a FAB
                     here would sit on top of `App_SigningFieldSheet`'s fixed bar
                     and over the field boxes the signer is trying to tap. */}
-                {assistantAvailable && <PageSign_AssistantTrigger />}
-            </div>
+                    {assistantAvailable && <PageSign_AssistantTrigger />}
+                </div>
 
-            {/* The fill step is a fixed-height frame that scrolls its own document
+                {/* The fill step is a fixed-height frame that scrolls its own document
                 pane and must keep its footer visible; welcome and sign are ordinary
                 content blocks that can outgrow the viewport, so they scroll here. */}
-            {/* CG-049 turned this into a ROW. The step column below keeps its
+                {/* CG-049 turned this into a ROW. The step column below keeps its
                 `overflow`/`minHeight` semantics byte-for-byte — that is what
                 makes the fill step still scroll its own document pane with its
                 footer visible — and gains `minWidth: 0`, for the reason
@@ -635,119 +639,120 @@ export const Page_Sign = ({ accessToken, embedded = false }: Props) => {
                 whose `App_PdfDocument` has a documented ResizeObserver feedback
                 loop; the filler only ever sees a narrower parent, which is what a
                 smaller window already does. */}
-            <div style={{ flex: 1, minHeight: 0, display: "flex", gap: token.marginMD }}>
-                <div
-                    style={{
-                        flex: 1,
-                        minWidth: 0,
-                        minHeight: 0,
-                        overflow: step === "fill" ? "hidden" : "auto",
-                    }}
-                >
-                    {step === "welcome" && (
-                        <PageSign_Welcome
-                            session={session}
-                            consent={consent}
-                            onConsentChange={setConsent}
-                            // [ekyc] The identity step goes BETWEEN Review and
-                            // Complete fields, so nothing valuable is in local state
-                            // when a rejection lands — and so the document stays
-                            // readable first, which both existing gates state as a
-                            // principle in their headers.
-                            onContinue={() =>
-                                setStep(needsIdentity && !identityReady ? "identity" : "fill")
-                            }
-                        />
-                    )}
+                <div style={{ flex: 1, minHeight: 0, display: "flex", gap: token.marginMD }}>
+                    <div
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            minHeight: 0,
+                            overflow: step === "fill" ? "hidden" : "auto",
+                        }}
+                    >
+                        {step === "welcome" && (
+                            <PageSign_Welcome
+                                session={session}
+                                consent={consent}
+                                onConsentChange={setConsent}
+                                // [ekyc] The identity step goes BETWEEN Review and
+                                // Complete fields, so nothing valuable is in local state
+                                // when a rejection lands — and so the document stays
+                                // readable first, which both existing gates state as a
+                                // principle in their headers.
+                                onContinue={() =>
+                                    setStep(needsIdentity && !identityReady ? "identity" : "fill")
+                                }
+                            />
+                        )}
 
-                    {/* [ekyc] CG-033. One render block; removing eKYC deletes it. */}
-                    {step === "identity" && (
-                        <PageSign_IdentityStep
+                        {/* [ekyc] CG-033. One render block; removing eKYC deletes it. */}
+                        {step === "identity" && (
+                            <PageSign_IdentityStep
+                                accessToken={accessToken}
+                                identityCheck={session.identity_check}
+                                onVerified={() => {
+                                    setIdentityVerified(true);
+                                    setStep("fill");
+                                }}
+                                onDecline={() => setDeclineOpen(true)}
+                                onBack={() => setStep("welcome")}
+                            />
+                        )}
+
+                        {step === "fill" && (
+                            <PageSign_Filler
+                                session={session}
+                                fieldValues={fieldValues}
+                                onFieldChange={(id, value) =>
+                                    setFieldValues((prev) => ({ ...prev, [id]: value }))
+                                }
+                                fieldErrors={fieldErrors}
+                                roleColors={roleColors}
+                                signaturePreview={signature}
+                                onBack={() => setStep("welcome")}
+                                onContinue={() => setStep("sign")}
+                            />
+                        )}
+
+                        {step === "sign" && (
+                            <PageSign_SignStep
+                                session={session}
+                                accountStatus={accountStatus}
+                                accountEmail={authUser?.email ?? null}
+                                returnTo={returnTo}
+                                signature={signature}
+                                onSignatureChange={(dataUrl, method) => {
+                                    setSignature(dataUrl);
+                                    setCaptureMethod(method);
+                                }}
+                                saveSignature={saveSignature}
+                                onSaveSignatureChange={setSaveSignature}
+                                consent={consent}
+                                onConsentChange={setConsent}
+                                isSubmitting={mSubmit.mutation.isPending}
+                                error={
+                                    mSubmit.mutation.error instanceof Error
+                                        ? mSubmit.mutation.error.message
+                                        : null
+                                }
+                                onBack={() => setStep("fill")}
+                                onSubmit={handleSubmit}
+                                onDecline={() => setDeclineOpen(true)}
+                                authRequirement={authRequirement}
+                                accessToken={accessToken}
+                                otpVerified={otpVerified}
+                                onOtpVerified={() => setOtpVerified(true)}
+                                signedInAsSigner={accountStatus === "ok"}
+                                otpRequired={otpRequired}
+                                identityCheckReady={identityReady} // [ekyc]
+                                onIdentityRequired={() => setStep("identity")} // [ekyc]
+                            />
+                        )}
+                    </div>
+
+                    {assistantAvailable && (
+                        <PageSign_Assistant
+                            session={session}
                             accessToken={accessToken}
-                            identityCheck={session.identity_check}
-                            onVerified={() => {
-                                setIdentityVerified(true);
-                                setStep("fill");
-                            }}
-                            onDecline={() => setDeclineOpen(true)}
-                            onBack={() => setStep("welcome")}
-                        />
-                    )}
-
-                    {step === "fill" && (
-                        <PageSign_Filler
-                            session={session}
-                            fieldValues={fieldValues}
-                            onFieldChange={(id, value) =>
-                                setFieldValues((prev) => ({ ...prev, [id]: value }))
-                            }
-                            fieldErrors={fieldErrors}
-                            roleColors={roleColors}
-                            signaturePreview={signature}
-                            onBack={() => setStep("welcome")}
-                            onContinue={() => setStep("sign")}
-                        />
-                    )}
-
-                    {step === "sign" && (
-                        <PageSign_SignStep
-                            session={session}
-                            accountStatus={accountStatus}
-                            accountEmail={authUser?.email ?? null}
-                            returnTo={returnTo}
-                            signature={signature}
-                            onSignatureChange={(dataUrl, method) => {
-                                setSignature(dataUrl);
-                                setCaptureMethod(method);
-                            }}
-                            saveSignature={saveSignature}
-                            onSaveSignatureChange={setSaveSignature}
-                            consent={consent}
-                            onConsentChange={setConsent}
-                            isSubmitting={mSubmit.mutation.isPending}
-                            error={
-                                mSubmit.mutation.error instanceof Error
-                                    ? mSubmit.mutation.error.message
-                                    : null
-                            }
-                            onBack={() => setStep("fill")}
-                            onSubmit={handleSubmit}
-                            onDecline={() => setDeclineOpen(true)}
-                            authRequirement={authRequirement}
-                            accessToken={accessToken}
-                            otpVerified={otpVerified}
-                            onOtpVerified={() => setOtpVerified(true)}
-                            signedInAsSigner={accountStatus === "ok"}
-                            otpRequired={otpRequired}
-                            identityCheckReady={identityReady} // [ekyc]
-                            onIdentityRequired={() => setStep("identity")} // [ekyc]
+                            step={step}
+                            onRequestFillStep={() => setStep("fill")}
                         />
                     )}
                 </div>
 
-                {assistantAvailable && (
-                    <PageSign_Assistant
-                        session={session}
-                        accessToken={accessToken}
-                        step={step}
-                        onRequestFillStep={() => setStep("fill")}
-                    />
-                )}
+                <App_SigningDeclineModal
+                    open={declineOpen}
+                    documentTitle={session.request.title}
+                    isSubmitting={mDecline.mutation.isPending}
+                    error={
+                        mDecline.mutation.error instanceof Error
+                            ? mDecline.mutation.error.message
+                            : null
+                    }
+                    onCancel={() => setDeclineOpen(false)}
+                    onConfirm={handleDecline}
+                />
             </div>
-
-            <App_SigningDeclineModal
-                open={declineOpen}
-                documentTitle={session.request.title}
-                isSubmitting={mDecline.mutation.isPending}
-                error={
-                    mDecline.mutation.error instanceof Error
-                        ? mDecline.mutation.error.message
-                        : null
-                }
-                onCancel={() => setDeclineOpen(false)}
-                onConfirm={handleDecline}
-            />
-        </div>
+        </PageSign_BrandProvider>
     );
 };
 

@@ -47,6 +47,20 @@ export type StorageDriver = {
     }): Promise<{ uploadUrl: string; expiresAt: string }>;
     /** Time-limited URL the browser GETs the object from. */
     createReadUrl(args: { key: string; expiresIn: number; claims: ReadUrlClaims }): Promise<string>;
+    /**
+     * Permanent URL for an object in the PUBLIC namespace — the server-side twin
+     * of `Utils_Files_PublicUrl` in `src/utils/`. Note the coupling: both build
+     * the same URL from the same key, and both must branch on the same driver.
+     *
+     * Synchronous and unsigned, because the Worker serves these with no token.
+     * CG-050 needs it so an org logo can be embedded in outbound email, where a
+     * signed URL cannot work: the recipient's mail client has no credential and
+     * opens the message weeks later.
+     *
+     * ONLY VALID FOR `isPublicObjectKey` KEYS. Handing it a document key produces
+     * a URL the Worker answers with 401.
+     */
+    publicUrl(key: string): string;
     /** Best-effort delete; individual key failures are logged, never thrown. */
     deleteObjects(keys: string[]): Promise<void>;
     /**
@@ -85,7 +99,7 @@ export function getStorageDriverName(): StorageDriverName {
  * Signatures share the `users/` prefix and are emphatically NOT public — hence
  * the exact segment counts rather than a prefix test.
  */
-export function isPublicAvatarKey(key: string): boolean {
+function isPublicAvatarKey(key: string): boolean {
     if (!key.startsWith("users/")) return false;
     const segments = key.split("/");
     if (segments.length === 3) return segments[2].startsWith("avatar-");
@@ -94,6 +108,38 @@ export function isPublicAvatarKey(key: string): boolean {
         return segments[2] === "avatars" && segments[3] === "thumbnails";
     }
     return false;
+}
+
+/**
+ * CG-050: `orgs/{org_id}/branding/{ts}-{uid}.{ext}` — exactly four segments.
+ *
+ * MUST STAY IN STEP WITH `isOrgBrandingPath` in the Worker, whose docblock
+ * carries the full argument for why a logo is public at all. The short version:
+ * its two audiences are an anonymous signer and an email client, and neither can
+ * present a token.
+ *
+ * `segments[2] === "branding"` and never a `startsWith` — a prefix test would
+ * also match `orgs/{id}/branding-x/{doc}.pdf` and serve customer documents
+ * without a token. There are no thumbnails here, so there is no five-segment
+ * case. Every OTHER key under `orgs/` is a document and stays token-gated.
+ */
+function isPublicOrgBrandingKey(key: string): boolean {
+    if (!key.startsWith("orgs/")) return false;
+    const segments = key.split("/");
+    return segments.length === 4 && segments[2] === "branding";
+}
+
+/**
+ * The full public namespace: avatars (CG-036) and org branding (CG-050).
+ *
+ * This is the predicate the local driver routes buckets by, and it must be the
+ * union of every unauthenticated branch in the Worker's `fetch`. A key that is
+ * public there and private here means `STORAGE_DRIVER=local` renders a broken
+ * image; the reverse means an object sits in a public bucket that the Worker
+ * would have refused to serve.
+ */
+export function isPublicObjectKey(key: string): boolean {
+    return isPublicAvatarKey(key) || isPublicOrgBrandingKey(key);
 }
 
 /**
@@ -160,7 +206,7 @@ function createLocalDriver(): StorageDriver {
     // A caller that could choose would be a caller that could put a contract PDF
     // in the public bucket.
     const bucketFor = (key: string) =>
-        isPublicAvatarKey(key) ? LOCAL_PUBLIC_BUCKET : LOCAL_BUCKET;
+        isPublicObjectKey(key) ? LOCAL_PUBLIC_BUCKET : LOCAL_BUCKET;
 
     const bucketReady: Record<string, Promise<void> | undefined> = {};
     const ensureBucket = (bucket: string) => {
@@ -183,6 +229,11 @@ function createLocalDriver(): StorageDriver {
 
     return {
         name: "local",
+        // Mirrors the Worker's public branch: the local driver keeps public
+        // objects in a public Supabase Storage bucket, so the URL is the bucket
+        // object path rather than a Worker origin.
+        publicUrl: (key: string) =>
+            `${publicUrl}/storage/v1/object/public/${LOCAL_PUBLIC_BUCKET}/${key}`,
 
         async createUploadUrl({ key, expiresIn }) {
             await ensureBucket(bucketFor(key));
@@ -283,6 +334,9 @@ function createR2Driver(): StorageDriver {
 
     return {
         name: "r2",
+        // The Worker origin, unsigned — it serves the public namespace with no
+        // token. Same string the frontend builds from the same key.
+        publicUrl: (key: string) => `${requireEnv("R2_WORKER_URL").replace(/\/+$/, "")}/${key}`,
 
         async createUploadUrl({ key, contentType, expiresIn }) {
             const [{ PutObjectCommand }, { getSignedUrl }, client] = await Promise.all([

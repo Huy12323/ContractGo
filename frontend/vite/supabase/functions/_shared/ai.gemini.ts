@@ -142,7 +142,20 @@ export function createGeminiAiDriver(): AiDriver {
                     signal: args.signal,
                 });
             } catch (err) {
-                const aborted = err instanceof DOMException && err.name === "AbortError";
+                // `AbortSignal.timeout()` rejects with a DOMException named
+                // **TimeoutError**, not AbortError — only `controller.abort()`
+                // produces the latter. Matching AbortError alone classified every
+                // deadline as `unavailable`, so a slow upstream reached the signer
+                // as "the assistant is unavailable" (502) instead of "that took too
+                // long, please ask again" (504): the wrong message, and the wrong
+                // signal to the operator reading the failure column.
+                //
+                // `signal.aborted` is the belt to that braces — a runtime that
+                // reports the abort as a plain Error still lands on `timeout`.
+                const aborted =
+                    (err instanceof DOMException &&
+                        (err.name === "TimeoutError" || err.name === "AbortError")) ||
+                    args.signal?.aborted === true;
                 return {
                     ok: false,
                     reason: aborted ? "timeout" : "unavailable",

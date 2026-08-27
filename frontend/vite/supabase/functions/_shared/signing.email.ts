@@ -39,6 +39,7 @@ export function createEmailOtpDriver(): OtpDriver {
             documentTitle,
             signerName,
             organizationName,
+            organizationId,
             expiresInMinutes,
         }) {
             const supabaseUrl = requireEnv("SUPABASE_URL");
@@ -64,6 +65,13 @@ export function createEmailOtpDriver(): OtpDriver {
                         orgName: organizationName,
                         expiresInMinutes: String(expiresInMinutes),
                     },
+                    // CG-050. A TOP-LEVEL field, and it has to be: the whole
+                    // `notify` block is deliberately absent below, so branding
+                    // riding on `notify.organizationId` would make this the one
+                    // signer-facing email that silently lost its sender's
+                    // identity — on the message a signer is MOST likely to open
+                    // and most likely to check for signs of a forgery.
+                    organization_id: organizationId,
                     // NO `notify` HINTS, and this is the important line in the
                     // file. `shared--send-email` mirrors anything it is given
                     // hints for into a `notifications` row (CG-018), and a

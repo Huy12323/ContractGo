@@ -41,14 +41,9 @@ import { useM_Envelope_DownloadSigned } from "@/hooks/useM_Envelope_DownloadSign
 import { useM_Envelope_CertificateOpen } from "@/hooks/useM_Envelope_CertificateOpen";
 import { useQ_Tables_MyCapabilities } from "@/hooks/useQ_Tables_MyCapabilities";
 import {
-    useM_Envelope_DevSigningLink,
-    type UseM_Envelope_DevSigningLink_Result,
-} from "@/hooks/useM_Envelope_DevSigningLink";
-import {
     utils_Templates_MigrateLayout,
     utils_Templates_MigrateSignerRoles,
 } from "@/components/templates/utils_Templates_MigrateLayout";
-import { ENVs } from "@/utils/ENVs/ENVs";
 import type { Template_Snapshot } from "@/types/template.types";
 import { Utils_Scope_Route } from "@/utils/Utils_Scope_Route";
 import type { OrganizationScope } from "@/providers/organization/Provider_Organization";
@@ -97,11 +92,6 @@ export const Page_EnvelopeDetail = ({ organizationId, envelopeId, scope = "org" 
     // make the modal's copy depend on a list that the mutation's own invalidation
     // is about to change underneath it.
     const [changesTarget, setChangesTarget] = useState<Tables_Envelope_Signer | null>(null);
-    // DEV ONLY. The minted link, held until dismissed — it is shown once and
-    // never fetched again, because asking for it a second time issues a fresh
-    // credential and kills this one.
-    const [devLink, setDevLink] = useState<UseM_Envelope_DevSigningLink_Result | null>(null);
-    const [devLinkTarget, setDevLinkTarget] = useState<string | null>(null);
 
     const qEnvelope = useQ_Tables_Envelope({ envelopeId });
     const qCaps = useQ_Tables_MyCapabilities({ organizationId });
@@ -111,7 +101,6 @@ export const Page_EnvelopeDetail = ({ organizationId, envelopeId, scope = "org" 
     const mRequestChanges = useM_Envelope_RequestChanges();
     const mDownload = useM_Envelope_DownloadSigned();
     const mCertificate = useM_Envelope_CertificateOpen();
-    const mDevSigningLink = useM_Envelope_DevSigningLink();
 
     const envelope = qEnvelope.envelope;
 
@@ -246,28 +235,6 @@ export const Page_EnvelopeDetail = ({ organizationId, envelopeId, scope = "org" 
         } catch {
             // The hook surfaces the server's message. Leaving the modal open keeps
             // what the sender typed, which they would otherwise have to retype.
-        }
-    };
-
-    // DEV ONLY — the local substitute for opening the recipient's email. Gated on
-    // `ENVs.isDev` so the action is absent from a production build; the edge
-    // function refuses anywhere `DEV_SIGNING_LINKS` is not `enabled` regardless,
-    // which is where the actual boundary lives. See the hook for why the sender being
-    // able to hold a signing credential is a property we only break locally.
-    const handleOpenSigningLink = async (signer: Tables_Envelope_Signer) => {
-        setDevLinkTarget(signer.id);
-        try {
-            setDevLink(
-                await mDevSigningLink.mutation.mutateAsync({
-                    organization_id: organizationId,
-                    envelope_id: envelopeId,
-                    signer_id: signer.id,
-                })
-            );
-        } catch {
-            // The hook already surfaced the server's message.
-        } finally {
-            setDevLinkTarget(null);
         }
     };
 
@@ -486,18 +453,6 @@ export const Page_EnvelopeDetail = ({ organizationId, envelopeId, scope = "org" 
                                                     onRequestChanges={
                                                         canAct ? setChangesTarget : undefined
                                                     }
-                                                    // A draft has no credentials to
-                                                    // mint — its `template_snapshot`
-                                                    // is still NULL, so there is
-                                                    // nothing for the signing surface
-                                                    // to render and the function
-                                                    // answers 409.
-                                                    onOpenSigningLink={
-                                                        ENVs.isDev && envelope.status !== "draft"
-                                                            ? handleOpenSigningLink
-                                                            : undefined
-                                                    }
-                                                    openingLinkFor={devLinkTarget}
                                                 />
                                             </div>
                                         </div>
@@ -752,51 +707,6 @@ export const Page_EnvelopeDetail = ({ organizationId, envelopeId, scope = "org" 
                     placeholder="Reason (optional, recorded in the audit trail)"
                     value={voidReason}
                     onChange={(e) => setVoidReason(e.target.value)}
-                />
-            </Modal>
-
-            {/* DEV ONLY. Shown rather than copied silently: the URL is the thing
-                being tested, and seeing it makes an expired or wrong-origin link
-                diagnosable without opening the network tab. */}
-            <Modal
-                open={!!devLink}
-                title="Signing link (development only)"
-                onCancel={() => setDevLink(null)}
-                footer={[
-                    <Button key="close" onClick={() => setDevLink(null)}>
-                        Close
-                    </Button>,
-                    <Button
-                        key="open"
-                        type="primary"
-                        onClick={() => {
-                            window.open(devLink?.url, "_blank", "noopener,noreferrer");
-                            setDevLink(null);
-                        }}
-                    >
-                        Open signing page
-                    </Button>,
-                ]}
-                destroyOnHidden
-                {...Utils_Modal_Responsive(isMobile)}
-            >
-                <Typography.Paragraph>
-                    {devLink?.purpose === "view" ? "A read-only link for " : "A signing link for "}
-                    <Typography.Text strong>{devLink?.signer_name}</Typography.Text>{" "}
-                    <Typography.Text type="secondary">({devLink?.signer_email})</Typography.Text>.
-                    Open it in a private window to act as them.
-                </Typography.Paragraph>
-                <Typography.Paragraph
-                    copyable={{ text: devLink?.url }}
-                    style={{ fontFamily: "monospace", wordBreak: "break-all" }}
-                >
-                    {devLink?.url}
-                </Typography.Paragraph>
-                <Alert
-                    type="warning"
-                    showIcon
-                    message="This replaced their previous link"
-                    description="Issuing revokes the one that was emailed, exactly as Resend does. Any earlier link for this recipient no longer works."
                 />
             </Modal>
 

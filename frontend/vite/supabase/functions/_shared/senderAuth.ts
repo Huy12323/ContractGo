@@ -31,6 +31,11 @@
 import { createClient, type SupabaseClient } from "supabase";
 import { corsHeaders, getRequestIp, jsonResponse, requireEnv } from "./http.ts";
 import { type AuditEvidence, readSessionClaims, resolveUserIdentity } from "./auditEvidence.ts";
+import {
+    ORGANIZATION_SETTINGS_SELECT,
+    type OrganizationSettings,
+    readOrganizationSettings,
+} from "./organizationSettings.ts";
 
 export class SenderAuthError extends Error {
     constructor(
@@ -53,8 +58,20 @@ export class SenderAuthError extends Error {
  * `"admin"` remains for organization administration (inviting people), which is
  * deliberately NOT one of the two grantable permissions: a member who can send
  * documents still must not be able to add people to the organization.
+ *
+ * `"owner"` (CG-050) is stricter than `"admin"` and exists for actions that
+ * change the ORGANIZATION ITSELF rather than what happens inside it — uploading
+ * the branding logo every recipient will see. It mirrors the RLS on
+ * `organizations`, which is `get_organization_role(id) = 'owner'` in both USING
+ * and WITH CHECK: a function that let an admin write a column the database
+ * refuses them would be a confusing failure at best and a bypass at worst.
  */
-export type SenderRequirement = "member" | "send_documents" | "manage_templates" | "admin";
+export type SenderRequirement =
+    | "member"
+    | "send_documents"
+    | "manage_templates"
+    | "admin"
+    | "owner";
 
 const REQUIREMENT_DENIAL: Record<SenderRequirement, string> = {
     member: "You are not a member of this organization",
@@ -63,6 +80,7 @@ const REQUIREMENT_DENIAL: Record<SenderRequirement, string> = {
     // Unchanged wording: it is the message every existing caller and its tests
     // already expect, and `organizations_send-invitation` rewrites it in place.
     admin: "Only admins and owners can manage documents",
+    owner: "Only the organization owner can change organization settings",
 };
 
 type OrgCapabilities = {
@@ -78,6 +96,8 @@ function satisfies(caps: OrgCapabilities, requires: SenderRequirement): boolean 
             return true;
         case "admin":
             return caps.role === "owner" || caps.role === "admin";
+        case "owner":
+            return caps.role === "owner";
         case "manage_templates":
             return caps.can_manage_templates;
         case "send_documents":
@@ -89,6 +109,15 @@ export type SenderContext = {
     userId: string;
     organizationId: string;
     organizationName: string;
+    /**
+     * The organization's own settings (CG-050): branding, presentation timezone
+     * and the three envelope defaults. It rides along at ZERO extra cost — this
+     * module already SELECTed the organizations row to read `name`, so the only
+     * change was widening that select. Compose call sites read
+     * `default_signer_auth` / `default_expiry_days` / `default_reminder_days`
+     * from here rather than making their own query.
+     */
+    organization: OrganizationSettings;
     /**
      * The caller's tier and grants in this organization, resolved by the same
      * function the RLS policies consult. Carried on the context so a handler
@@ -155,7 +184,9 @@ export async function resolveSender(
 
     const { data: org, error: orgError } = await admin
         .from("organizations")
-        .select("id, name, owner_id")
+        // Widened by CG-050, NOT joined by a second query: this select already
+        // ran on every sender request. See `organizationSettings.ts`.
+        .select(`id, name, owner_id, ${ORGANIZATION_SETTINGS_SELECT}`)
         .eq("id", organizationId)
         .single();
 
@@ -200,6 +231,7 @@ export async function resolveSender(
         userId: user.id,
         organizationId,
         organizationName: org.name,
+        organization: readOrganizationSettings(org),
         capabilities,
         ip: getRequestIp(req),
         userAgent: req.headers.get("user-agent"),

@@ -5,12 +5,12 @@
  * session on the very address the document names; the function then mints that
  * signer's own credential and hands it back.
  *
- * WHY THIS IS NOT `envelopes_dev-signing-link` WITH THE GATE REMOVED. That
- * function is dev-only because it hands the SENDER a credential that speaks as a
- * counterparty — the sender being unable to sign on someone else's behalf is
- * what makes the audit trail worth anything. This one hands a credential to the
- * person it already belongs to, and the check it makes is STRICTER than the
- * emailed link's: a `/sign/<token>` URL proves only that someone reached the
+ * WHY THERE IS NO SENDER-SIDE EQUIVALENT. A function that handed the SENDER a
+ * credential speaking as a counterparty once existed for local testing
+ * (`envelopes_dev-signing-link`, removed): the sender being unable to sign on
+ * someone else's behalf is what makes the audit trail worth anything, so no such
+ * path should exist at all. This one hands a credential to the person it already
+ * belongs to, and the check it makes is STRICTER than the emailed link's: a `/sign/<token>` URL proves only that someone reached the
  * signer's mailbox (links get forwarded, archives outlive their readers), while
  * a session proves the account. `signing_submit` already refuses unless BOTH
  * agree, so nothing here widens what the holder can ultimately do.

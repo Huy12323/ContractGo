@@ -41,6 +41,7 @@ import { createClient, type SupabaseClient } from "supabase";
 import { corsHeaders, getRequestIp, jsonResponse, requireEnv, sha256Bytes } from "./http.ts";
 import { type AuditEvidence, resolveUserIdentity } from "./auditEvidence.ts";
 import { SenderAuthError, type SenderContext, type SenderRequirement } from "./senderAuth.ts";
+import { ORGANIZATION_SETTINGS_SELECT, readOrganizationSettings } from "./organizationSettings.ts";
 
 /**
  * The only error class whose message reaches an API caller. Carries a stable
@@ -107,6 +108,7 @@ export function satisfiesScope(scopes: ApiScope[], requires: SenderRequirement):
         case "manage_templates":
             return scopes.includes("manage_templates");
         case "admin":
+        case "owner":
             return false;
     }
 }
@@ -116,6 +118,10 @@ const SCOPE_DENIAL: Record<SenderRequirement, string> = {
     send_documents: "This API key lacks the send_documents scope",
     manage_templates: "This API key lacks the manage_templates scope",
     admin: "Organization administration is not available to API keys",
+    // CG-050. A key minted by an owner is still not an owner — see the module
+    // header. Organization settings are a dashboard action, deliberately not an
+    // API surface.
+    owner: "Organization settings are not available to API keys",
 };
 
 let cachedAdmin: SupabaseClient | null = null;
@@ -199,7 +205,9 @@ export async function resolveApiClient(
 
     const { data: org, error: orgError } = await admin
         .from("organizations")
-        .select("id, name")
+        // Widened by CG-050 so `api_envelopes_create` inherits the org's
+        // document defaults without a second round trip.
+        .select(`id, name, ${ORGANIZATION_SETTINGS_SELECT}`)
         .eq("id", organizationId)
         .single();
 
@@ -245,6 +253,7 @@ export async function resolveApiClient(
         userId: ownerId,
         organizationId,
         organizationName: org.name as string,
+        organization: readOrganizationSettings(org),
         capabilities: {
             // Always "member". See the module header: an owner's key is not an
             // owner, and a handler branching on `role` must deny a key by default.

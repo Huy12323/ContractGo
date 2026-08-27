@@ -24,24 +24,24 @@
  * @returns {Promise<object[]>} All items across all pages
  */
 async function fetchAllPages(url, headers, opts = {}) {
-  const perPage = opts.perPage || 500;
-  const fieldsParam = opts.fields ? `&fields=${opts.fields}` : "";
-  const sep = url.includes("?") ? "&" : "?";
-  let cursor = null;
-  const all = [];
+    const perPage = opts.perPage || 500;
+    const fieldsParam = opts.fields ? `&fields=${opts.fields}` : "";
+    const sep = url.includes("?") ? "&" : "?";
+    let cursor = null;
+    const all = [];
 
-  do {
-    const cursorParam = cursor ? `&cursor=${cursor}` : "";
-    const fullUrl = `${url}${sep}per_page=${perPage}${fieldsParam}${cursorParam}`;
-    const res = await fetch(fullUrl, { headers });
-    if (res.status !== 200) break;
-    const data = await res.json();
-    const list = data.results || data;
-    all.push(...(Array.isArray(list) ? list : []));
-    cursor = data.next_page_results ? data.next_cursor : null;
-  } while (cursor);
+    do {
+        const cursorParam = cursor ? `&cursor=${cursor}` : "";
+        const fullUrl = `${url}${sep}per_page=${perPage}${fieldsParam}${cursorParam}`;
+        const res = await fetch(fullUrl, { headers });
+        if (res.status !== 200) break;
+        const data = await res.json();
+        const list = data.results || data;
+        all.push(...(Array.isArray(list) ? list : []));
+        cursor = data.next_page_results ? data.next_cursor : null;
+    } while (cursor);
 
-  return all;
+    return all;
 }
 
 /**
@@ -54,7 +54,7 @@ async function fetchAllPages(url, headers, opts = {}) {
  * @returns {Promise<object[]>}
  */
 async function fetchCycleItems(projBase, headers, cycleId, opts = {}) {
-  return fetchAllPages(`${projBase}/cycles/${cycleId}/cycle-issues/`, headers, opts);
+    return fetchAllPages(`${projBase}/cycles/${cycleId}/cycle-issues/`, headers, opts);
 }
 
 /**
@@ -67,7 +67,7 @@ async function fetchCycleItems(projBase, headers, cycleId, opts = {}) {
  * @returns {Promise<object[]>}
  */
 async function fetchModuleItems(projBase, headers, moduleId, opts = {}) {
-  return fetchAllPages(`${projBase}/modules/${moduleId}/module-issues/`, headers, opts);
+    return fetchAllPages(`${projBase}/modules/${moduleId}/module-issues/`, headers, opts);
 }
 
 /**
@@ -80,18 +80,18 @@ async function fetchModuleItems(projBase, headers, moduleId, opts = {}) {
  * @returns {Promise<{ name: string, id: string } | null>}
  */
 async function findCycleForItem(projBase, headers, itemUuid) {
-  const r = await fetch(`${projBase}/cycles/`, { headers });
-  if (r.status !== 200) return null;
-  const data = await r.json();
-  const cycles = data.results || data;
+    const r = await fetch(`${projBase}/cycles/`, { headers });
+    if (r.status !== 200) return null;
+    const data = await r.json();
+    const cycles = data.results || data;
 
-  for (const c of cycles) {
-    const items = await fetchCycleItems(projBase, headers, c.id, { fields: "id" });
-    if (items.some(i => i.id === itemUuid)) {
-      return { name: c.name, id: c.id };
+    for (const c of cycles) {
+        const items = await fetchCycleItems(projBase, headers, c.id, { fields: "id" });
+        if (items.some((i) => i.id === itemUuid)) {
+            return { name: c.name, id: c.id };
+        }
     }
-  }
-  return null;
+    return null;
 }
 
 /**
@@ -104,25 +104,25 @@ async function findCycleForItem(projBase, headers, itemUuid) {
  * @returns {Promise<Array<{ name: string, id: string }>>}
  */
 async function findModulesForItem(projBase, headers, itemUuid) {
-  const r = await fetch(`${projBase}/modules/`, { headers });
-  if (r.status !== 200) return [];
-  const data = await r.json();
-  const modules = data.results || data;
-  const found = [];
+    const r = await fetch(`${projBase}/modules/`, { headers });
+    if (r.status !== 200) return [];
+    const data = await r.json();
+    const modules = data.results || data;
+    const found = [];
 
-  for (const m of modules) {
-    const items = await fetchModuleItems(projBase, headers, m.id, { fields: "id" });
-    if (items.some(i => i.id === itemUuid)) {
-      found.push({ name: m.name, id: m.id });
+    for (const m of modules) {
+        const items = await fetchModuleItems(projBase, headers, m.id, { fields: "id" });
+        if (items.some((i) => i.id === itemUuid)) {
+            found.push({ name: m.name, id: m.id });
+        }
     }
-  }
-  return found;
+    return found;
 }
 
 module.exports = {
-  fetchAllPages,
-  fetchCycleItems,
-  fetchModuleItems,
-  findCycleForItem,
-  findModulesForItem,
+    fetchAllPages,
+    fetchCycleItems,
+    fetchModuleItems,
+    findCycleForItem,
+    findModulesForItem,
 };

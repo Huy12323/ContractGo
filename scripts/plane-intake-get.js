@@ -37,118 +37,121 @@ const BASE_URL = config.PLANE_BASE_URL;
 const WORKSPACE_SLUG = config.PLANE_WORKSPACE_SLUG;
 
 const INTAKE_STATUS_NAMES = {
-  "-2": "Pending",
-  "-1": "Declined",
-  "0": "Snoozed",
-  "1": "Accepted",
+    "-2": "Pending",
+    "-1": "Declined",
+    0: "Snoozed",
+    1: "Accepted",
 };
 
 function intakeStatusName(status) {
-  return INTAKE_STATUS_NAMES[String(status)] || `Unknown (${status})`;
+    return INTAKE_STATUS_NAMES[String(status)] || `Unknown (${status})`;
 }
 
 // --- Fetch all intake items ---
 async function fetchIntakeItems() {
-  const url = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}/intake-issues/`;
-  const res = await fetch(url, { headers: { "X-API-Key": config.PLANE_API_KEY } });
-  if (res.status !== 200) {
-    throw new Error(`Intake list: HTTP ${res.status}`);
-  }
-  const data = await res.json();
-  return data.results || data;
+    const url = `${config.PLANE_BASE_URL}/api/v1/workspaces/${config.PLANE_WORKSPACE_SLUG}/projects/${PROJECT_ID}/intake-issues/`;
+    const res = await fetch(url, { headers: { "X-API-Key": config.PLANE_API_KEY } });
+    if (res.status !== 200) {
+        throw new Error(`Intake list: HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return data.results || data;
 }
 
 // --- List mode ---
 function listIntakeItems(items) {
-  if (items.length === 0) {
-    console.log("No intake items found.");
-    return;
-  }
-
-  console.log(`Intake items: ${items.length}\n`);
-
-  // Group by status
-  const groups = {};
-  for (const item of items) {
-    const status = intakeStatusName(item.status);
-    if (!groups[status]) groups[status] = [];
-    groups[status].push(item);
-  }
-
-  for (const [status, group] of Object.entries(groups)) {
-    console.log(`--- ${status} (${group.length}) ---`);
-    for (const item of group) {
-      const det = item.issue_detail;
-      console.log(`  ${IDENTIFIER}-${det.sequence_id}: ${det.name}`);
-      console.log(`    Priority: ${det.priority || "none"} | Created: ${det.created_at}`);
+    if (items.length === 0) {
+        console.log("No intake items found.");
+        return;
     }
-    console.log("");
-  }
+
+    console.log(`Intake items: ${items.length}\n`);
+
+    // Group by status
+    const groups = {};
+    for (const item of items) {
+        const status = intakeStatusName(item.status);
+        if (!groups[status]) groups[status] = [];
+        groups[status].push(item);
+    }
+
+    for (const [status, group] of Object.entries(groups)) {
+        console.log(`--- ${status} (${group.length}) ---`);
+        for (const item of group) {
+            const det = item.issue_detail;
+            console.log(`  ${IDENTIFIER}-${det.sequence_id}: ${det.name}`);
+            console.log(`    Priority: ${det.priority || "none"} | Created: ${det.created_at}`);
+        }
+        console.log("");
+    }
 }
 
 // --- Main ---
 async function main() {
-  const arg = cliArgs[0];
+    const arg = cliArgs[0];
 
-  if (!arg) {
-    console.error(`Usage: node scripts/plane-intake-get.js [--project <label>] <${IDENTIFIER}-N|uuid>`);
-    console.error(`       node scripts/plane-intake-get.js [--project <label>] --list`);
-    process.exit(1);
-  }
+    if (!arg) {
+        console.error(
+            `Usage: node scripts/plane-intake-get.js [--project <label>] <${IDENTIFIER}-N|uuid>`
+        );
+        console.error(`       node scripts/plane-intake-get.js [--project <label>] --list`);
+        process.exit(1);
+    }
 
-  // List mode
-  if (arg === "--list") {
+    // List mode
+    if (arg === "--list") {
+        const items = await fetchIntakeItems();
+        listIntakeItems(items);
+        return;
+    }
+
+    // Single item mode
+    const input = parseIdentifier(arg);
+    if (!input) {
+        console.error(`Invalid identifier: ${arg}`);
+        process.exit(1);
+    }
+
     const items = await fetchIntakeItems();
-    listIntakeItems(items);
-    return;
-  }
+    const intake =
+        input.type === "uuid"
+            ? items.find((i) => i.issue_detail && i.issue_detail.id === input.value)
+            : items.find((i) => i.issue_detail && i.issue_detail.sequence_id === input.value);
 
-  // Single item mode
-  const input = parseIdentifier(arg);
-  if (!input) {
-    console.error(`Invalid identifier: ${arg}`);
-    process.exit(1);
-  }
+    if (!intake) {
+        const label = input.type === "uuid" ? input.value : `${IDENTIFIER}-${input.value}`;
+        console.error(`${label} not found in intake items.`);
+        console.error("If already accepted, use plane-item-get.js instead.");
+        process.exit(1);
+    }
 
-  const items = await fetchIntakeItems();
-  const intake = input.type === "uuid"
-    ? items.find((i) => i.issue_detail && i.issue_detail.id === input.value)
-    : items.find((i) => i.issue_detail && i.issue_detail.sequence_id === input.value);
+    const det = intake.issue_detail;
+    const seqId = det.sequence_id;
 
-  if (!intake) {
-    const label = input.type === "uuid" ? input.value : `${IDENTIFIER}-${input.value}`;
-    console.error(`${label} not found in intake items.`);
-    console.error("If already accepted, use plane-item-get.js instead.");
-    process.exit(1);
-  }
+    // Print fields
+    console.log(`Name:         ${det.name}`);
+    console.log(`Identifier:   ${IDENTIFIER}-${seqId}`);
+    console.log(`Work Item ID: ${det.id}`);
+    console.log(`Wrapper ID:   ${intake.id}`);
+    console.log(`Intake Status:${intakeStatusName(intake.status)}`);
+    console.log(`Priority:     ${det.priority || "none"}`);
+    console.log(`Assignees:    ${(det.assignees || []).join(", ") || "none"}`);
+    console.log(`Labels:       ${(det.labels || []).join(", ") || "none"}`);
+    console.log(`Created:      ${det.created_at}`);
+    console.log(`Source:        ${intake.source || "unknown"}`);
 
-  const det = intake.issue_detail;
-  const seqId = det.sequence_id;
+    // Save description
+    const tempDir = path.join(__dirname, "..", "temp", "plane");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-  // Print fields
-  console.log(`Name:         ${det.name}`);
-  console.log(`Identifier:   ${IDENTIFIER}-${seqId}`);
-  console.log(`Work Item ID: ${det.id}`);
-  console.log(`Wrapper ID:   ${intake.id}`);
-  console.log(`Intake Status:${intakeStatusName(intake.status)}`);
-  console.log(`Priority:     ${det.priority || "none"}`);
-  console.log(`Assignees:    ${(det.assignees || []).join(", ") || "none"}`);
-  console.log(`Labels:       ${(det.labels || []).join(", ") || "none"}`);
-  console.log(`Created:      ${det.created_at}`);
-  console.log(`Source:        ${intake.source || "unknown"}`);
+    const descHtml = det.description_html || "";
+    const outPath = path.join(tempDir, `${IDENTIFIER}-${seqId}.html`);
+    fs.writeFileSync(outPath, descHtml);
 
-  // Save description
-  const tempDir = path.join(__dirname, "..", "temp", "plane");
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-  const descHtml = det.description_html || "";
-  const outPath = path.join(tempDir, `${IDENTIFIER}-${seqId}.html`);
-  fs.writeFileSync(outPath, descHtml);
-
-  console.log(`\nDescription saved: ${outPath} (${descHtml.length} chars)`);
+    console.log(`\nDescription saved: ${outPath} (${descHtml.length} chars)`);
 }
 
 main().catch((err) => {
-  console.error("Error:", err.message);
-  process.exit(1);
+    console.error("Error:", err.message);
+    process.exit(1);
 });

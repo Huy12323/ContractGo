@@ -60,6 +60,7 @@ import {
     isCc,
     isEmptyRecipient,
     resolveRequireIdentityCheck, // [ekyc]
+    mergeScheduleDefaults,
     resolveSchedule,
     resolveSignerAuth,
     resolveTemplateAndVersion,
@@ -113,12 +114,11 @@ serveApiFunction("api_envelopes_create", async (rawBody, req) => {
     let signerAuth;
     try {
         schedule = resolveSchedule(body, {
-            defaultExpiryDays: resolved.version.default_expiry_days,
-            defaultReminderDays: resolved.version.default_reminder_days,
+            ...mergeScheduleDefaults(resolved.version, ctx.organization),
             sentAt,
             strict: true,
         });
-        signerAuth = resolveSignerAuth(body);
+        signerAuth = resolveSignerAuth(body, ctx.organization.default_signer_auth);
     } catch (err) {
         const failure = { error: (err as Error).message, code: "invalid_request" };
         await idem.complete(400, failure);

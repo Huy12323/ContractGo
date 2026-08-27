@@ -1,5 +1,5 @@
 import { Alert, Button, Tag, Typography, theme } from "antd";
-import { LinkOutlined, UndoOutlined } from "@ant-design/icons";
+import { UndoOutlined } from "@ant-design/icons";
 import { App_EnvelopeStatusTag } from "@/components/envelopes/App_EnvelopeStatusTag";
 import { const_EnvelopeRecipientTypeOptions } from "@/components/envelopes/const_EnvelopeStatusOptions";
 import { utils_Envelope_SignerAuthOption } from "@/components/envelopes/const_EnvelopeSignerAuthOptions";
@@ -32,19 +32,6 @@ type Props = {
      * rendering the action there would offer something the server declines.
      */
     onRequestChanges?: (signer: Tables_Envelope_Signer) => void;
-    /**
-     * DEV ONLY — reveals this recipient's link so the signing surface can be
-     * opened without an inbox. The caller passes it only when `ENVs.isDev`, and
-     * the edge function refuses unless `DEV_SIGNING_LINKS=enabled` regardless, so
-     * this prop being absent is the normal case rather than the exception.
-     *
-     * Offered on EVERY recipient, including CC observers and people who have
-     * already signed: the point is reaching the surface as that party, and what
-     * the surface then permits is `assertCanAct`'s call, not this list's.
-     */
-    onOpenSigningLink?: (signer: Tables_Envelope_Signer) => void;
-    /** Id of the recipient whose link is being minted, for the button spinner. */
-    openingLinkFor?: string | null;
 };
 
 export const App_EnvelopeSignerList = ({
@@ -53,8 +40,6 @@ export const App_EnvelopeSignerList = ({
     currentOrder,
     isInFlight,
     onRequestChanges,
-    onOpenSigningLink,
-    openingLinkFor,
 }: Props) => {
     const { token } = theme.useToken();
 
@@ -252,18 +237,6 @@ export const App_EnvelopeSignerList = ({
                                             Request changes
                                         </Button>
                                     )}
-                                    {onOpenSigningLink && (
-                                        <Button
-                                            type="link"
-                                            size="small"
-                                            icon={<LinkOutlined />}
-                                            loading={openingLinkFor === signer.id}
-                                            style={{ paddingLeft: 0 }}
-                                            onClick={() => onOpenSigningLink(signer)}
-                                        >
-                                            Signing link
-                                        </Button>
-                                    )}
                                 </div>
                             </div>
                         ))}
@@ -315,24 +288,6 @@ export const App_EnvelopeSignerList = ({
                                 {observer.viewed_at &&
                                     ` · opened ${new Date(observer.viewed_at).toLocaleString()}`}
                             </Typography.Text>
-
-                            {/* The link an observer gets is `purpose = 'view'`,
-                                which the signing surface renders read-only. Worth
-                                being able to open in dev precisely because that
-                                difference is easy to regress and invisible from
-                                the sender's side. */}
-                            {onOpenSigningLink && (
-                                <Button
-                                    type="link"
-                                    size="small"
-                                    icon={<LinkOutlined />}
-                                    loading={openingLinkFor === observer.id}
-                                    style={{ alignSelf: "flex-start", paddingLeft: 0 }}
-                                    onClick={() => onOpenSigningLink(observer)}
-                                >
-                                    View link
-                                </Button>
-                            )}
                         </div>
                     ))}
                 </div>

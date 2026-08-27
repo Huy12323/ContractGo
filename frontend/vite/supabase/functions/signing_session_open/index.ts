@@ -99,6 +99,11 @@ servePublicSigningFunction("signing_session_open", async (body, req) => {
             field.role_id === ctx.signer.role_id && !field.read_only && field.type !== "signature",
     }));
 
+    // One organizations read, serving both the CG-049 AI flag and CG-050's
+    // branding. See `loadOrgPresentation` — this endpoint is polled, so the
+    // number of queries per call is a thing worth counting.
+    const presentation = await loadOrgPresentation(ctx);
+
     const pdfKey = snapshot.pdf_file_path || ctx.request.source_pdf_r2_key;
     const pdfUrl = await getStorageDriver().createReadUrl({
         key: pdfKey,
@@ -207,7 +212,17 @@ servePublicSigningFunction("signing_session_open", async (body, req) => {
             //
             // ABSENT MEANS OFF on the client, the strict default `embed_origin`
             // and `identity_check` already follow.
-            assistant_enabled: await loadAssistantEnabled(ctx),
+            assistant_enabled: presentation.assistantEnabled,
+            // CG-050. WHO SENT THIS. The signing page carried no sender identity
+            // at all before — a counterparty could not tell at a glance whether
+            // the contract came from the firm they were expecting, which is both
+            // a trust problem and the thing branding exists to fix.
+            //
+            // ADDITIVE AND ABSENCE-TOLERANT, exactly like `embed_origin`: an
+            // older client ignores it and renders as it always did. A
+            // PRESENTATION HINT ONLY — `brand_color` must never gate behaviour,
+            // and a garbage value must leave the ceremony fully working.
+            branding: presentation.branding,
             embed_origin: ctx.embedOrigin,
             // What a party who has ALREADY SIGNED is entitled to read back: the
             // finished document, and the mark they made on it.
@@ -405,18 +420,80 @@ async function loadOtherSignerValues(
  * not exist yet is NOT a refusal: nobody has asked, so the panel shows and the
  * first question does the extraction.
  */
-async function loadAssistantEnabled(
-    ctx: Awaited<ReturnType<typeof resolveSignerToken>>
-): Promise<boolean> {
-    if (getAiDriverName() === "off") return false;
+type OrgPresentation = {
+    assistantEnabled: boolean;
+    branding: { org_name: string; logo_url: string | null; brand_color: string | null } | null;
+};
 
+/**
+ * CG-050. ONE organizations read serving both the AI flag and the branding.
+ *
+ * ═══ WHY THE TWO ARE FETCHED TOGETHER ═══
+ *
+ * This endpoint is POLLED. Before CG-050 the org row was read only when the AI
+ * driver was on — the branch existed precisely so a deployment with AI off did
+ * not pay for a query on every ceremony. Branding cannot live behind that
+ * branch: a signer must see who sent them the document whether or not an
+ * unrelated feature is enabled. Merging the two keeps it at ONE query rather
+ * than the two a separate branding lookup would have cost.
+ *
+ * ═══ BRANDING IS A PRESENTATION HINT AND MUST NEVER GATE BEHAVIOUR ═══
+ *
+ * The whole block is ADDITIVE and ABSENCE-TOLERANT, the same contract
+ * `embed_origin` follows: a client built before this shipped renders exactly as
+ * it did, and a garbage `brand_color` must leave the ceremony fully working. It
+ * is not authorization, it is not identity, and nothing downstream may branch on
+ * it.
+ *
+ * A failed read degrades to `branding: null` — the product's own look — rather
+ * than failing the session. Being unable to render a logo is not a reason a
+ * signer cannot sign.
+ */
+async function loadOrgPresentation(
+    ctx: Awaited<ReturnType<typeof resolveSignerToken>>
+): Promise<OrgPresentation> {
     const { data: org } = await ctx.admin
         .from("organizations")
-        .select("ai_assistant_enabled")
+        .select(
+            "name, ai_assistant_enabled, brand_color, logo_file_id, files:logo_file_id (r2_key)"
+        )
         .eq("id", ctx.request.organization_id)
-        .maybeSingle<{ ai_assistant_enabled: boolean }>();
+        .maybeSingle();
 
-    if (!org?.ai_assistant_enabled) return false;
+    let logoUrl: string | null = null;
+    const file = Array.isArray(org?.files) ? org?.files[0] : org?.files;
+    const r2Key = (file as { r2_key?: string } | null)?.r2_key ?? null;
+    if (r2Key) {
+        // Unsigned and permanent — the Worker serves `orgs/{id}/branding/**` with
+        // no token, which is the only thing that works for a signer who holds a
+        // signing credential and nothing else.
+        try {
+            logoUrl = getStorageDriver().publicUrl(r2Key);
+        } catch (err) {
+            console.error("signing_session_open: could not build logo URL:", err);
+        }
+    }
+
+    const branding = org
+        ? {
+              org_name: (org.name as string) ?? "",
+              logo_url: logoUrl,
+              brand_color: (org.brand_color as string | null) ?? null,
+          }
+        : null;
+
+    return {
+        assistantEnabled: await loadAssistantEnabled(ctx, org?.ai_assistant_enabled === true),
+        branding,
+    };
+}
+
+async function loadAssistantEnabled(
+    ctx: Awaited<ReturnType<typeof resolveSignerToken>>,
+    orgEnabled: boolean
+): Promise<boolean> {
+    if (getAiDriverName() === "off") return false;
+    if (!orgEnabled) return false;
 
     const { data: context } = await ctx.admin
         .from("signer_ai_document_context")

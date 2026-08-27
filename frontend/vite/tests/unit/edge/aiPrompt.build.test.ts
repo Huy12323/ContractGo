@@ -215,3 +215,27 @@ describe("sanitizeDocumentText", () => {
         expect(sanitizeDocumentText("a     b\n\n\n\nc")).toBe("a b\n\nc");
     });
 });
+
+describe("buildAskRequest — the details block", () => {
+    it("fences the details and hands back the exact text the verifier must match", () => {
+        const nonce = mintNonce();
+        const built = build({
+            nonce,
+            details: { "Sent to you by": "Northwind Legal", "Your role": "Candidate" },
+        });
+
+        expect(built.prompt).toContain(`⟦DETAILS:${nonce}⟧`);
+        expect(built.prompt).toContain("Sent to you by: Northwind Legal");
+        // The returned text is what page-0 quotes are checked against, so it must
+        // be the block's body verbatim — not a re-rendering of it.
+        expect(built.detailsText).toBe("Sent to you by: Northwind Legal\nYour role: Candidate");
+        expect(built.prompt).toContain(built.detailsText);
+    });
+
+    it("omits the block entirely when there is nothing to say", () => {
+        const built = build({ details: { "Sent to you by": "   " } });
+
+        expect(built.detailsText).toBe("");
+        expect(built.prompt).not.toContain("⟦DETAILS:");
+    });
+});

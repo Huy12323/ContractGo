@@ -80,7 +80,9 @@ function toDataUri(def: TwoToneIconDef, primary: string, secondary: string): str
         height: "24",
     };
     const inner = root.children?.map(serializeNode).join("") ?? "";
-    const svg = `<svg ${Object.entries(attrs).map(([k, v]) => `${k}="${escapeAttr(v)}"`).join(" ")}>${inner}</svg>`;
+    const svg = `<svg ${Object.entries(attrs)
+        .map(([k, v]) => `${k}="${escapeAttr(v)}"`)
+        .join(" ")}>${inner}</svg>`;
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 

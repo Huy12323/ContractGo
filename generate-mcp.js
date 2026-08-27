@@ -22,7 +22,12 @@ const template = {
     mcpServers: {
         "plane-aiur-hr": {
             command: "uvx",
-            args: ["--from", "git+https://github.com/goto-software/plane-mcp-server.git", "plane-mcp-server", "stdio"],
+            args: [
+                "--from",
+                "git+https://github.com/goto-software/plane-mcp-server.git",
+                "plane-mcp-server",
+                "stdio",
+            ],
             env: {
                 PLANE_API_KEY: "${PLANE_API_KEY}",
                 PLANE_WORKSPACE_SLUG: "${PLANE_WORKSPACE_SLUG}",
@@ -42,7 +47,10 @@ const template = {
 
 function substituteEnvVars(obj) {
     if (typeof obj === "string") {
-        return obj.replace(/\$\{([^}]+)\}/g, (_, varName) => process.env[varName] || `\${${varName}}`);
+        return obj.replace(
+            /\$\{([^}]+)\}/g,
+            (_, varName) => process.env[varName] || `\${${varName}}`
+        );
     }
     if (Array.isArray(obj)) return obj.map(substituteEnvVars);
     if (obj && typeof obj === "object") {

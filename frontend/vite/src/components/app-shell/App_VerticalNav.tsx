@@ -4,6 +4,7 @@ import { Drawer, Layout, Menu, theme } from "antd";
 import type { ItemType } from "antd/es/menu/interface";
 import {
     BellOutlined,
+    SettingOutlined,
     DashboardOutlined,
     FileTextOutlined,
     InboxOutlined,
@@ -130,6 +131,7 @@ export const App_VerticalNav = () => {
     const archivePath = `/${organizationId}/archive`;
     const peoplePath = `/${organizationId}/people`;
     const notificationsPath = `/${organizationId}/notifications`;
+    const settingsPath = `/${organizationId}/settings`;
     // Prefix match, so the builder at /templates/$templateId keeps Templates lit
     // and the composer at /envelopes/new keeps Envelopes lit.
     const selectedKeys = location.pathname.startsWith(templatesPath)
@@ -142,9 +144,11 @@ export const App_VerticalNav = () => {
               ? [peoplePath]
               : location.pathname.startsWith(notificationsPath)
                 ? [notificationsPath]
-                : location.pathname === `/${organizationId}`
-                  ? [`/${organizationId}`]
-                  : [];
+                : location.pathname.startsWith(settingsPath)
+                  ? [settingsPath]
+                  : location.pathname === `/${organizationId}`
+                    ? [`/${organizationId}`]
+                    : [];
 
     const menuItems: ItemType[] = [
         {
@@ -216,6 +220,24 @@ export const App_VerticalNav = () => {
                     search={{ filter: "all" }}
                 >
                     Notifications
+                </Link>
+            ),
+        },
+        // CG-050. In the nav for EVERYONE, with no role branch — the same call
+        // People makes above, and for the same reason: the destination is not the
+        // privileged fact, what you can do there is, and the layout route already
+        // explains itself to anyone who may not act.
+        //
+        // This entry is the point of CG-050 as much as any of the tabs behind it.
+        // The route existed before and nothing in the app linked to it; it was
+        // reachable only by typing the URL, which is indistinguishable from not
+        // existing.
+        {
+            key: settingsPath,
+            icon: <SettingOutlined />,
+            label: (
+                <Link to="/$organizationId/settings" params={{ organizationId }}>
+                    Settings
                 </Link>
             ),
         },

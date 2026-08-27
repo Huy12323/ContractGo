@@ -523,6 +523,13 @@ export async function remindSignersAtOrder(args: {
     requestId: string;
     organizationId: string;
     organizationName: string;
+    /**
+     * CG-050. The org's presentation timezone, used only to render the deadline
+     * line. Passed in rather than looked up: the reminder cron already embeds the
+     * organizations row to read `name`, so widening that embed costs nothing and a
+     * lookup here would cost one query per reminder batch.
+     */
+    organizationTimezone?: string;
     documentTitle: string;
     order: number;
     sentAt: string | null;
@@ -579,6 +586,7 @@ export async function remindSignersAtOrder(args: {
                 requestId: args.requestId,
                 organizationId: args.organizationId,
                 organizationName: args.organizationName,
+                organizationTimezone: args.organizationTimezone,
                 documentTitle: args.documentTitle,
                 sentAt: args.sentAt,
                 expiresAt: args.expiresAt,
@@ -599,6 +607,7 @@ async function remindOneSigner(args: {
     requestId: string;
     organizationId: string;
     organizationName: string;
+    organizationTimezone?: string;
     documentTitle: string;
     sentAt: string | null;
     expiresAt: string | null;
@@ -626,12 +635,14 @@ async function remindOneSigner(args: {
             orgName: args.organizationName,
             documentTitle: args.documentTitle,
             signerName: signer.signer_name,
-            sentOn: args.sentAt ? formatUtcDate(args.sentAt) : "recently",
+            sentOn: args.sentAt
+                ? formatUtcDate(args.sentAt, args.organizationTimezone)
+                : "recently",
             // Interpolated to empty rather than omitted: `shared--send-email`
             // replaces an unknown placeholder with "", so an absent deadline renders
             // as nothing at all instead of the literal `{{deadlineLine}}`.
             deadlineLine: args.expiresAt
-                ? `This document stops accepting signatures on ${formatUtcDate(args.expiresAt)}.`
+                ? `This document stops accepting signatures on ${formatUtcDate(args.expiresAt, args.organizationTimezone)}.`
                 : "",
         },
         {
@@ -891,6 +902,8 @@ export async function notifySenderOfExpiry(args: {
     createdBy: string | null;
     expiredAt: string;
     outstanding: { signer_name: string; signer_email: string }[];
+    /** CG-050 — see `remindSignersAtOrder`. Presentation only. */
+    organizationTimezone?: string;
 }): Promise<string | null> {
     const sender = await resolveSenderEmail(args.admin, args.createdBy);
     if (typeof sender !== "string") return sender.error;
@@ -904,7 +917,7 @@ export async function notifySenderOfExpiry(args: {
         sender,
         {
             documentTitle: args.documentTitle,
-            expiredOn: formatUtcDate(args.expiredAt),
+            expiredOn: formatUtcDate(args.expiredAt, args.organizationTimezone),
             outstanding: outstandingList,
             envelopeLink: envelopeLink(args.organizationId, args.requestId),
         },
@@ -969,17 +982,40 @@ function appEnvelopeLink(organizationId: string, requestId: string): string {
 }
 
 /**
- * Dates in mail are UTC and spelled out — `2026-08-17` reads as either the 8th
- * of the 17th month depending on the reader, and a deadline nobody can parse is
- * a deadline that gets missed.
+ * Dates in mail are spelled out — `2026-08-17` reads as either the 8th or the
+ * 17th month depending on the reader, and a deadline nobody can parse is a
+ * deadline that gets missed.
+ *
+ * ═══ THE ONE PLACE `organizations.timezone` IS READ (CG-050) ═══
+ *
+ * `timeZone` defaults to UTC, which is what every message rendered before CG-050
+ * and what an organization that has not chosen still gets. When one has, the
+ * deadline is shown in THEIR zone — "stops accepting signatures on 3 September"
+ * meaning the 3rd where the sender lives, not the 2nd or the 4th.
+ *
+ * ═══ AND THE ONE PLACE IT MUST NEVER SPREAD TO ═══
+ *
+ * The completion certificate stays UTC FOREVER. `certificate.text.ts` states the
+ * rule: a bare local timestamp in an evidentiary document is a timestamp nobody
+ * can reason about later. This function is for a human-facing reminder, which is
+ * a different kind of artifact from a record of what happened. Do not "fix" the
+ * certificate to match.
+ *
+ * An unknown or malformed zone must not cost the whole email — `toLocaleDateString`
+ * throws a RangeError on a bad `timeZone`, so it falls back to UTC.
  */
-function formatUtcDate(iso: string): string {
-    return new Date(iso).toLocaleDateString("en-GB", {
+function formatUtcDate(iso: string, timeZone: string = "UTC"): string {
+    const options: Intl.DateTimeFormatOptions = {
         day: "numeric",
         month: "long",
         year: "numeric",
-        timeZone: "UTC",
-    });
+        timeZone,
+    };
+    try {
+        return new Date(iso).toLocaleDateString("en-GB", options);
+    } catch {
+        return new Date(iso).toLocaleDateString("en-GB", { ...options, timeZone: "UTC" });
+    }
 }
 
 /**
@@ -1107,10 +1143,27 @@ async function sendEmail(
      * them already holds these ids — recovering them by regex from
      * `payload.envelopeLink` would break the day `APP_URL` grows a path prefix.
      */
-    notify?: NotifyHints
+    notify?: NotifyHints,
+    /**
+     * CG-050. Whose branding the message wears.
+     *
+     * Defaults to `notify?.organizationId` because all six call sites in this
+     * module already pass a `notify` block carrying it, and duplicating the same
+     * id beside itself six times is six chances to pass the wrong one.
+     *
+     * THE DEFAULT IS A CONVENIENCE, NOT THE CONTRACT — and this is the trap worth
+     * naming. On the WIRE, `organization_id` is a TOP-LEVEL field, deliberately
+     * separate from `notify`: `_shared/signing.email.ts` omits the whole `notify`
+     * block for passcodes, because a live credential must not be mirrored to the
+     * notification bell. If a caller here ever opts out of mirroring the same
+     * way, it must pass this argument explicitly, or a mirror opt-out silently
+     * becomes a branding opt-out.
+     */
+    organizationId?: string
 ): Promise<string | null> {
     const supabaseUrl = requireEnv("SUPABASE_URL");
     const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const brandOrganizationId = organizationId ?? notify?.organizationId ?? undefined;
 
     try {
         const response = await fetch(`${supabaseUrl}/functions/v1/shared--send-email`, {
@@ -1119,19 +1172,58 @@ async function sendEmail(
                 Authorization: `Bearer ${serviceRoleKey}`,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ scenario, to, payload, notify }),
+            body: JSON.stringify({
+                scenario,
+                to,
+                payload,
+                notify,
+                organization_id: brandOrganizationId,
+            }),
         });
 
         if (!response.ok) {
             const detail = await response.text();
             console.error(`Email (${scenario}) failed:`, detail);
+            logUndeliveredLinks(scenario, to, payload);
             return detail.slice(0, 500);
         }
         return null;
     } catch (err) {
         console.error(`Email (${scenario}) threw:`, err);
+        // The throw case is the one `shared--send-email` cannot cover for us: it
+        // means the request never reached that function, so its own failure log
+        // never ran. Without this line an unreachable mail function silently
+        // burns a freshly minted token — `signer_token_issue` has already run and
+        // revoked whatever the party held before.
+        logUndeliveredLinks(scenario, to, payload);
         return err instanceof Error ? err.message : String(err);
     }
+}
+
+/**
+ * Prints the link a failed mail was carrying, so an operator can hand it over
+ * directly instead of resending the document.
+ *
+ * The token in that link exists in plaintext exactly once (CG-005) and this
+ * request is its last moment: the database keeps only its sha256, so nothing
+ * downstream can reproduce it. The alternative to this log line is a resend,
+ * which mints a NEW credential and revokes this one — fine when the party never
+ * got the first mail, wrong when they did and it was the mirror that failed.
+ *
+ * Only `*Link` / `*Url` fields, never the whole payload: `signature_request_passcode`
+ * does not route through here, but nothing stops a future scenario from carrying
+ * a secret that is not a URL. Same trade-off `shared--send-email` documents on its
+ * own failure log — a live credential in the log, on the failure path only.
+ */
+function logUndeliveredLinks(scenario: string, to: string, payload: Record<string, unknown>): void {
+    const links = Object.entries(payload).filter(
+        ([key, value]) => /(Link|Url)$/.test(key) && typeof value === "string"
+    );
+    if (links.length === 0) return;
+    console.error(
+        `[email:failed] ${scenario} to ${to} was NOT delivered; link:\n` +
+            links.map(([key, value]) => `  ${key}: ${value}`).join("\n")
+    );
 }
 
 /** @returns null on success, a server-side detail string on failure. */

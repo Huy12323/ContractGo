@@ -65,7 +65,12 @@ const getStorage = () => (storage ??= getStorageDriver());
 
 const PRESIGNED_URL_EXPIRES_IN = 3600;
 const MAX_SIZE_BYTES = 500 * 1024 * 1024;
-const RESOURCE_TYPES = ["user_avatar", "user_signature", "contract_template_pdf"] as const;
+const RESOURCE_TYPES = [
+    "user_avatar",
+    "user_signature",
+    "contract_template_pdf",
+    "organization_logo",
+] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 /**
@@ -91,6 +96,22 @@ const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
  */
 const THUMBNAIL_SEGMENT = "thumbnails";
 const THUMBNAIL_EXTENSION = "webp";
+
+/**
+ * CG-050. The org branding logo, and the one namespace under `orgs/` the Worker
+ * serves with NO TOKEN — see `isOrgBrandingPath` there for why that is the only
+ * posture that works for an anonymous signer and an email client.
+ *
+ * The content-type allowlist is therefore a SECURITY control, not a convenience.
+ * `image/svg+xml` is deliberately absent: an SVG can carry script, and an SVG
+ * served token-free from an origin we control is stored XSS on that origin, for
+ * zero product benefit over a PNG. Allowlist, never a `startsWith("image/")` —
+ * that would readmit SVG and every future image type nobody has evaluated.
+ */
+const LOGO_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+/** A logo renders at ~40px. 2MB is already extravagant; 500MB is meaningless. */
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 function sanitizeFileName(fileName: string): string {
     return fileName
@@ -193,6 +214,52 @@ serveSenderFunction("files_r2_upload-start", async (body, req) => {
         r2Key = is_thumbnail
             ? `${dir}/${THUMBNAIL_SEGMENT}/${timestamp}-${uniqueId}.${THUMBNAIL_EXTENSION}`
             : `${dir}/${timestamp}-${uniqueId}-${sanitized}`;
+    } else if (resource_type === "organization_logo") {
+        // CG-050. The only resource here requiring OWNERSHIP rather than a
+        // permission, and the requirement mirrors the database exactly: RLS on
+        // `organizations` is `get_organization_role(id) = 'owner'` in both USING
+        // and WITH CHECK, so an admin presigned here would upload successfully
+        // and then be refused when writing `logo_file_id` — a confusing
+        // half-failure that leaves an orphaned object in a PUBLIC bucket.
+        const { organization_id } = body as { organization_id?: string };
+        if (!organization_id || typeof organization_id !== "string") {
+            throw new SenderAuthError(
+                400,
+                "organization_id is required for resource_type=organization_logo"
+            );
+        }
+
+        const ctx = await resolveSender(req, organization_id, "owner");
+
+        // No thumbnails in this namespace. The Worker's `isOrgBrandingPath`
+        // matches EXACTLY four segments, so a thumbnail at five segments would
+        // upload fine and then 403 forever on read. Rejected loudly for the same
+        // reason `user_signature` rejects it.
+        if (is_thumbnail) {
+            throw new SenderAuthError(
+                400,
+                "resource_type=organization_logo does not support thumbnails"
+            );
+        }
+
+        if (!LOGO_CONTENT_TYPES.includes(content_type as (typeof LOGO_CONTENT_TYPES)[number])) {
+            throw new SenderAuthError(
+                400,
+                `content_type must be one of ${LOGO_CONTENT_TYPES.join(", ")} for ` +
+                    `resource_type=organization_logo (SVG is refused: it can carry script, ` +
+                    `and this object is served without a token)`
+            );
+        }
+
+        if (size > MAX_LOGO_BYTES) {
+            throw new SenderAuthError(400, `size exceeds the ${MAX_LOGO_BYTES}-byte logo ceiling`);
+        }
+
+        // Exactly four segments — `orgs/{id}/branding/{file}` — and no client
+        // file name in it. The org id is not a secret, so `{timestamp}-{uniqueId}`
+        // is what makes the object unenumerable, and that is load-bearing given
+        // there is no token on the read.
+        r2Key = `orgs/${ctx.organizationId}/branding/${timestamp}-${uniqueId}.${extractExtension(file_name)}`;
     } else {
         // user_avatar and user_signature — the two resources with no organization
         // at all, so neither can go through `resolveSender`. Their authorization
