@@ -1,4 +1,5 @@
-// The public layout — the only branch of the route tree with NO guard.
+// The signing-ceremony layout — one of the route tree's unguarded branches
+// (`_marketing` and `_trial` are the others; see the frame note at the bottom).
 //
 // It is a real layout route with an `<Outlet/>`, not a wrapper component:
 // `bible-tanstack-router` forbids wrapping shared frames in a component,
@@ -24,20 +25,29 @@
 // navigation, no account menu — none of it resolves for someone with no
 // session, and offering it would imply the signer has an account here.
 //
-// The brand links to `/`, the app's home.
+// The brand links to `/`, the public landing page.
 //
-// KNOWN CONSEQUENCE, recorded so it reads as a decision rather than an
-// oversight: `/` lives under `_protected`, whose `beforeLoad` sends anyone
-// without a session to `/login`, and a brand-new account on to
-// `/pending-access` behind the CG-027 whitelist. So for the visitor this surface
-// mostly carries — an external counterparty with no ContractGo account — the
-// logo leads to a sign-in wall rather than to anything they can use. That is
-// accepted: the logo is chrome, not a step in the ceremony, and the signing
-// flow itself never routes anyone through it.
+// That link was a dead end until CG-052, and the note that used to sit here
+// recorded it as an accepted trade: `/` lived under `_protected`, so for the
+// visitor this surface mostly carries — an external counterparty with no
+// ContractGo account — the logo led to a sign-in wall rather than to anything
+// they could use. It also recorded the fix: "a public landing route rather than
+// a different `to=` here". That is what shipped. The dashboard moved to
+// `/home`, `/` is now the marketing page under the unguarded `_marketing`
+// layout, and the logo finally leads somewhere a signer can actually read.
 //
-// If that trade stops being worth it, the fix is a public landing route rather
-// than a different `to=` here — `/` cannot be made reachable for signers without
-// moving it out from behind the guard that protects every other page under it.
+// `target="_blank"` STAYS, and not for the old reason. It protects a half-filled
+// ceremony from an accidental in-place navigation — a signer three fields into a
+// document should not lose that work to a stray logo click. Landing on a useful
+// page instead of a login wall does not make losing the ceremony acceptable, so
+// that decision is untouched by this change.
+//
+// THREE PUBLIC FRAMES, and they cannot be one layout. This is the ceremony
+// frame: fixed height, brand-only chrome. `_trial` copies the height contract
+// below but carries converting chrome, because its entire job is to convert
+// where this route's job is explicitly NOT to imply the signer has an account.
+// `_marketing` is a scrolling frame, which this route cannot be for the
+// `height`-vs-`min-height` reason spelled out on the container below.
 
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { Typography, theme } from "antd";

@@ -382,11 +382,17 @@ ON CONFLICT (id) DO NOTHING;
 --   - external signers, who never had accounts to begin with.
 --
 -- Production is managed by hand — nothing seeds it:
---   INSERT INTO public.whitelist (email, note) VALUES ('someone@example.com', 'why');
-INSERT INTO public.whitelist (email, note)
+--   INSERT INTO public.whitelist (pattern, value, note)
+--        VALUES ('exact', 'someone@example.com', 'why');
+--
+-- CG-034 replaced the single `email` column with (pattern, value) and moved
+-- uniqueness onto the pair; this block still wrote to `email` and had been
+-- failing the seed with `column "email" of relation "whitelist" does not exist`
+-- since that migration landed, which took the whole seed down with it.
+INSERT INTO public.whitelist (pattern, value, note)
 VALUES
-    ('admin@test.com',   'Seed: owner of Northwind Legal'),
-    ('admin2@test.com',  'Seed: owner of Ridgeline Ventures'),
-    ('member@test.com',  'Seed: non-admin member'),
-    ('newuser@test.com', 'Seed: verified, no organization')
-ON CONFLICT (email) DO NOTHING;
+    ('exact', 'admin@test.com',   'Seed: owner of Northwind Legal'),
+    ('exact', 'admin2@test.com',  'Seed: owner of Ridgeline Ventures'),
+    ('exact', 'member@test.com',  'Seed: non-admin member'),
+    ('exact', 'newuser@test.com', 'Seed: verified, no organization')
+ON CONFLICT (pattern, value) DO NOTHING;

@@ -25,6 +25,18 @@ type Props = {
     onArmField: (field: { key: string; label: string; type: TemplateField_Type }) => void;
     selectedFieldId: string | null;
     onSelectField: (fieldId: string) => void;
+    /**
+     * Restricts which field types the palette offers, in the catalogue's own
+     * order. Omitted means all of them, which is what both template-authoring
+     * hosts want.
+     *
+     * Added for the no-account trial (CG-052), which offers signature, text and
+     * date only — a demo has to be finishable in a minute, and the excluded
+     * types each cost a concept with nothing to show for it there (an options
+     * editor for `choice`, a second capture UI for `initials`, and `attachment`
+     * draws nothing at all when the document is burned).
+     */
+    allowedTypes?: TemplateField_Type[];
 };
 
 /** Exported so a placed box on the canvas carries the SAME glyph the palette entry
@@ -56,8 +68,20 @@ export const App_TemplateFieldPalette = ({
     onArmField,
     selectedFieldId,
     onSelectField,
+    allowedTypes,
 }: Props) => {
     const { token } = theme.useToken();
+
+    // Filtered from the catalogue rather than built from `allowedTypes`, so the
+    // palette's order stays the catalogue's order regardless of the order a
+    // caller happens to list its types in.
+    const typeOptions = useMemo(
+        () =>
+            allowedTypes
+                ? const_TemplateFieldTypeOptions.filter((o) => allowedTypes.includes(o.value))
+                : const_TemplateFieldTypeOptions,
+        [allowedTypes]
+    );
 
     const rolesById = useMemo(
         () => Object.fromEntries(signerRoles.map((r) => [r.id, r])),
@@ -96,7 +120,7 @@ export const App_TemplateFieldPalette = ({
                         gap: token.marginXXS,
                     }}
                 >
-                    {const_TemplateFieldTypeOptions.map((option) => (
+                    {typeOptions.map((option) => (
                         <Tooltip key={option.value} title={option.hint} placement="right">
                             <div
                                 role="button"

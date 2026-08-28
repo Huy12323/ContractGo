@@ -2008,6 +2008,7 @@ export type Database = {
           scopes: Database["public"]["Enums"]["api_keys_scopes_enum"][]
         }[]
       }
+      assert_rls_invariants: { Args: never; Returns: undefined }
       clean_old_realtime_events: { Args: never; Returns: undefined }
       cleanup_expired_auth_tokens: { Args: never; Returns: undefined }
       create_organization: { Args: { org_name: string }; Returns: string }
@@ -2055,6 +2056,7 @@ export type Database = {
       }
       has_pending_invitation: { Args: { org_id: string }; Returns: boolean }
       is_admin_or_owner: { Args: { org_id: string }; Returns: boolean }
+      is_avatar_file: { Args: { p_file_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
       is_whitelisted: { Args: never; Returns: boolean }
       mask_email: { Args: { p_email: string }; Returns: string }
@@ -2084,6 +2086,7 @@ export type Database = {
         Args: { new_role: string; org_id: string; target_user_id: string }
         Returns: Json
       }
+      shares_org_with: { Args: { target_user_id: string }; Returns: boolean }
       signature_advance_after_signature: {
         Args: { p_request_id: string; p_signer_id: string }
         Returns: {

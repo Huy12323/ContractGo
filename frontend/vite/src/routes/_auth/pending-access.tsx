@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_auth/pending-access")({
             .single();
 
         if (sb_FromProfiles_Select.data?.whitelist) {
-            throw redirect({ to: "/" });
+            throw redirect({ to: "/home" });
         }
     },
     component: Page_PendingAccess,

@@ -28,9 +28,14 @@ frontend/vite/supabase/migrations
 frontend/vite/supabase/templates
 
 # PM content authored through the Bible workflow, not source.
+# These are tracked in .claude/bible-sync.md and compared against the upstream
+# Bible template — reformatting them makes every file read as diverged and
+# destroys the sync diff.
 backups
 cycles
 docs
+.claude
+config.json
 
 # Env + secrets
 .env*

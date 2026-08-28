@@ -50,6 +50,22 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
 
+# A signing URL carries a BEARER CREDENTIAL IN ITS PATH. An indexed one is a
+# live credential sitting in a search result, which is the same exposure the
+# global `Referrer-Policy: no-referrer` above exists to prevent on the way out.
+# `robots.txt` asks crawlers not to come here; this is the half that does not
+# depend on them being polite.
+#
+# All four security headers are restated, because this file's convention (see the
+# top) is that a more-specific block is a COMPLETE restatement of the policy for
+# its path rather than a modifier on the block above it.
+/sign/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
 /embed/*
   # DELIBERATELY PERMISSIVE, and deliberately only here. See the limitation above.
   # `X-Frame-Options` has no wildcard-origin form at all — its only useful values
@@ -58,5 +74,28 @@
   # browsers prefer `frame-ancestors` over `X-Frame-Options` when both are
   # present; omitting it avoids relying on that preference.
   Content-Security-Policy: frame-ancestors *
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  # Same reasoning as /sign/* — an embedded signing token is a credential too.
+  # This block keeps its own permissive frame policy; only the crawler
+  # directive is added.
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+# The Unicode font the client-side trial fetches at burn time (see
+# `utils_PdfBurn_Client.ts`). Unlike bundled assets it is NOT content-hashed —
+# it sits at a fixed path so the burn can name it — so caching is opt-in rather
+# than automatic. It is 712KB and its bytes never change, which makes a year of
+# immutable caching the right answer: a returning visitor pays for it once. If
+# the font is ever updated, change the FILE NAME rather than the file, because
+# nothing will re-validate this URL for a year.
+#
+# The four security headers are restated because this file's convention (see the
+# top) is that a more-specific block is a COMPLETE restatement of the policy for
+# its path, not a modifier on the block above it. `nosniff` is the one that
+# actually matters on a font.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer

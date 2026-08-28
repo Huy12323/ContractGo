@@ -76,7 +76,7 @@ export const Route = createFileRoute("/auth/callback")({
         // uses for its `?redirect=`. From here the normal gates take over:
         // `_protected` still checks email verification and the CG-027 whitelist, so
         // a brand new Google account lands on /pending-access.
-        throw redirect({ to: consumeOAuthRedirect() || "/" });
+        throw redirect({ to: consumeOAuthRedirect() || "/home" });
     },
     // In the same-tab flow this is on screen only for the instant between mount and
     // the redirect throwing. In the opened tab it is what the user sees while the

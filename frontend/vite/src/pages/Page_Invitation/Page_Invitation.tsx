@@ -90,7 +90,7 @@ export const Page_Invitation = () => {
             queryClient.invalidateQueries({ queryKey: QueryKeys.organizations.all() });
 
             setTimeout(() => {
-                navigate({ to: "/" });
+                navigate({ to: "/home" });
             }, 1500);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to accept invitation");
@@ -123,7 +123,7 @@ export const Page_Invitation = () => {
                 <div style={{ marginTop: 24 }}>
                     <Button
                         type="primary"
-                        onClick={() => navigate({ to: isAuthenticated ? "/" : "/login" })}
+                        onClick={() => navigate({ to: isAuthenticated ? "/home" : "/login" })}
                     >
                         {isAuthenticated ? "Go to Home" : "Go to Login"}
                     </Button>
@@ -163,7 +163,7 @@ export const Page_Invitation = () => {
                 </Typography.Text>
                 <Button
                     type="primary"
-                    onClick={() => navigate({ to: isAuthenticated ? "/" : "/login" })}
+                    onClick={() => navigate({ to: isAuthenticated ? "/home" : "/login" })}
                 >
                     {isAuthenticated ? "Go to Home" : "Sign in"}
                 </Button>
@@ -286,7 +286,7 @@ export const Page_Invitation = () => {
                     You're signed in as <strong>{user?.email}</strong>
                 </Typography.Text>
                 <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                    <Button onClick={() => navigate({ to: "/" })}>Go to Home</Button>
+                    <Button onClick={() => navigate({ to: "/home" })}>Go to Home</Button>
                     <Button type="primary" icon={<SwapOutlined />} onClick={handleSwitchAccount}>
                         Switch Account
                     </Button>

@@ -1,0 +1,31 @@
+# Crawl the public front door; stay out of everything that needs a credential.
+#
+# `/sign/` is the one that matters. Those URLs carry a bearer token IN THE PATH,
+# which is why `public/_headers` sets a global `Referrer-Policy: no-referrer` —
+# a crawled and indexed signing link would be a live credential in a search
+# result. robots.txt is only a REQUEST, though, so the actual enforcement is the
+# `X-Robots-Tag: noindex` header on those paths. This file is the polite half.
+
+User-agent: *
+Allow: /$
+Allow: /try
+Allow: /verify
+
+# Bearer credential in the path — see above.
+Disallow: /sign/
+Disallow: /embed/
+# Authenticated surfaces. Nothing here renders without a session, so a crawler
+# would only ever index a login redirect.
+Disallow: /home
+Disallow: /me/
+Disallow: /auth/
+# Nothing to index on a form, and indexing them competes with the landing page
+# for the product's own brand terms.
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /pending-access
+Disallow: /invitation
+
+Sitemap: https://hr.aiursoftware.com/sitemap.xml

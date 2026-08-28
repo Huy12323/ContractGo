@@ -44,7 +44,7 @@ export const Page_OrgSettingsDanger = () => {
 
     const mOrganizationDelete = useM_OrgSettings_OrganizationDelete({
         organizationId,
-        onSuccess: () => navigate({ to: "/" }),
+        onSuccess: () => navigate({ to: "/home" }),
     });
 
     if (query.isPending || qRole.query.isPending) {

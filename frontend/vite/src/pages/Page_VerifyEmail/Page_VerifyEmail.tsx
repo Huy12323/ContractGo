@@ -164,7 +164,7 @@ function TokenVerification({ token, redirectTo }: { token: string; redirectTo?: 
                     block
                     style={{ marginTop: 8 }}
                     onClick={() => {
-                        window.location.href = "/";
+                        window.location.href = "/home";
                     }}
                 >
                     Back to Home

@@ -62,3 +62,41 @@ jobs:
 
             - name: Build
               run: pnpm build
+
+    # Separate job, not a step on `frontend`, for the same reason the steps above
+    # are separate: the job graph should say WHICH gate failed. This one is also
+    # the slowest (it boots Postgres and replays every migration), so keeping it
+    # off the frontend job means a lint failure still reports in seconds.
+    #
+    # Two gates in one: `supabase start` replays all migrations — any migration
+    # whose own VERIFY block raises fails here — and then CG-051's
+    # `assert_rls_invariants()` checks the posture holds for tables added SINCE
+    # that migration. Supabase's default privileges grant new tables to anon and
+    # authenticated, so the safe state is not the default and drift is silent
+    # without this.
+    database:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: supabase/setup-cli@v1
+              with:
+                  version: latest
+
+            # Only what the assertion needs. Excluding the rest cuts the boot
+            # substantially and none of it participates in schema replay.
+            - name: Start Supabase
+              working-directory: frontend/vite
+              run: supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit
+
+            - name: Assert RLS invariants
+              working-directory: frontend/vite
+              run: |
+                  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+                       --set ON_ERROR_STOP=1 \
+                       -c "SELECT public.assert_rls_invariants();"
+
+            - name: Stop Supabase
+              if: always()
+              working-directory: frontend/vite
+              run: supabase stop --no-backup

@@ -57,7 +57,7 @@ export const App_GoogleSignInButton = ({ redirect, label }: GoogleSignInButtonPr
                 // The destination is read HERE because it was stashed here — it
                 // lives in this tab's sessionStorage, which the opened tab never
                 // had access to.
-                window.location.href = consumeOAuthRedirect() || "/";
+                window.location.href = consumeOAuthRedirect() || "/home";
                 return;
             }
 

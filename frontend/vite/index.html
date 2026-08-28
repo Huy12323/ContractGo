@@ -22,7 +22,79 @@
             rel="icon"
             href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%236366f1'/%3E%3Cpath d='M9 10.5h9M9 15h14M9 19.5h7' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M15.5 24.5l3.5-1.2 7-7a2 2 0 0 0-2.8-2.8l-7 7z' fill='white'/%3E%3C/svg%3E"
         />
-        <title>ContractGo</title>
+        <!-- ═══ THE PART SCRAPERS ACTUALLY READ (CG-052) ═══
+
+             Everything below is STATIC, and that is the whole point. Slack, X,
+             LinkedIn, WhatsApp and iMessage fetch this HTML and never execute a
+             line of JavaScript, so a title or description set from React is
+             invisible to every one of them. Until this block existed, a link to
+             the product pasted into a chat unfurled as nothing at all.
+
+             THE HONEST LIMITATION, stated rather than implied away: link
+             previews will now work perfectly, and SEARCH WILL STILL BE WEAK.
+             Googlebot renders JS on a deferred pass with no SLA; most other
+             crawlers and LLM fetchers take this raw HTML and find an empty
+             `<div id="root">`. The description, the JSON-LD and the <noscript>
+             below are partial mitigations. Prerendering `/` and `/try` is the
+             real fix and is deliberately NOT bundled with this change — it
+             touches the Pages build, and `pnpm build` is intentionally not gated
+             on `pnpm check` because Pages auto-deploys on push.
+
+             NO `<link rel="canonical">`, deliberately. A single static canonical
+             in an SPA applies to EVERY route the `/* /index.html 200` fallback
+             serves — `/verify`, `/sign/{token}`, `/embed/*`. Declaring all of
+             them canonical-to-`/` is worse than declaring nothing. -->
+        <title>ContractGo — Electronic signatures with real evidence</title>
+        <meta
+            name="description"
+            content="Send contracts for signature with identity verification, a tamper-evident audit trail and a certificate of completion. Try signing a document in your browser — no account needed."
+        />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="ContractGo" />
+        <meta property="og:title" content="ContractGo — Electronic signatures with real evidence" />
+        <meta
+            property="og:description"
+            content="Send a contract. Get it signed. Prove it. Try signing a document in your browser — no account needed."
+        />
+        <meta property="og:url" content="https://hr.aiursoftware.com/" />
+        <meta property="og:image" content="https://hr.aiursoftware.com/og.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta
+            property="og:image:alt"
+            content="ContractGo — electronic signatures with real evidence"
+        />
+        <meta property="og:locale" content="en" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+            name="twitter:title"
+            content="ContractGo — Electronic signatures with real evidence"
+        />
+        <meta
+            name="twitter:description"
+            content="Send a contract. Get it signed. Prove it. Try signing a document in your browser — no account needed."
+        />
+        <meta name="twitter:image" content="https://hr.aiursoftware.com/og.png" />
+
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                "name": "ContractGo",
+                "applicationCategory": "BusinessApplication",
+                "operatingSystem": "Web",
+                "url": "https://hr.aiursoftware.com/",
+                "description": "Electronic contract platform: document drafting and management, signing workflows with identity verification, electronic signing, storage and integration.",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD",
+                    "description": "Free account. Signing trial available without registering."
+                }
+            }
+        </script>
         <style>
             /* `overflow: hidden` stays: the app is a fixed frame with internal scroll
          panes by design. `100dvh` is the mobile half of the same guarantee —
@@ -49,6 +121,19 @@
         </style>
     </head>
     <body>
+        <!-- For crawlers that take the raw HTML and for the handful of people
+             browsing without JavaScript. Not a fallback UI — the product cannot
+             work without JS — but an empty page tells a crawler nothing, and
+             this at least carries the heading and the pitch. -->
+        <noscript>
+            <h1>ContractGo — electronic signatures with real evidence</h1>
+            <p>
+                Send a contract, get it signed, and prove it. ContractGo turns a PDF into a signing
+                ceremony with identity checks, a tamper-evident audit trail and a certificate of
+                completion for every party.
+            </p>
+            <p>ContractGo needs JavaScript enabled to run.</p>
+        </noscript>
         <div id="root"></div>
         <div id="portal" style="position: fixed; left: 0; top: 0; z-index: 9999"></div>
         <script type="module" src="/src/main.tsx"></script>

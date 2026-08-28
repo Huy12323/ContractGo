@@ -62,7 +62,7 @@ export const App_HorizontalNav = () => {
                     />
                 )}
                 <Link
-                    to="/"
+                    to="/home"
                     style={{ display: "flex", alignItems: "center", textDecoration: "none" }}
                 >
                     <Typography.Text

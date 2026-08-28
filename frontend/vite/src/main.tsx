@@ -7,8 +7,18 @@ import { Provider_SupabaseRealtimeSync } from "@/providers/realtime/Provider_Sup
 import { queryClient } from "@/configs/query/config";
 import { routeTree } from "./routeTree.gen";
 import { Store_Auth_Actions } from "@/stores/Store_Auth";
-import "@/configs/pdfjs/config";
 import "@/styles/global.css";
+
+// `@/configs/pdfjs/config` USED TO BE IMPORTED HERE and deliberately is not any
+// more (CG-052). It pulls in react-pdf, the pdfjs-dist worker and two
+// stylesheets, and importing it from the entry put all of that in the entry
+// chunk — so every visitor to the public landing page downloaded a PDF renderer
+// they will never use.
+//
+// It now lives in `App_PdfDocument`, the single component every PDF surface in
+// the product renders through, so the worker is still configured before any PDF
+// is parsed. Moving an initialisation side effect is exactly the kind of change
+// that looks arbitrary later, hence this note at the place it left.
 
 const router = createRouter({
     routeTree,

@@ -27,7 +27,7 @@ export const App_LoginForm = ({ redirect: redirectTo, error: oauthError }: Login
         setLoading(true);
         try {
             await Store_Auth_Actions.signInWithPassword(values.email, values.password);
-            navigate({ to: redirectTo || "/" });
+            navigate({ to: redirectTo || "/home" });
         } catch (err) {
             const message = err instanceof Error ? err.message : "";
 

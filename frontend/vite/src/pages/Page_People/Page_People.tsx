@@ -472,7 +472,7 @@ export const Page_People = () => {
                 row={selectedRow}
                 // Leaving revokes access to this route, and the layout guard only runs
                 // on navigation — without this the page stays up until a reload.
-                onSelfRemoved={() => navigate({ to: "/" })}
+                onSelfRemoved={() => navigate({ to: "/home" })}
             />
         </div>
     );

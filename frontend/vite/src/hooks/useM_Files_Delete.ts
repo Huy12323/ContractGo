@@ -15,7 +15,7 @@ export const useM_Files_Delete = () => {
         mutationFn: async ({ file_id }: UseM_Files_Delete_Params): Promise<void> => {
             const sb_FunctionsFilesR2Delete_Invoke = await supabase.functions.invoke(
                 "files_r2_delete",
-                { body: { file_id } },
+                { body: { file_id } }
             );
             if (sb_FunctionsFilesR2Delete_Invoke.error) {
                 let serverMessage = "Failed to delete file";

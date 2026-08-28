@@ -11,7 +11,13 @@ export const Route = createFileRoute("/_auth")({
         // Signed-in users belong in the app, not on the auth screens — except on the
         // pages that only make sense with a session. `/pending-access` (CG-027) is
         // load-bearing here: without it a non-whitelisted account bounces between
-        // this layout sending it to `/` and `_protected` sending it back, forever.
+        // this layout sending it to `/home` and `_protected` sending it back, forever.
+        //
+        // `/home`, NOT `/`: since CG-052 `/` is the public landing page, so
+        // redirecting there would drop a signed-in user who opened `/login` onto
+        // marketing copy instead of their dashboard — and would defeat the loop
+        // guard above, which only works because this redirect lands inside
+        // `_protected`.
         const allowAuthenticated = [
             "/reset-password",
             "/invitation",
@@ -19,7 +25,7 @@ export const Route = createFileRoute("/_auth")({
             "/pending-access",
         ];
         if (session && !allowAuthenticated.includes(location.pathname)) {
-            throw redirect({ to: "/" });
+            throw redirect({ to: "/home" });
         }
     },
     component: AuthLayout,

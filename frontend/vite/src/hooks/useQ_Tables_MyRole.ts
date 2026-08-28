@@ -3,7 +3,9 @@ import { supabase } from "@/configs/supabase/config";
 import { QueryKeys } from "@/utils/query/queryKeys";
 
 const fetchMyRole = async (organizationId: string) => {
-    const sb_RpcGetOrganizationRole = await supabase.rpc("get_organization_role", { org_id: organizationId });
+    const sb_RpcGetOrganizationRole = await supabase.rpc("get_organization_role", {
+        org_id: organizationId,
+    });
     if (sb_RpcGetOrganizationRole.error) throw sb_RpcGetOrganizationRole.error;
     return sb_RpcGetOrganizationRole.data as string | null;
 };

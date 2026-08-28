@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_protected/me")({
         if (sb_RpcEnsurePersonalOrganization.error || !sb_RpcEnsurePersonalOrganization.data) {
             // Fails closed to the home page rather than rendering a workspace with an
             // empty id, which would send `organization_id: ''` to every query below.
-            throw redirect({ to: "/" });
+            throw redirect({ to: "/home" });
         }
         return { personalOrganizationId: sb_RpcEnsurePersonalOrganization.data };
     },

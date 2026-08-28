@@ -10,13 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as EmbedRouteRouteImport } from './routes/embed/route'
+import { Route as TrialRouteRouteImport } from './routes/_trial/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
+import { Route as MarketingRouteRouteImport } from './routes/_marketing/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
-import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as MarketingIndexRouteImport } from './routes/_marketing/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as TrialTryRouteImport } from './routes/_trial/try'
 import { Route as PublicVerifyRouteImport } from './routes/_public/verify'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
+import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
@@ -58,6 +62,10 @@ const EmbedRouteRoute = EmbedRouteRouteImport.update({
   path: '/embed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrialRouteRoute = TrialRouteRouteImport.update({
+  id: '/_trial',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
@@ -66,19 +74,28 @@ const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingRouteRoute = MarketingRouteRouteImport.update({
+  id: '/_marketing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
+const MarketingIndexRoute = MarketingIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ProtectedRouteRoute,
+  getParentRoute: () => MarketingRouteRoute,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TrialTryRoute = TrialTryRouteImport.update({
+  id: '/try',
+  path: '/try',
+  getParentRoute: () => TrialRouteRoute,
 } as any)
 const PublicVerifyRoute = PublicVerifyRouteImport.update({
   id: '/verify',
@@ -88,6 +105,11 @@ const PublicVerifyRoute = PublicVerifyRouteImport.update({
 const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ProtectedHomeRoute = ProtectedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
@@ -290,7 +312,7 @@ const ProtectedOrganizationIdEnvelopesEnvelopeIdEditRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof ProtectedIndexRoute
+  '/': typeof MarketingIndexRoute
   '/embed': typeof EmbedRouteRouteWithChildren
   '/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
   '/me': typeof ProtectedMeRouteRouteWithChildren
@@ -301,8 +323,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/verify': typeof PublicVerifyRoute
+  '/try': typeof TrialTryRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/$organizationId/settings': typeof ProtectedOrganizationIdSettingsIntegrationsRouteRouteWithChildren
   '/sign/$accessToken': typeof PublicSignAccessTokenRoute
@@ -331,7 +355,7 @@ export interface FileRoutesByFullPath {
   '/me/documents/$envelopeId/': typeof ProtectedMeDocumentsEnvelopeIdIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof ProtectedIndexRoute
+  '/': typeof MarketingIndexRoute
   '/embed': typeof EmbedRouteRouteWithChildren
   '/me': typeof ProtectedMeRouteRouteWithChildren
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -341,8 +365,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/verify': typeof PublicVerifyRoute
+  '/try': typeof TrialTryRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/sign/$accessToken': typeof PublicSignAccessTokenRoute
   '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
@@ -372,8 +398,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/_marketing': typeof MarketingRouteRouteWithChildren
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/_public': typeof PublicRouteRouteWithChildren
+  '/_trial': typeof TrialRouteRouteWithChildren
   '/embed': typeof EmbedRouteRouteWithChildren
   '/_protected/$organizationId': typeof ProtectedOrganizationIdRouteRouteWithChildren
   '/_protected/me': typeof ProtectedMeRouteRouteWithChildren
@@ -384,10 +412,12 @@ export interface FileRoutesById {
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/_protected/home': typeof ProtectedHomeRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/verify': typeof PublicVerifyRoute
+  '/_trial/try': typeof TrialTryRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/_protected/': typeof ProtectedIndexRoute
+  '/_marketing/': typeof MarketingIndexRoute
   '/_protected/$organizationId/settings': typeof ProtectedOrganizationIdSettingsRouteRouteWithChildren
   '/_public/sign/$accessToken': typeof PublicSignAccessTokenRoute
   '/embed/sign/$accessToken': typeof EmbedSignAccessTokenRoute
@@ -429,8 +459,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
+    | '/home'
     | '/settings'
     | '/verify'
+    | '/try'
     | '/auth/callback'
     | '/$organizationId/settings'
     | '/sign/$accessToken'
@@ -469,8 +501,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
+    | '/home'
     | '/settings'
     | '/verify'
+    | '/try'
     | '/auth/callback'
     | '/sign/$accessToken'
     | '/embed/sign/$accessToken'
@@ -499,8 +533,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_auth'
+    | '/_marketing'
     | '/_protected'
     | '/_public'
+    | '/_trial'
     | '/embed'
     | '/_protected/$organizationId'
     | '/_protected/me'
@@ -511,10 +547,12 @@ export interface FileRouteTypes {
     | '/_auth/reset-password'
     | '/_auth/signup'
     | '/_auth/verify-email'
+    | '/_protected/home'
     | '/_protected/settings'
     | '/_public/verify'
+    | '/_trial/try'
     | '/auth/callback'
-    | '/_protected/'
+    | '/_marketing/'
     | '/_protected/$organizationId/settings'
     | '/_public/sign/$accessToken'
     | '/embed/sign/$accessToken'
@@ -545,8 +583,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  MarketingRouteRoute: typeof MarketingRouteRouteWithChildren
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  TrialRouteRoute: typeof TrialRouteRouteWithChildren
   EmbedRouteRoute: typeof EmbedRouteRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
 }
@@ -558,6 +598,13 @@ declare module '@tanstack/react-router' {
       path: '/embed'
       fullPath: '/embed'
       preLoaderRoute: typeof EmbedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_trial': {
+      id: '/_trial'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof TrialRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_public': {
@@ -574,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_marketing': {
+      id: '/_marketing'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof MarketingRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth': {
       id: '/_auth'
       path: ''
@@ -581,12 +635,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected/': {
-      id: '/_protected/'
+    '/_marketing/': {
+      id: '/_marketing/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof ProtectedIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+      preLoaderRoute: typeof MarketingIndexRouteImport
+      parentRoute: typeof MarketingRouteRoute
     }
     '/auth/callback': {
       id: '/auth/callback'
@@ -594,6 +648,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_trial/try': {
+      id: '/_trial/try'
+      path: '/try'
+      fullPath: '/try'
+      preLoaderRoute: typeof TrialTryRouteImport
+      parentRoute: typeof TrialRouteRoute
     }
     '/_public/verify': {
       id: '/_public/verify'
@@ -607,6 +668,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof ProtectedSettingsRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/home': {
+      id: '/_protected/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof ProtectedHomeRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_auth/verify-email': {
@@ -881,6 +949,18 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface MarketingRouteRouteChildren {
+  MarketingIndexRoute: typeof MarketingIndexRoute
+}
+
+const MarketingRouteRouteChildren: MarketingRouteRouteChildren = {
+  MarketingIndexRoute: MarketingIndexRoute,
+}
+
+const MarketingRouteRouteWithChildren = MarketingRouteRoute._addFileChildren(
+  MarketingRouteRouteChildren,
+)
+
 interface ProtectedOrganizationIdSettingsIntegrationsRouteRouteChildren {
   ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute: typeof ProtectedOrganizationIdSettingsIntegrationsApiKeysRoute
   ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute: typeof ProtectedOrganizationIdSettingsIntegrationsWebhooksRoute
@@ -998,16 +1078,16 @@ const ProtectedMeRouteRouteWithChildren =
 interface ProtectedRouteRouteChildren {
   ProtectedOrganizationIdRouteRoute: typeof ProtectedOrganizationIdRouteRouteWithChildren
   ProtectedMeRouteRoute: typeof ProtectedMeRouteRouteWithChildren
+  ProtectedHomeRoute: typeof ProtectedHomeRoute
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
-  ProtectedIndexRoute: typeof ProtectedIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedOrganizationIdRouteRoute:
     ProtectedOrganizationIdRouteRouteWithChildren,
   ProtectedMeRouteRoute: ProtectedMeRouteRouteWithChildren,
+  ProtectedHomeRoute: ProtectedHomeRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
-  ProtectedIndexRoute: ProtectedIndexRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
@@ -1028,6 +1108,18 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
   PublicRouteRouteChildren,
 )
 
+interface TrialRouteRouteChildren {
+  TrialTryRoute: typeof TrialTryRoute
+}
+
+const TrialRouteRouteChildren: TrialRouteRouteChildren = {
+  TrialTryRoute: TrialTryRoute,
+}
+
+const TrialRouteRouteWithChildren = TrialRouteRoute._addFileChildren(
+  TrialRouteRouteChildren,
+)
+
 interface EmbedRouteRouteChildren {
   EmbedSignAccessTokenRoute: typeof EmbedSignAccessTokenRoute
 }
@@ -1042,8 +1134,10 @@ const EmbedRouteRouteWithChildren = EmbedRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  MarketingRouteRoute: MarketingRouteRouteWithChildren,
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
   PublicRouteRoute: PublicRouteRouteWithChildren,
+  TrialRouteRoute: TrialRouteRouteWithChildren,
   EmbedRouteRoute: EmbedRouteRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
 }

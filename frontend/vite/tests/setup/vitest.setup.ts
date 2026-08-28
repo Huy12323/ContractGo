@@ -146,6 +146,52 @@ canvasProto.getContext = (() => ({
 canvasProto.toDataURL = () => "data:image/png;base64,";
 canvasProto.toBlob = (cb: BlobCallback) => cb(new Blob([], { type: "image/png" }));
 
+// pdfjs-dist reads DOMMatrix and Path2D at MODULE SCOPE in its canvas display
+// layer, so merely importing `App_PdfDocument` throws `DOMMatrix is not defined`
+// under jsdom — before any test body runs, which makes it a suite-level failure
+// with a confusing stack. Any component tree containing a PDF surface hits this.
+//
+// Deliberately minimal. These exist so the module can LOAD; jsdom cannot
+// rasterise a PDF page no matter what is stubbed here, so a test must not assert
+// on rendered page content. Assert on the chrome around the document instead.
+if (!globalThis.DOMMatrix) {
+    globalThis.DOMMatrix = class {
+        a = 1;
+        b = 0;
+        c = 0;
+        d = 1;
+        e = 0;
+        f = 0;
+    } as unknown as typeof DOMMatrix;
+}
+
+if (!globalThis.Path2D) {
+    globalThis.Path2D = class {
+        addPath() {}
+        moveTo() {}
+        lineTo() {}
+        closePath() {}
+    } as unknown as typeof Path2D;
+}
+
+// jsdom does not implement Blob.arrayBuffer, standard since 2020 and used in
+// production code (utils_Pdf_ValidateTrialFile reads a file's magic bytes
+// through it). Do NOT route around this by
+// reshaping the production code: `new Response(blob).arrayBuffer()` looks like a
+// portable substitute and is a TRAP here, because undici's Response does not
+// recognise a jsdom Blob across realms and silently stringifies it to
+// "[object Blob]" — 13 bytes of nonsense that a magic-byte check happily reads.
+if (!Blob.prototype.arrayBuffer) {
+    Blob.prototype.arrayBuffer = function (this: Blob) {
+        return new Promise<ArrayBuffer>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as ArrayBuffer);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(this);
+        });
+    };
+}
+
 // Utils_Files_ImageThumbnail.ts calls URL.createObjectURL(file); jsdom has neither.
 if (!URL.createObjectURL) {
     URL.createObjectURL = () => "blob:contractgo-test";

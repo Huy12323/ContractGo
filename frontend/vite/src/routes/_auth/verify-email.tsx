@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_auth/verify-email")({
                 .single();
 
             if (sb_FromProfiles_Select.data?.email_verified) {
-                throw redirect({ to: "/" });
+                throw redirect({ to: "/home" });
             }
         }
     },

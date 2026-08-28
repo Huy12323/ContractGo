@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState, useId } from "react";
 import { Spin, Typography, theme } from "antd";
 import { Document, Page } from "react-pdf";
+// The pdf.js worker configuration, imported HERE rather than from `main.tsx`
+// (CG-052). This component is the one choke point every PDF surface renders
+// through — the builder, the filler, the signing ceremony, the trial — so the
+// worker is always configured before a document is parsed, while react-pdf and
+// pdfjs-dist stay out of the entry chunk that a marketing visitor downloads.
+//
+// A side-effect import, so it runs once on first load of this module. Do not
+// "tidy" it into a hook: it must happen at module scope, before any `<Document>`
+// mounts.
+import "@/configs/pdfjs/config";
 import { const_PdfZoom_Max, const_PdfZoom_Min } from "@/components/pdf/App_PdfZoomControls";
 
 type PdfDocument_Page = {

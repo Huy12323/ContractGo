@@ -29,6 +29,28 @@ type Props = {
     onPendingPdfFileChange: (file: File | null) => void;
     /** Rendered at the right of this component's own strip — Save, History, … */
     toolbarExtra?: React.ReactNode;
+    /**
+     * Shows the signer-role editor above the palette. Defaults to true, which is
+     * what both template-authoring hosts want.
+     *
+     * False for the no-account trial (CG-052), where there is exactly ONE party —
+     * the visitor — and the role is synthesized and never mutated. Offering a
+     * role editor there would introduce "who is this field for?" as a question,
+     * which has no meaning with a single party and is pure setup cost in a flow
+     * that has to be finishable in a minute.
+     */
+    showRoleManager?: boolean;
+    /** Passed straight to the palette; see `App_TemplateFieldPalette`. */
+    allowedTypes?: TemplateField_Type[];
+    /**
+     * Reports the document's page count once the PDF has parsed.
+     *
+     * The count is already tracked here to drive the thumbnail rail; this
+     * exposes it. The trial (CG-052) needs it to enforce a page limit, and it
+     * cannot be known any earlier — a file's page count is not readable from its
+     * metadata, only from parsing it.
+     */
+    onNumPagesChange?: (numPages: number) => void;
 };
 
 /**
@@ -58,6 +80,9 @@ export const App_TemplateFieldWorkspace = ({
     onSignerRolesChange,
     onPendingPdfFileChange,
     toolbarExtra,
+    showRoleManager = true,
+    allowedTypes,
+    onNumPagesChange,
 }: Props) => {
     const { token } = theme.useToken();
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -247,22 +272,24 @@ export const App_TemplateFieldWorkspace = ({
                         minHeight: 0,
                     }}
                 >
-                    <div
-                        style={{
-                            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                            padding: token.paddingSM,
-                            maxHeight: "45%",
-                            overflow: "auto",
-                        }}
-                    >
-                        <App_TemplateRoleManager
-                            signerRoles={signerRoles}
-                            onChange={onSignerRolesChange}
-                            layout={layout}
-                            highlightedRoleId={highlightedRoleId}
-                            onHighlightRole={setHighlightedRoleId}
-                        />
-                    </div>
+                    {showRoleManager && (
+                        <div
+                            style={{
+                                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                                padding: token.paddingSM,
+                                maxHeight: "45%",
+                                overflow: "auto",
+                            }}
+                        >
+                            <App_TemplateRoleManager
+                                signerRoles={signerRoles}
+                                onChange={onSignerRolesChange}
+                                layout={layout}
+                                highlightedRoleId={highlightedRoleId}
+                                onHighlightRole={setHighlightedRoleId}
+                            />
+                        </div>
+                    )}
                     <div
                         style={{
                             flex: 1,
@@ -277,6 +304,7 @@ export const App_TemplateFieldWorkspace = ({
                             onArmField={setPendingFieldDrop}
                             selectedFieldId={selectedFieldId}
                             onSelectField={selectFieldFromPalette}
+                            allowedTypes={allowedTypes}
                         />
                     </div>
                 </div>
@@ -315,7 +343,10 @@ export const App_TemplateFieldWorkspace = ({
                         activeRoleId={activeRoleId}
                         highlightedRoleId={highlightedRoleId}
                         onPendingPdfFileChange={onPendingPdfFileChange}
-                        onNumPagesChange={setPdfNumPages}
+                        onNumPagesChange={(numPages) => {
+                            setPdfNumPages(numPages);
+                            onNumPagesChange?.(numPages);
+                        }}
                         selectedFieldId={selectedFieldId}
                         onSelectedFieldIdChange={setSelectedFieldId}
                     />

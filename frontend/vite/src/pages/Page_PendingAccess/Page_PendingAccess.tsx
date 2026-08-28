@@ -32,7 +32,7 @@ export const Page_PendingAccess = () => {
         try {
             const result = await qWhitelisted.query.refetch();
             if (result.data) {
-                navigate({ to: "/" });
+                navigate({ to: "/home" });
                 return;
             }
             messageApi.info("Your account has not been approved yet.");

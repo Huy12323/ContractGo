@@ -74,10 +74,8 @@ servePublicSigningFunction("signing_document_download", async (body, req) => {
         throw new SignerAuthError(409, "A copy is available once you have signed this document.");
     }
 
-    const storage = getStorageDriver();
-
     const bytes = ctx.request.signed_pdf_r2_key
-        ? await storage.getObject(ctx.request.signed_pdf_r2_key)
+        ? await readObject(ctx.request.signed_pdf_r2_key, "the signed document")
         : await burnInterimCopy(ctx);
 
     return new Response(bytes as unknown as BodyInit, {
@@ -93,6 +91,37 @@ servePublicSigningFunction("signing_document_download", async (body, req) => {
 });
 
 /**
+ * Reads one object, turning a storage miss into an error that says WHICH object.
+ *
+ * Every unhandled throw in a `signing_*` function reaches the client as a bare
+ * "Internal error" (see `servePublicSigningFunction`), which is correct — a
+ * signer must never be shown a storage key. The cost is that the four reads
+ * below were indistinguishable from each other and from a genuine bug, and a
+ * missing `_system/fonts/NotoSerif-Regular.ttf` presented as the same opaque 500
+ * as a corrupt PDF. Diagnosing one meant reading the database by hand.
+ *
+ * So: the log names the key, and the signer gets a sentence that tells them
+ * whether to retry or to ask the sender. The font is INFRASTRUCTURE — it is
+ * seeded by `scripts/seed-demo-contractgo.js` and every burn in the product
+ * depends on it — so its absence is an environment fault worth saying out loud
+ * rather than degrading around. Falling back to a standard font here would
+ * quietly produce a copy that differs from the document the parties finally
+ * receive, and would still throw on the accented names this font exists for.
+ */
+async function readObject(key: string | null | undefined, what: string): Promise<Uint8Array> {
+    if (!key) {
+        console.error(`signing_document_download: no key for ${what}`);
+        throw new SignerAuthError(500, "This document is missing a file and cannot be copied.");
+    }
+    try {
+        return await getStorageDriver().getObject(key);
+    } catch (error) {
+        console.error(`signing_document_download: could not read ${what} (${key}):`, error);
+        throw new SignerAuthError(500, `Could not read ${what}. Please try again in a moment.`);
+    }
+}
+
+/**
  * The document as it stands, burned on demand.
  *
  * Deliberately the same merge and the same keying `signing_submit`'s
@@ -102,7 +131,6 @@ servePublicSigningFunction("signing_document_download", async (body, req) => {
  * one they eventually receive.
  */
 async function burnInterimCopy(ctx: SignerContext): Promise<Uint8Array> {
-    const storage = getStorageDriver();
     const snapshot = (ctx.request.template_snapshot ?? {}) as Snapshot;
     const layout = Array.isArray(snapshot.layout) ? snapshot.layout : [];
 
@@ -144,7 +172,7 @@ async function burnInterimCopy(ctx: SignerContext): Promise<Uint8Array> {
     for (const capture of captures ?? []) {
         const roleId = roleBySignerId.get(capture.signer_id);
         if (!roleId) continue;
-        const imageBytes = await storage.getObject(capture.signature_r2_key);
+        const imageBytes = await readObject(capture.signature_r2_key, "a signature image");
         for (const field of layout) {
             if (
                 field.role_id === roleId &&
@@ -157,8 +185,8 @@ async function burnInterimCopy(ctx: SignerContext): Promise<Uint8Array> {
 
     const sourceKey = snapshot.pdf_file_path || ctx.request.source_pdf_r2_key;
     const [sourcePdfBytes, fontBytes] = await Promise.all([
-        storage.getObject(sourceKey),
-        storage.getObject(FONT_R2_KEY),
+        readObject(sourceKey, "this document"),
+        readObject(FONT_R2_KEY, "the document font"),
     ]);
 
     return await burnPdfDocument({

@@ -6,13 +6,13 @@ export const Route = createFileRoute("/_protected/$organizationId")({
     beforeLoad: async ({ params }) => {
         const sb_RpcGetMyMemberOrganizations = await supabase.rpc("get_my_member_organizations");
         if (sb_RpcGetMyMemberOrganizations.error) {
-            throw redirect({ to: "/" });
+            throw redirect({ to: "/home" });
         }
         const isMember = sb_RpcGetMyMemberOrganizations.data?.some(
             (org) => org.id === params.organizationId
         );
         if (!isMember) {
-            throw redirect({ to: "/" });
+            throw redirect({ to: "/home" });
         }
     },
     component: OrganizationLayout,
